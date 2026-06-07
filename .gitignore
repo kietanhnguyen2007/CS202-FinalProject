@@ -1,0 +1,29 @@
+# Build
+build/
+*.exe
+*.o
+*.obj
+*.out
+AppleKnightAdventure.exe
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.sln
+*.suo
+*.user
+CMakeUserPresets.json
+
+# Agent config
+.agents/
+skills-lock.json
+
+# OS
+Thumbs.db
+.DS_Store
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake-build-*/
