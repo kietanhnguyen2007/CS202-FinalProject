@@ -2,7 +2,7 @@
 
 **Course:** Programming Systems (CS202)
 **Instructor:** Mr. Ho Tuan Thanh
-**Student:** Nguyen Trong Tien (25125037)
+**Students:** 25125074 & Nguyen Trong Tien (25125037)
 
 ---
 
@@ -21,7 +21,14 @@ AppleKnightAdventure/
 │   │   ├── Projectile.h           # Đạn bắn (Arrow, Magic, BossAttack)
 │   │   ├── Inventory.h            # Hệ thống túi đồ (thêm/xoá item, đếm coin/apple/key)
 │   │   ├── Checkpoint.h           # Checkpoint respawn
-│   │   └── GameState.h            # Trạng thái tổng thể game (player, enemy, mode...)
+│   │   ├── GameState.h            # Trạng thái tổng thể game (player, enemy, mode...)
+│   │   ├── FakeWall.h             # Tường giả, có thể phá để vào khu vực bí mật
+│   │   ├── Chest.h                # Rương kho báu, loot ngẫu nhiên (coin/apple/key/equip)
+│   │   ├── LevelScoring.h         # Chấm điểm màn chơi (1-3 sao), high score system
+│   │   ├── Pet.h                  # Thú cưng (Skull/Ghost/BabyDragon/Fairy), AI tự động
+│   │   ├── DualWorldPlayer.h      # Player mở rộng với WorldLayer (Light/Shadow)
+│   │   ├── DualWorld.h            # Dual-layer map cho co-op level (Light & Shadow world)
+│   │   └── CrossWorldManager.h    # Quản lý tương tác chéo giữa 2 thế giới
 │   ├── View/                      # Visual layer - xử lý hiển thị và UI
 │   │   ├── Renderer.h             # Renderer cơ bản (init frame, draw shape/text/texture)
 │   │   ├── HUDView.h              # Hiển thị HUD (health bar, coin, skill cooldown)
@@ -43,7 +50,8 @@ AppleKnightAdventure/
 │   │   ├── Quadtree.h             # Spatial partitioning (tối ưu collision)
 │   │   ├── CollisionSystem.h      # Hệ thống phát hiện va chạm
 │   │   ├── ParticleSystem.h       # Hệ thống hiệu ứng hạt
-│   │   └── SoundManager.h         # Quản lý âm thanh (singleton)
+│   │   ├── SoundManager.h         # Quản lý âm thanh (singleton)
+│   │   └── ElementalSystem.h      # Hệ thống nguyên tố (Fire/Water/Thunder), StatusEffect, Reaction
 │   ├── Factories/                 # Factory pattern (từ spec §IV)
 │   │   ├── EnemyFactory.h         # Tạo enemy theo loại
 │   │   ├── ItemFactory.h          # Tạo item theo loại
@@ -62,7 +70,14 @@ AppleKnightAdventure/
 │   │   ├── Projectile.cpp
 │   │   ├── Inventory.cpp
 │   │   ├── Checkpoint.cpp
-│   │   └── GameState.cpp
+│   │   ├── GameState.cpp
+│   │   ├── FakeWall.cpp
+│   │   ├── Chest.cpp
+│   │   ├── LevelScoring.cpp
+│   │   ├── Pet.cpp
+│   │   ├── DualWorldPlayer.cpp
+│   │   ├── DualWorld.cpp
+│   │   └── CrossWorldManager.cpp
 │   ├── View/                      # Implementation của View headers
 │   │   ├── Renderer.cpp
 │   │   ├── HUDView.cpp
@@ -82,7 +97,8 @@ AppleKnightAdventure/
 │   │   ├── CollisionSystem.cpp
 │   │   ├── ParticleSystem.cpp
 │   │   ├── Quadtree.cpp
-│   │   └── SoundManager.cpp
+│   │   ├── SoundManager.cpp
+│   │   └── ElementalSystem.cpp
 │   └── Factories/                 # Implementation của Factories headers
 │       ├── EnemyFactory.cpp
 │       ├── ItemFactory.cpp
@@ -127,6 +143,7 @@ Các hệ thống kỹ thuật xuyên suốt game, không thuộc riêng Model/V
 | **CollisionSystem.h** | Hệ thống va chạm dùng Quadtree bên trong. `CheckCollision(a, b)` kiểm tra 2 rectangle. `GetNearbyEntities()` lấy entity trong vùng để tối ưu. |
 | **ParticleSystem.h** | Hiệu ứng hạt (vụ nổ, cháy, máu...). Mỗi particle có position, velocity, color, lifetime. Update/Render hàng loạt, cleanup particle đã hết hạn. |
 | **SoundManager.h** | Singleton quản lý âm thanh (load/play/stop Sound và Music) dùng raylib audio device. |
+| **ElementalSystem.h** | Hệ thống nguyên tố (Fire/Water/Thunder): DamagePacket, StatusEffect (Burn/Wet/Shocked), Elemental Reaction (Vaporize/Conduct/Overload). Server tính reaction khi 2 player combo. |
 
 ## Build
 
