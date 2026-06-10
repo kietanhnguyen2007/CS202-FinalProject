@@ -4,6 +4,7 @@
 #include <vector>
 #include <unordered_map>
 #include <functional>
+#include <memory>
 #include "raylib.h"
 
 namespace Systems {
@@ -29,11 +30,12 @@ public:
     Texture2D* GetTexture() const;
 
     // Clip management
-    void AddClip(const AnimationClip& clip);
+    void AddClip(const std::shared_ptr<AnimationClip>& clip);
     bool HasClip(const std::string& name) const;
 
     // Playback control
-    void Play(const std::string& name, float speed = 1.0f, bool reset = true);
+    // Returns true if the clip exists and playback started
+    bool Play(const std::string& name, float speed = 1.0f, bool reset = true);
     void Stop();
     void Pause();
     void Resume();
@@ -42,6 +44,15 @@ public:
 
     // Update per-frame
     void Update(float dt);
+
+    // Seek playhead to seconds within the current clip (clamped)
+    void Seek(float seconds);
+
+    // Set current frame index directly (clamped) and reset internal timer
+    void SetFrame(int index);
+
+    // Get current playhead time into the current frame (seconds)
+    float GetPlayheadTime() const;
 
     // Query for rendering
     Rectangle GetCurrentSrcRect() const;
@@ -60,8 +71,8 @@ public:
 
 private:
     Texture2D* m_texture = nullptr;
-    std::unordered_map<std::string, AnimationClip> m_clips;
-    AnimationClip* m_current = nullptr;
+    std::unordered_map<std::string, std::shared_ptr<AnimationClip>> m_clips;
+    std::shared_ptr<AnimationClip> m_current = nullptr;
     std::string m_currentName;
     int m_frameIndex = 0;
     float m_timer = 0.0f;

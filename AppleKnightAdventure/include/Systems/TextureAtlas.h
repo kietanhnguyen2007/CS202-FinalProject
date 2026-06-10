@@ -3,6 +3,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <memory>
 #include "raylib.h"
 #include "AnimationSystem.h"
 
@@ -15,7 +16,7 @@ public:
     ~TextureAtlas();
 
     // Load from json path (relative to project root). Returns nullptr on failure.
-    static TextureAtlas* LoadFromJSON(const std::string& jsonPath);
+    static std::unique_ptr<TextureAtlas> LoadFromJSON(const std::string& jsonPath);
 
     Texture2D* GetTexture();
     bool HasFrame(const std::string& name) const;
@@ -23,12 +24,12 @@ public:
 
     // If JSON contains clips, return clip
     bool HasClip(const std::string& clipName) const;
-    AnimationClip GetClip(const std::string& clipName) const;
+    std::shared_ptr<AnimationClip> GetClip(const std::string& clipName) const;
 
 private:
     Texture2D m_texture{};
     std::unordered_map<std::string, Rectangle> m_frames;
-    std::unordered_map<std::string, AnimationClip> m_clips;
+    std::unordered_map<std::string, std::shared_ptr<AnimationClip>> m_clips;
 };
 
 } // namespace Systems
