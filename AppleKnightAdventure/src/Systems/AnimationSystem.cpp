@@ -1,4 +1,11 @@
 #include "../../include/Systems/AnimationSystem.h"
+#include <cmath>
+#include <algorithm>
+
+// Small epsilon to make playhead -> frame mapping robust against
+// floating point rounding when the playhead is extremely close to
+// a frame boundary (in seconds).
+static constexpr float PLAYHEAD_EPS = 1e-5f;
 
 namespace Systems {
 
@@ -84,21 +91,27 @@ void Animator::Update(float dt) {
     // Handle looping, clamping and ping-pong
     if (m_playbackMode == PlaybackMode::Normal || m_playbackMode == PlaybackMode::Reverse) {
         if (m_current->loop) {
-            // wrap into [0, clipLength)
-            while (m_playhead < 0.0f) m_playhead += clipLength;
-            while (m_playhead >= clipLength) m_playhead -= clipLength;
+            // wrap into [0, clipLength) using fmod to avoid repeated-subtraction
+            m_playhead = std::fmod(m_playhead, clipLength);
+            if (m_playhead < 0.0f) m_playhead += clipLength;
         } else {
             // clamp to [0, clipLength]
-            if (m_playhead < 0.0f) { m_playhead = 0.0f; m_playing = false; if (OnClipFinished) OnClipFinished(m_currentName); }
-            if (m_playhead > clipLength) { m_playhead = clipLength; m_playing = false; if (OnClipFinished) OnClipFinished(m_currentName); }
+            if (m_playhead < 0.0f) {
+                m_playhead = 0.0f;
+                m_playing = false;
+                if (OnClipFinished) OnClipFinished(m_currentName);
+            }
+            if (m_playhead > clipLength) {
+                m_playhead = clipLength;
+                m_playing = false;
+                if (OnClipFinished) OnClipFinished(m_currentName);
+            }
         }
     } else if (m_playbackMode == PlaybackMode::PingPong) {
-        // For ping-pong, reflect around bounds
-        // If clipLength == 0 we've returned earlier. Use repeat pattern of length 2*clipLength
+        // For ping-pong, reflect around bounds using period normalization
         float period = clipLength * 2.0f;
-        // normalize into [0, period)
-        while (m_playhead < 0.0f) m_playhead += period;
-        while (m_playhead >= period) m_playhead -= period;
+        m_playhead = std::fmod(m_playhead, period);
+        if (m_playhead < 0.0f) m_playhead += period;
         if (m_playhead >= clipLength) {
             // mirrored phase
             m_playDirection = -1;
@@ -115,12 +128,22 @@ void Animator::Update(float dt) {
     for (size_t i = 0; i < m_current->frames.size(); ++i) {
         float d = m_current->frames[i].duration;
         if (!(d > 0.0f)) d = 0.001f;
-        if (m_playhead < acc + d) {
+        // Use a small epsilon to ensure values extremely close to the upper
+        // boundary are classified consistently with expectations (avoid
+        // floating-point rounding pushing playhead to previous frame).
+        if (m_playhead < acc + d - PLAYHEAD_EPS) {
             newIndex = (int)i;
             newTimer = m_playhead - acc;
             break;
         }
         acc += d;
+    }
+
+    // If no frame matched (e.g. playhead at exact clipLength for non-looping
+    // clips), map to the last frame as a fallback (consistent with Seek()).
+    if (newIndex == 0 && m_playhead + PLAYHEAD_EPS >= clipLength) {
+        newIndex = (int)m_current->frames.size() - 1;
+        newTimer = 0.0f;
     }
 
     int prevIndex = m_frameIndex;
@@ -163,9 +186,9 @@ void Animator::Seek(float seconds) {
     float target = seconds;
     if (target < 0.0f) target = 0.0f;
     if (m_current->loop) {
-        // wrap
-        while (target < 0.0f) target += clipLength;
-        while (target >= clipLength) target -= clipLength;
+        // wrap using fmod
+        target = std::fmod(target, clipLength);
+        if (target < 0.0f) target += clipLength;
     } else {
         if (target < 0.0f) target = 0.0f;
         if (target > clipLength) target = clipLength;
@@ -176,7 +199,7 @@ void Animator::Seek(float seconds) {
     for (size_t i = 0; i < m_current->frames.size(); ++i) {
         float d = m_current->frames[i].duration;
         if (!(d > 0.0f)) d = 0.001f;
-        if (m_playhead < acc + d) {
+        if (m_playhead < acc + d - PLAYHEAD_EPS) {
             m_frameIndex = (int)i;
             m_timer = m_playhead - acc;
             return;
