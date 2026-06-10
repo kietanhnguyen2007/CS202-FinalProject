@@ -10,6 +10,7 @@ protected:
     PetType m_petType;
     int m_ownerId;
     float m_followDistance;
+    int m_damage = 0;
 
 public:
     Pet();

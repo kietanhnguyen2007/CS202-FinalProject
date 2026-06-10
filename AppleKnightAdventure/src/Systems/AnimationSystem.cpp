@@ -1,4 +1,4 @@
-#include "../../include/Systems/AnimationSystem.h"
+#include "Systems/AnimationSystem.h"
 #include <cmath>
 #include <algorithm>
 
@@ -16,6 +16,16 @@ Texture2D* Animator::GetTexture() const { return m_texture; }
 
 void Animator::AddClip(const std::shared_ptr<AnimationClip>& clip) {
     if (!clip) return;
+    // Cache total duration to avoid O(n) recomputation per Update/Seek
+    if (clip->totalDuration <= 0.0f) {
+        float total = 0.0f;
+        for (const auto& f : clip->frames) {
+            float d = f.duration;
+            if (!(d > 0.0f)) d = 0.001f;
+            total += d;
+        }
+        clip->totalDuration = total;
+    }
     m_clips.emplace(clip->name, clip);
 }
 
@@ -34,11 +44,8 @@ bool Animator::Play(const std::string& name, float speed, bool reset) {
         m_timer = 0.0f;
         // initialize playhead and playback helpers
         // If reset requested, position playhead at start or end depending on playback mode
-        float clipLength = 0.0f;
-        for (const auto &f : m_current->frames) {
-            float d = f.duration > 0.0f ? f.duration : 0.001f;
-            clipLength += d;
-        }
+        float clipLength = m_current->totalDuration;
+        if (clipLength <= 0.0f) clipLength = m_current->frames.size() * 0.001f;
         if (m_playbackMode == PlaybackMode::Reverse) {
             m_playhead = reset ? clipLength : 0.0f;
             m_playDirection = -1;
@@ -81,11 +88,8 @@ void Animator::Update(float dt) {
     m_playhead += dt * m_speed * (float)dir;
 
     // compute clip length
-    float clipLength = 0.0f;
-    for (const auto &f : m_current->frames) {
-        float d = f.duration > 0.0f ? f.duration : 0.001f;
-        clipLength += d;
-    }
+    float clipLength = m_current->totalDuration;
+    if (clipLength <= 0.0f) clipLength = m_current->frames.size() * 0.001f;
     if (clipLength <= 0.0f) return;
 
     // Handle looping, clamping and ping-pong
@@ -176,11 +180,8 @@ int Animator::GetTotalFrames() const {
 void Animator::Seek(float seconds) {
     if (!m_current || m_current->frames.empty()) return;
     // Compute clip length
-    float clipLength = 0.0f;
-    for (const auto &f : m_current->frames) {
-        float d = f.duration > 0.0f ? f.duration : 0.001f;
-        clipLength += d;
-    }
+    float clipLength = m_current->totalDuration;
+    if (clipLength <= 0.0f) clipLength = m_current->frames.size() * 0.001f;
     if (clipLength <= 0.0f) return;
 
     float target = seconds;

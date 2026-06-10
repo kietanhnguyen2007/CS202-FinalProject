@@ -32,6 +32,7 @@ public:
     bool IsEmpty() const;
     void Clear();
     void AppendRaw(const void* data, size_t size);
+    void Read(void* data, size_t size);
 };
 
 #endif

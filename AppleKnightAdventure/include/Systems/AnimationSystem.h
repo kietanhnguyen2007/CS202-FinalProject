@@ -30,6 +30,7 @@ struct AnimationClip {
     std::string name;
     std::vector<AnimationFrame> frames;
     bool loop = true;
+    float totalDuration = 0.0f; // cached sum of all frame durations
 };
 
 class Animator {

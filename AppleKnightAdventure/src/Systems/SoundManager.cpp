@@ -37,7 +37,7 @@ bool SoundManager::LoadSound(const std::string& name, const std::string& filepat
     if (m_sounds.find(name) != m_sounds.end()) {
         UnloadSound(m_sounds[name]);
     }
-    Sound sound = LoadSound(filepath.c_str());
+    Sound sound = ::LoadSound(filepath.c_str());
     if (sound.frameCount > 0) {
         m_sounds[name] = sound;
         return true;
@@ -100,7 +100,7 @@ void SoundManager::PlayMusic(const std::string& name) {
     if (!m_audioInitialized) return;
     auto it = m_music.find(name);
     if (it != m_music.end()) {
-        SetMusicVolume(it->second, m_musicVolume);
+        ::SetMusicVolume(it->second, m_musicVolume);
         PlayMusicStream(it->second);
     }
 }

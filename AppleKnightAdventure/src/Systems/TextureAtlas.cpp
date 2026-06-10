@@ -1,5 +1,5 @@
-#include "../../include/Systems/TextureAtlas.h"
-#include "../../include/Utils/Constants.h"
+#include "Systems/TextureAtlas.h"
+#include "Utils/Constants.h"
 #include <fstream>
 #include <sstream>
 #include <iostream>
@@ -37,7 +37,6 @@ std::unique_ptr<TextureAtlas> TextureAtlas::LoadFromJSON(const std::string& json
         } else if (j.contains("meta") && j["meta"].contains("image") && j["meta"]["image"].is_string()) {
             imagePath = j["meta"]["image"].get<std::string>();
         } else {
-            // fallback: scan JSON string values for .png extension
             for (auto it = j.begin(); it != j.end(); ++it) {
                 if (it->is_string()) {
                     std::string v = it->get<std::string>();
@@ -54,11 +53,7 @@ std::unique_ptr<TextureAtlas> TextureAtlas::LoadFromJSON(const std::string& json
         }
 
         if (!imagePath.empty()) {
-            std::string finalImage = baseDir + imagePath;
-            atlas->m_texture = LoadTexture(finalImage.c_str());
-            if (atlas->m_texture.id == 0) {
-                std::cerr << "TextureAtlas: failed to load texture: " << finalImage << "\n";
-            }
+            atlas->m_texturePath = baseDir + imagePath;
         }
 
         // --- Parse frames ---
@@ -137,6 +132,12 @@ std::unique_ptr<TextureAtlas> TextureAtlas::LoadFromJSON(const std::string& json
                     }
                 }
                 if (clipObj.contains("loop")) clip->loop = clipObj["loop"].get<bool>();
+
+                // cache total duration
+                float total = 0.0f;
+                for (const auto& f : clip->frames) total += f.duration;
+                clip->totalDuration = total;
+
                 atlas->m_clips.emplace(clipName, clip);
             }
         }
@@ -148,6 +149,17 @@ std::unique_ptr<TextureAtlas> TextureAtlas::LoadFromJSON(const std::string& json
     }
 
     return atlas;
+}
+
+bool TextureAtlas::LoadTexture() {
+    if (m_texture.id != 0) return true; // already loaded
+    if (m_texturePath.empty()) return false;
+    m_texture = ::LoadTexture(m_texturePath.c_str());
+    if (m_texture.id == 0) {
+        std::cerr << "TextureAtlas: failed to load texture: " << m_texturePath << "\n";
+        return false;
+    }
+    return true;
 }
 
 Texture2D* TextureAtlas::GetTexture() { return &m_texture; }
