@@ -1,0 +1,21 @@
+{
+  "image": "../../characters.png",
+  "frames": {
+    "assassin_idle_0": [0,25,24,24],
+    "assassin_idle_1": [0,25,24,24],
+    "assassin_run_0":  [0,25,24,24],
+    "assassin_run_1":  [0,25,24,24],
+    "assassin_jump_0": [0,25,24,24],
+    "assassin_jump_1": [0,25,24,24],
+    "assassin_attack_0":[0,25,24,24],
+    "assassin_attack_1":[0,25,24,24],
+    "assassin_hurt_0": [0,25,24,24]
+  },
+  "clips": {
+    "idle":   { "frames": ["assassin_idle_0","assassin_idle_1"],   "durations": [0.30,0.30], "loop": true },
+    "run":    { "frames": ["assassin_run_0","assassin_run_1"],     "durations": [0.12,0.12], "loop": true },
+    "jump":   { "frames": ["assassin_jump_0","assassin_jump_1"],   "durations": [0.15,0.15], "loop": false },
+    "attack": { "frames": ["assassin_attack_0","assassin_attack_1"],"durations": [0.08,0.08], "loop": false },
+    "hurt":   { "frames": ["assassin_hurt_0"],                    "durations": [0.35],      "loop": false }
+  }
+}

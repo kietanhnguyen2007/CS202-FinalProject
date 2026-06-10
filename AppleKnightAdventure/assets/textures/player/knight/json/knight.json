@@ -1,0 +1,21 @@
+{
+  "image": "../../characters.png",
+  "frames": {
+    "knight_idle_0": [0,0,24,24],
+    "knight_idle_1": [0,0,24,24],
+    "knight_run_0":  [0,0,24,24],
+    "knight_run_1":  [0,0,24,24],
+    "knight_jump_0": [0,0,24,24],
+    "knight_jump_1": [0,0,24,24],
+    "knight_attack_0":[0,0,24,24],
+    "knight_attack_1":[0,0,24,24],
+    "knight_hurt_0": [0,0,24,24]
+  },
+  "clips": {
+    "idle":   { "frames": ["knight_idle_0","knight_idle_1"],   "durations": [0.30,0.30], "loop": true },
+    "run":    { "frames": ["knight_run_0","knight_run_1"],     "durations": [0.12,0.12], "loop": true },
+    "jump":   { "frames": ["knight_jump_0","knight_jump_1"],   "durations": [0.15,0.15], "loop": false },
+    "attack": { "frames": ["knight_attack_0","knight_attack_1"],"durations": [0.08,0.08], "loop": false },
+    "hurt":   { "frames": ["knight_hurt_0"],                   "durations": [0.35],      "loop": false }
+  }
+}
