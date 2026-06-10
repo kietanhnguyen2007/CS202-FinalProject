@@ -1,7 +1,7 @@
 #ifndef DUALWORLD_H
 #define DUALWORLD_H
 
-#include "../Utils/Types.h"
+#include "Utils/Types.h"
 #include <vector>
 
 struct Tile {

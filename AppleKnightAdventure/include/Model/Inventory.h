@@ -2,7 +2,7 @@
 #define INVENTORY_H
 
 #include "Item.h"
-#include "../Utils/Constants.h"
+#include "Utils/Constants.h"
 #include <vector>
 #include <memory>
 

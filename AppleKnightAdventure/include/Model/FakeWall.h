@@ -2,7 +2,7 @@
 #define FAKEWALL_H
 
 #include "Entity.h"
-#include "../Utils/Constants.h"
+#include "Utils/Constants.h"
 
 class FakeWall : public Entity {
 protected:

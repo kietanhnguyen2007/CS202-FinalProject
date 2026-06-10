@@ -1,5 +1,5 @@
-#include "../../include/Model/Checkpoint.h"
-#include "../../include/Utils/Constants.h"
+#include "Model/Checkpoint.h"
+#include "Utils/Constants.h"
 
 Checkpoint::Checkpoint()
     : Entity(EntityType::Checkpoint)

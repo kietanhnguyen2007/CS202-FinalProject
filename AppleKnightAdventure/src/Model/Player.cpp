@@ -1,4 +1,4 @@
-#include "../../include/Model/Player.h"
+#include "Model/Player.h"
 
 Player::Player()
     : Character(EntityType::Player)

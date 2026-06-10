@@ -1,4 +1,4 @@
-#include "../../include/Model/Enemy.h"
+#include "Model/Enemy.h"
 #include <cmath>
 
 Enemy::Enemy()

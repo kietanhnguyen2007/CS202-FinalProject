@@ -1,6 +1,6 @@
-#include "../../include/Model/Chest.h"
-#include "../../include/Model/Item.h"
-#include "../../include/Utils/Constants.h"
+#include "Model/Chest.h"
+#include "Model/Item.h"
+#include "Utils/Constants.h"
 #include <cstdlib>
 
 Chest::Chest()

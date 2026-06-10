@@ -1,4 +1,4 @@
-#include "../../include/Model/CrossWorldManager.h"
+#include "Model/CrossWorldManager.h"
 #include <algorithm>
 
 CrossWorldManager::CrossWorldManager()

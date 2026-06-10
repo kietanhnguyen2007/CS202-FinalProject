@@ -1,4 +1,4 @@
-#include "../../include/Model/Entity.h"
+#include "Model/Entity.h"
 
 Entity::Entity()
     : m_id(0)

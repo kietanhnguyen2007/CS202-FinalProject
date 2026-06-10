@@ -2,7 +2,7 @@
 #define DUALWORLDPLAYER_H
 
 #include "Player.h"
-#include "../Utils/Types.h"
+#include "Utils/Types.h"
 
 class DualWorldPlayer : public Player {
 protected:

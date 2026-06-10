@@ -1,4 +1,4 @@
-#include "../../include/Model/FakeWall.h"
+#include "Model/FakeWall.h"
 
 FakeWall::FakeWall()
     : Entity(EntityType::FakeWall)

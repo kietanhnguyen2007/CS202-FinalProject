@@ -2,8 +2,8 @@
 #define ENEMY_H
 
 #include "Character.h"
-#include "../Utils/Types.h"
-#include "../Utils/Constants.h"
+#include "Utils/Types.h"
+#include "Utils/Constants.h"
 
 class Enemy : public Character {
 protected:

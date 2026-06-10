@@ -1,4 +1,4 @@
-#include "../../include/Model/DualWorldPlayer.h"
+#include "Model/DualWorldPlayer.h"
 
 DualWorldPlayer::DualWorldPlayer()
     : Player()

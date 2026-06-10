@@ -2,7 +2,7 @@
 #define ITEM_H
 
 #include "Entity.h"
-#include "../Utils/Types.h"
+#include "Utils/Types.h"
 #include <string>
 
 class Item : public Entity {

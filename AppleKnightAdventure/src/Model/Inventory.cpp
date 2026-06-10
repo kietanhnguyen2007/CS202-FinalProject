@@ -1,4 +1,4 @@
-#include "../../include/Model/Inventory.h"
+#include "Model/Inventory.h"
 #include <algorithm>
 
 Inventory::Inventory()

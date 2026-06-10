@@ -1,4 +1,4 @@
-#include "../../include/Model/Pet.h"
+#include "Model/Pet.h"
 #include <cmath>
 
 Pet::Pet()

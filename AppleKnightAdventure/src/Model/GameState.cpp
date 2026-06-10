@@ -1,4 +1,4 @@
-#include "../../include/Model/GameState.h"
+#include "Model/GameState.h"
 #include <algorithm>
 
 GameState::GameState()

@@ -1,4 +1,4 @@
-#include "../../include/Model/LevelScoring.h"
+#include "Model/LevelScoring.h"
 #include <algorithm>
 
 LevelScoring::LevelScoring()

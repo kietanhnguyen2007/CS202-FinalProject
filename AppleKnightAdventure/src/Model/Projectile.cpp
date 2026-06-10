@@ -1,5 +1,5 @@
-#include "../../include/Model/Projectile.h"
-#include "../../include/Utils/Constants.h"
+#include "Model/Projectile.h"
+#include "Utils/Constants.h"
 
 Projectile::Projectile()
     : Entity(EntityType::Projectile)

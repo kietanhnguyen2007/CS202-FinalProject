@@ -1,4 +1,4 @@
-#include "../../include/Model/Character.h"
+#include "Model/Character.h"
 #include <algorithm>
 
 Character::Character()

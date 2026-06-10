@@ -2,7 +2,7 @@
 #define PROJECTILE_H
 
 #include "Entity.h"
-#include "../Utils/Types.h"
+#include "Utils/Types.h"
 
 class Projectile : public Entity {
 protected:

@@ -2,8 +2,8 @@
 #define PET_H
 
 #include "Character.h"
-#include "../Utils/Types.h"
-#include "../Utils/Constants.h"
+#include "Utils/Types.h"
+#include "Utils/Constants.h"
 
 class Pet : public Character {
 protected:

@@ -2,8 +2,8 @@
 #define BOSS_H
 
 #include "Character.h"
-#include "../Utils/Types.h"
-#include "../Utils/Constants.h"
+#include "Utils/Types.h"
+#include "Utils/Constants.h"
 #include <vector>
 
 class Boss : public Character {

@@ -1,4 +1,4 @@
-#include "../../include/Model/Boss.h"
+#include "Model/Boss.h"
 #include <cmath>
 
 Boss::Boss()

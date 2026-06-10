@@ -3,7 +3,7 @@
 
 #include "Entity.h"
 #include "Player.h"
-#include "../Utils/Types.h"
+#include "Utils/Types.h"
 #include <vector>
 #include <memory>
 

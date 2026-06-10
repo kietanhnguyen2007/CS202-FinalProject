@@ -2,8 +2,8 @@
 #define CHARACTER_H
 
 #include "Entity.h"
-#include "../Utils/Types.h"
-#include "../Utils/Constants.h"
+#include "Utils/Types.h"
+#include "Utils/Constants.h"
 
 class Character : public Entity {
 protected:

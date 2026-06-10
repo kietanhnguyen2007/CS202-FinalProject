@@ -1,5 +1,5 @@
-#include "../../include/Model/Item.h"
-#include "../../include/Utils/Constants.h"
+#include "Model/Item.h"
+#include "Utils/Constants.h"
 
 Item::Item()
     : Entity(EntityType::Item)

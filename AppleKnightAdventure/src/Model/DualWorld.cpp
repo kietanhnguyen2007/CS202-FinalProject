@@ -1,4 +1,4 @@
-#include "../../include/Model/DualWorld.h"
+#include "Model/DualWorld.h"
 
 DualWorld::DualWorld()
     : m_activeLayer(WorldLayer::Light)
