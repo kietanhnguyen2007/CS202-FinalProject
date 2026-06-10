@@ -6,9 +6,6 @@
 #include <algorithm>
 #include <nlohmann/json.hpp>
 
-// Minimal JSON parsing: this code expects the simple schema produced by our tools.
-// It's intentionally small to avoid adding an external dependency.
-
 namespace Systems {
 
 TextureAtlas::~TextureAtlas() {
@@ -19,47 +16,43 @@ std::unique_ptr<TextureAtlas> TextureAtlas::LoadFromJSON(const std::string& json
     std::ifstream f(jsonPath);
     if (!f.is_open()) return nullptr;
 
-    // read entire file
     std::stringstream ss;
     ss << f.rdbuf();
     std::string s = ss.str();
 
-    // Build base dir from jsonPath (used if image path is relative)
+    std::unique_ptr<TextureAtlas> atlas(new TextureAtlas());
+
     std::string baseDir;
     size_t slash = jsonPath.find_last_of("/\\");
     if (slash != std::string::npos) baseDir = jsonPath.substr(0, slash+1);
 
-    std::unique_ptr<TextureAtlas> atlas(new TextureAtlas());
-
-    // Parse using nlohmann::json for robustness
+    // Parse JSON using nlohmann::json
     try {
         auto j = nlohmann::json::parse(s);
-        // Determine image path robustly from JSON. Common exporters put it at "image" or under "meta.image".
+
+        // --- Extract image path robustly ---
         std::string imagePath;
         if (j.contains("image") && j["image"].is_string()) {
             imagePath = j["image"].get<std::string>();
         } else if (j.contains("meta") && j["meta"].contains("image") && j["meta"]["image"].is_string()) {
             imagePath = j["meta"]["image"].get<std::string>();
         } else {
-            // fallback: try to find any string value that looks like a png filename inside the JSON
-            std::function<void(const nlohmann::json&)> scan = [&](const nlohmann::json& node) {
-                if (!imagePath.empty()) return;
-                if (node.is_string()) {
-                    std::string v = node.get<std::string>();
+            // fallback: scan JSON string values for .png extension
+            for (auto it = j.begin(); it != j.end(); ++it) {
+                if (it->is_string()) {
+                    std::string v = it->get<std::string>();
                     if (v.size() >= 4) {
-                        std::string tail = v.substr(v.size()-4);
-                        if (tail == ".png" || tail == ".PNG") imagePath = v;
+                        std::string ext = v.substr(v.size()-4);
+                        std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+                        if (ext == ".png") {
+                            imagePath = v;
+                            break;
+                        }
                     }
-                } else if (node.is_object()) {
-                    for (auto it = node.begin(); it != node.end(); ++it) scan(it.value());
-                } else if (node.is_array()) {
-                    for (const auto& el : node) scan(el);
                 }
-            };
-            scan(j);
+            }
         }
 
-        // If we found an image path, load the texture (relative to json file)
         if (!imagePath.empty()) {
             std::string finalImage = baseDir + imagePath;
             atlas->m_texture = LoadTexture(finalImage.c_str());
@@ -67,13 +60,16 @@ std::unique_ptr<TextureAtlas> TextureAtlas::LoadFromJSON(const std::string& json
                 std::cerr << "TextureAtlas: failed to load texture: " << finalImage << "\n";
             }
         }
+
+        // --- Parse frames ---
         if (j.contains("frames")) {
             auto frames = j["frames"];
             if (frames.is_object()) {
                 for (auto it = frames.begin(); it != frames.end(); ++it) {
                     const std::string key = it.key();
                     const auto& val = it.value();
-                    // Support both "frame": {x,y,w,h} or direct x,y,w,h entries
+
+                    // Support both "frame": {x,y,w,h} and direct x,y,w,h
                     int x=0,y=0,w=0,h=0;
                     if (val.contains("frame") && val["frame"].is_object()) {
                         x = val["frame"].value("x", 0);
@@ -90,7 +86,8 @@ std::unique_ptr<TextureAtlas> TextureAtlas::LoadFromJSON(const std::string& json
                 }
             }
         }
-        // parse clips if present
+
+        // --- Parse clips ---
         if (j.contains("clips") && j["clips"].is_object()) {
             for (auto it = j["clips"].begin(); it != j["clips"].end(); ++it) {
                 const std::string clipName = it.key();
@@ -103,26 +100,30 @@ std::unique_ptr<TextureAtlas> TextureAtlas::LoadFromJSON(const std::string& json
                         std::string fnameS = fname.get<std::string>();
                         auto fit = atlas->m_frames.find(fnameS);
                         if (fit != atlas->m_frames.end()) {
-                            AnimationFrame af; af.src = fit->second; af.duration = 0.1f; af.origin = {0,0};
-                            // read optional per-frame metadata if present under frames[name]
-                            if (j.contains("frames") && j["frames"].contains(fnameS)) {
-                                const auto& frameObj = j["frames"][fnameS];
-                                // rotated / trimmed flags
-                                if (frameObj.contains("rotated")) af.rotated = frameObj["rotated"].get<bool>();
-                                if (frameObj.contains("trimmed")) af.trimmed = frameObj["trimmed"].get<bool>();
-                                // spriteSourceSize: {x,y,w,h} gives offset inside original
-                                if (frameObj.contains("spriteSourceSize") && frameObj["spriteSourceSize"].is_object()) {
-                                    af.spriteSourceSize.x = frameObj["spriteSourceSize"].value("x", 0);
-                                    af.spriteSourceSize.y = frameObj["spriteSourceSize"].value("y", 0);
+                            AnimationFrame af;
+                            af.src = fit->second;
+                            af.duration = 0.1f;
+                            af.origin = {0,0};
+                            af.name = fnameS;
+
+                            // read metadata from top-level frames JSON if available
+                            if (j.contains("frames") && j["frames"].is_object() && j["frames"].contains(fnameS)) {
+                                const auto& frameJson = j["frames"][fnameS];
+                                if (frameJson.contains("rotated")) af.rotated = frameJson["rotated"].get<bool>();
+                                if (frameJson.contains("trimmed")) af.trimmed = frameJson["trimmed"].get<bool>();
+                                if (frameJson.contains("spriteSourceSize") && frameJson["spriteSourceSize"].is_object()) {
+                                    af.spriteSourceSize.x = (float)frameJson["spriteSourceSize"].value("x", 0);
+                                    af.spriteSourceSize.y = (float)frameJson["spriteSourceSize"].value("y", 0);
                                 }
-                                // sourceSize: {w,h}
-                                if (frameObj.contains("sourceSize") && frameObj["sourceSize"].is_object()) {
-                                    af.originalSize.x = frameObj["sourceSize"].value("w", 0);
-                                    af.originalSize.y = frameObj["sourceSize"].value("h", 0);
+                                if (frameJson.contains("sourceSize") && frameJson["sourceSize"].is_object()) {
+                                    af.originalSize.x = (float)frameJson["sourceSize"].value("w", 0);
+                                    af.originalSize.y = (float)frameJson["sourceSize"].value("h", 0);
                                 }
-                                // determine origin: offset within original source (use spriteSourceSize.x/y)
-                                af.origin = { af.spriteSourceSize.x, af.spriteSourceSize.y };
+                                if (af.originalSize.x > 0 && af.originalSize.y > 0) {
+                                    af.origin = { af.spriteSourceSize.x, af.spriteSourceSize.y };
+                                }
                             }
+
                             clip->frames.push_back(af);
                         }
                     }
@@ -139,11 +140,13 @@ std::unique_ptr<TextureAtlas> TextureAtlas::LoadFromJSON(const std::string& json
                 atlas->m_clips.emplace(clipName, clip);
             }
         }
+
+        // metadata is attached when building clip frames above
+
     } catch (const std::exception& ex) {
         std::cerr << "TextureAtlas: JSON parse error: " << ex.what() << "\n";
     }
 
-    // legacy manual parsing removed - nlohmann::json used above
     return atlas;
 }
 

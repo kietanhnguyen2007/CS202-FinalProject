@@ -12,12 +12,18 @@ namespace Systems {
 struct AnimationFrame {
     Rectangle src;
     float duration = 0.1f; // seconds
+
+    // Pixel offset from top-left of source image to sprite's intended origin (trim offset, anchor, or cropping).
     Vector2 origin{0,0};
+
     // Optional metadata for trimmed/rotated frames (TexturePacker/Aseprite compat)
-    bool rotated = false;            // frame stored rotated in atlas
-    bool trimmed = false;            // whether the frame has been trimmed
-    Vector2 spriteSourceSize{0,0};   // trimmed sprite offset (x,y) within the original source
-    Vector2 originalSize{0,0};       // original source size before trimming (w,h stored in x,y)
+    bool rotated = false;          // frame stored rotated in atlas
+    bool trimmed = false;          // whether the frame has been trimmed
+    Vector2 spriteSourceSize{0,0}; // top-left offset of trimmed content within original sprite
+    Vector2 originalSize{0,0};     // full original sprite size (width,height) before trimming
+    // Optional name of the frame from the atlas (if provided). Useful to correlate
+    // metadata and for debugging. May be empty for manually-constructed frames.
+    std::string name;
 };
 
 struct AnimationClip {
@@ -70,6 +76,15 @@ public:
     int GetCurrentFrameIndex() const;
     int GetTotalFrames() const;
 
+    enum class PlaybackMode {
+        Normal = 0,
+        Reverse,
+        PingPong
+    };
+
+    void SetPlaybackMode(PlaybackMode mode);
+    PlaybackMode GetPlaybackMode() const;
+
     // Events
     std::function<void(const std::string&, int)> OnFrameChanged;
     std::function<void(const std::string&)> OnClipFinished;
@@ -84,6 +99,10 @@ private:
     bool m_playing = false;
     float m_speed = 1.0f;
     bool m_flipX = false;
+    // Playback control
+    PlaybackMode m_playbackMode = PlaybackMode::Normal;
+    int m_playDirection = 1; // +1 forward, -1 backward (used for Reverse and PingPong)
+    float m_playhead = 0.0f; // absolute time into the clip (seconds)
 };
 
 } // namespace Systems

@@ -25,6 +25,22 @@ bool Animator::Play(const std::string& name, float speed, bool reset) {
         m_currentName = name;
         m_frameIndex = 0;
         m_timer = 0.0f;
+        // initialize playhead and playback helpers
+        // If reset requested, position playhead at start or end depending on playback mode
+        float clipLength = 0.0f;
+        for (const auto &f : m_current->frames) {
+            float d = f.duration > 0.0f ? f.duration : 0.001f;
+            clipLength += d;
+        }
+        if (m_playbackMode == PlaybackMode::Reverse) {
+            m_playhead = reset ? clipLength : 0.0f;
+            m_playDirection = -1;
+        } else {
+            m_playhead = 0.0f;
+            m_playDirection = 1;
+        }
+        // set starting frame/time according to playhead
+        Seek(m_playhead);
     }
     m_playing = true;
     m_speed = speed;
@@ -47,36 +63,71 @@ std::string Animator::CurrentClip() const { return m_currentName; }
 void Animator::Update(float dt) {
     if (!m_playing || !m_current) return;
     if (m_current->frames.empty()) return;
-    m_timer += dt * m_speed;
 
-    // Safety cap to avoid infinite loops on malformed durations
-    const int SAFE_MAX = std::max((int)m_current->frames.size() * 4, 1000);
-    int advances = 0;
+    // Advance absolute playhead based on playback direction
+    int dir = m_playDirection;
+    if (m_playbackMode == PlaybackMode::Reverse) dir = -1;
+    // In PingPong mode we use m_playDirection to track current movement
+    if (m_playbackMode == PlaybackMode::PingPong) dir = m_playDirection;
 
-    while (advances++ < SAFE_MAX) {
-        if (m_current->frames.empty()) break;
-        const AnimationFrame& frame = m_current->frames[m_frameIndex];
-        float dur = frame.duration;
-        if (!(dur > 0.0f)) {
-            // clamp invalid durations to a tiny epsilon to avoid infinite loops
-            dur = 0.001f;
-        }
-        if (m_timer < dur) break;
-        m_timer -= dur;
-        int prev = m_frameIndex;
-        m_frameIndex++;
-        if (m_frameIndex >= (int)m_current->frames.size()) {
-            if (m_current->loop) {
-                m_frameIndex = 0;
-            } else {
-                m_frameIndex = (int)m_current->frames.size() - 1;
-                m_playing = false;
-                if (OnClipFinished) OnClipFinished(m_currentName);
-                break;
-            }
-        }
-        if (OnFrameChanged && prev != m_frameIndex) OnFrameChanged(m_currentName, m_frameIndex);
+    float prevPlayhead = m_playhead;
+    m_playhead += dt * m_speed * (float)dir;
+
+    // compute clip length
+    float clipLength = 0.0f;
+    for (const auto &f : m_current->frames) {
+        float d = f.duration > 0.0f ? f.duration : 0.001f;
+        clipLength += d;
     }
+    if (clipLength <= 0.0f) return;
+
+    // Handle looping, clamping and ping-pong
+    if (m_playbackMode == PlaybackMode::Normal || m_playbackMode == PlaybackMode::Reverse) {
+        if (m_current->loop) {
+            // wrap into [0, clipLength)
+            while (m_playhead < 0.0f) m_playhead += clipLength;
+            while (m_playhead >= clipLength) m_playhead -= clipLength;
+        } else {
+            // clamp to [0, clipLength]
+            if (m_playhead < 0.0f) { m_playhead = 0.0f; m_playing = false; if (OnClipFinished) OnClipFinished(m_currentName); }
+            if (m_playhead > clipLength) { m_playhead = clipLength; m_playing = false; if (OnClipFinished) OnClipFinished(m_currentName); }
+        }
+    } else if (m_playbackMode == PlaybackMode::PingPong) {
+        // For ping-pong, reflect around bounds
+        // If clipLength == 0 we've returned earlier. Use repeat pattern of length 2*clipLength
+        float period = clipLength * 2.0f;
+        // normalize into [0, period)
+        while (m_playhead < 0.0f) m_playhead += period;
+        while (m_playhead >= period) m_playhead -= period;
+        if (m_playhead >= clipLength) {
+            // mirrored phase
+            m_playDirection = -1;
+            m_playhead = period - m_playhead; // reflect to [0, clipLength]
+        } else {
+            m_playDirection = 1;
+        }
+    }
+
+    // Recalculate frame index and timer from playhead
+    float acc = 0.0f;
+    int newIndex = 0;
+    float newTimer = 0.0f;
+    for (size_t i = 0; i < m_current->frames.size(); ++i) {
+        float d = m_current->frames[i].duration;
+        if (!(d > 0.0f)) d = 0.001f;
+        if (m_playhead < acc + d) {
+            newIndex = (int)i;
+            newTimer = m_playhead - acc;
+            break;
+        }
+        acc += d;
+    }
+
+    int prevIndex = m_frameIndex;
+    m_frameIndex = newIndex;
+    m_timer = newTimer;
+
+    if (OnFrameChanged && prevIndex != m_frameIndex) OnFrameChanged(m_currentName, m_frameIndex);
 }
 
 Rectangle Animator::GetCurrentSrcRect() const {
@@ -101,43 +152,69 @@ int Animator::GetTotalFrames() const {
 
 void Animator::Seek(float seconds) {
     if (!m_current || m_current->frames.empty()) return;
-    float t = seconds;
-    if (t < 0.0f) t = 0.0f;
-    m_frameIndex = 0;
-    m_timer = 0.0f;
+    // Compute clip length
+    float clipLength = 0.0f;
+    for (const auto &f : m_current->frames) {
+        float d = f.duration > 0.0f ? f.duration : 0.001f;
+        clipLength += d;
+    }
+    if (clipLength <= 0.0f) return;
+
+    float target = seconds;
+    if (target < 0.0f) target = 0.0f;
+    if (m_current->loop) {
+        // wrap
+        while (target < 0.0f) target += clipLength;
+        while (target >= clipLength) target -= clipLength;
+    } else {
+        if (target < 0.0f) target = 0.0f;
+        if (target > clipLength) target = clipLength;
+    }
+    m_playhead = target;
+    // recompute frame index and timer
+    float acc = 0.0f;
     for (size_t i = 0; i < m_current->frames.size(); ++i) {
-        float dur = m_current->frames[i].duration;
-        if (!(dur > 0.0f)) dur = 0.001f;
-        if (t < dur) {
+        float d = m_current->frames[i].duration;
+        if (!(d > 0.0f)) d = 0.001f;
+        if (m_playhead < acc + d) {
             m_frameIndex = (int)i;
-            m_timer = t;
+            m_timer = m_playhead - acc;
             return;
         }
-        t -= dur;
+        acc += d;
     }
-    // If seek past end, set to last frame and stop
+    // fallback to last frame
     m_frameIndex = (int)m_current->frames.size() - 1;
     m_timer = 0.0f;
-    m_playing = false;
 }
 
 void Animator::SetFrame(int index) {
     if (!m_current || m_current->frames.empty()) return;
     if (index < 0) index = 0;
     if (index >= (int)m_current->frames.size()) index = (int)m_current->frames.size() - 1;
+    // compute playhead corresponding to start of this frame
+    float acc = 0.0f;
+    for (int i = 0; i < index; ++i) {
+        float d = m_current->frames[i].duration;
+        if (!(d > 0.0f)) d = 0.001f;
+        acc += d;
+    }
+    m_playhead = acc;
     m_frameIndex = index;
     m_timer = 0.0f;
 }
 
 float Animator::GetPlayheadTime() const {
-    if (!m_current || m_current->frames.empty()) return 0.0f;
-    float t = m_timer;
-    for (int i = 0; i < m_frameIndex; ++i) {
-        float dur = m_current->frames[i].duration;
-        if (!(dur > 0.0f)) dur = 0.001f;
-        t += dur;
-    }
-    return t;
+    return m_playhead;
+}
+
+void Animator::SetPlaybackMode(PlaybackMode mode) {
+    m_playbackMode = mode;
+    if (mode == PlaybackMode::Reverse) m_playDirection = -1; else m_playDirection = 1;
+}
+
+Animator::PlaybackMode Animator::GetPlaybackMode() const {
+    return m_playbackMode;
 }
 
 } // namespace Systems
