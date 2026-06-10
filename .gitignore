@@ -27,3 +27,8 @@ Thumbs.db
 CMakeCache.txt
 CMakeFiles/
 cmake-build-*/
+
+# Agent update log
+AppleKnightAdventure/UPDATE_VERSION
+
+AppleKnightAdventure/plan-backend.md
