@@ -24,13 +24,14 @@ protected:
     std::vector<int> m_clients;
 #endif
     int m_port;
+    int m_maxClients;
     bool m_running;
 
 public:
     Server();
     ~Server();
 
-    bool Start(int port);
+    bool Start(int port, int maxClients = 1);
     void Stop();
     bool IsRunning() const;
     int GetPort() const;

@@ -16,7 +16,7 @@ public:
     NetworkManager();
     ~NetworkManager();
 
-    bool StartServer(int port);
+    bool StartServer(int port, int maxClients = 1);
     bool ConnectToServer(const std::string& address, int port);
     void Disconnect();
     GameMode GetMode() const;

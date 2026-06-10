@@ -9,9 +9,9 @@ NetworkManager::~NetworkManager() {
     Disconnect();
 }
 
-bool NetworkManager::StartServer(int port) {
+bool NetworkManager::StartServer(int port, int maxClients) {
     m_server = std::make_unique<Server>();
-    if (!m_server->Start(port)) {
+    if (!m_server->Start(port, maxClients)) {
         m_server.reset();
         return false;
     }

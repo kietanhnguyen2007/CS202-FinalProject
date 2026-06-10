@@ -3,6 +3,7 @@
 
 Server::Server()
     : m_port(0)
+    , m_maxClients(1)
     , m_running(false)
 {
 #ifdef _WIN32
@@ -16,9 +17,10 @@ Server::~Server() {
     Stop();
 }
 
-bool Server::Start(int port) {
+bool Server::Start(int port, int maxClients) {
     if (m_running) Stop();
     if (!PlatformInit()) return false;
+    m_maxClients = (maxClients > 0) ? maxClients : 1;
 
 #ifdef _WIN32
     m_listenSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -76,6 +78,7 @@ int Server::GetPort() const { return m_port; }
 
 bool Server::AcceptClient() {
     if (!m_running) return false;
+    if (static_cast<int>(m_clients.size()) >= m_maxClients) return false;
 
     sockaddr_in clientAddr;
 #ifdef _WIN32
