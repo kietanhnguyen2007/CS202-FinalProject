@@ -39,6 +39,8 @@ void Character::Update(float deltaTime) {
     m_position.x += m_velocity.x * deltaTime;
     m_position.y += m_velocity.y * deltaTime;
     if (m_attackTimer > 0) m_attackTimer -= deltaTime;
+    // update animator
+    m_animator.Update(deltaTime);
 }
 
 void Character::Render() {
@@ -104,4 +106,8 @@ Rectangle Character::GetAttackBoundingBox() const {
         default:
             return box;
     }
+}
+
+Systems::Animator& Character::GetAnimator() {
+    return m_animator;
 }

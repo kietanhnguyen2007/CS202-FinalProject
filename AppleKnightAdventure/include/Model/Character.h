@@ -4,6 +4,7 @@
 #include "Entity.h"
 #include "Utils/Types.h"
 #include "Utils/Constants.h"
+#include "Systems/AnimationSystem.h"
 
 class Character : public Entity {
 protected:
@@ -13,6 +14,8 @@ protected:
     Direction m_direction;
     float m_attackCooldown;
     float m_attackTimer;
+    // Animator component for rendering
+    Systems::Animator m_animator;
 
 public:
     Character();
@@ -21,6 +24,9 @@ public:
 
     void Update(float deltaTime) override;
     void Render() override;
+
+    // Animator access
+    Systems::Animator& GetAnimator();
 
     int GetHealth() const;
     void SetHealth(int health);
