@@ -15,12 +15,6 @@ TextureAtlas::~TextureAtlas() {
     if (m_texture.id) UnloadTexture(m_texture);
 }
 
-static std::string trimQuotes(const std::string& s) {
-    if (s.size() >= 2 && s.front() == '"' && s.back() == '"')
-        return s.substr(1, s.size()-2);
-    return s;
-}
-
 std::unique_ptr<TextureAtlas> TextureAtlas::LoadFromJSON(const std::string& jsonPath) {
     std::ifstream f(jsonPath);
     if (!f.is_open()) return nullptr;
@@ -30,49 +24,49 @@ std::unique_ptr<TextureAtlas> TextureAtlas::LoadFromJSON(const std::string& json
     ss << f.rdbuf();
     std::string s = ss.str();
 
-    // Very naive parsing: find "image": "..." and frames/ clips blocks.
-    auto findString = [&](const std::string& key) -> std::string {
-        size_t pos = s.find('"' + key + '"');
-        if (pos == std::string::npos) return std::string();
-        size_t colon = s.find(':', pos);
-        if (colon == std::string::npos) return std::string();
-        size_t quote = s.find('"', colon);
-        if (quote == std::string::npos) return std::string();
-        size_t endq = s.find('"', quote+1);
-        if (endq == std::string::npos) return std::string();
-        return s.substr(quote+1, endq-quote-1);
-    };
-
-    std::string imagePath = findString("image");
-    if (imagePath.empty()) {
-        // fallback: try to find first .png
-        size_t p = s.find(".png");
-        if (p != std::string::npos) {
-            // find opening quote before
-            size_t q = s.rfind('"', p);
-            if (q != std::string::npos) {
-                size_t q0 = s.rfind('"', q-1);
-                if (q0 != std::string::npos) imagePath = s.substr(q0+1, q-q0-1);
-            }
-        }
-    }
-
-    // Build base dir from jsonPath
+    // Build base dir from jsonPath (used if image path is relative)
     std::string baseDir;
     size_t slash = jsonPath.find_last_of("/\\");
     if (slash != std::string::npos) baseDir = jsonPath.substr(0, slash+1);
 
-    std::string finalImage = baseDir + imagePath;
-
     std::unique_ptr<TextureAtlas> atlas(new TextureAtlas());
-    atlas->m_texture = LoadTexture(finalImage.c_str());
-    if (atlas->m_texture.id == 0) {
-        std::cerr << "TextureAtlas: failed to load texture: " << finalImage << "\n";
-    }
 
     // Parse using nlohmann::json for robustness
     try {
         auto j = nlohmann::json::parse(s);
+        // Determine image path robustly from JSON. Common exporters put it at "image" or under "meta.image".
+        std::string imagePath;
+        if (j.contains("image") && j["image"].is_string()) {
+            imagePath = j["image"].get<std::string>();
+        } else if (j.contains("meta") && j["meta"].contains("image") && j["meta"]["image"].is_string()) {
+            imagePath = j["meta"]["image"].get<std::string>();
+        } else {
+            // fallback: try to find any string value that looks like a png filename inside the JSON
+            std::function<void(const nlohmann::json&)> scan = [&](const nlohmann::json& node) {
+                if (!imagePath.empty()) return;
+                if (node.is_string()) {
+                    std::string v = node.get<std::string>();
+                    if (v.size() >= 4) {
+                        std::string tail = v.substr(v.size()-4);
+                        if (tail == ".png" || tail == ".PNG") imagePath = v;
+                    }
+                } else if (node.is_object()) {
+                    for (auto it = node.begin(); it != node.end(); ++it) scan(it.value());
+                } else if (node.is_array()) {
+                    for (const auto& el : node) scan(el);
+                }
+            };
+            scan(j);
+        }
+
+        // If we found an image path, load the texture (relative to json file)
+        if (!imagePath.empty()) {
+            std::string finalImage = baseDir + imagePath;
+            atlas->m_texture = LoadTexture(finalImage.c_str());
+            if (atlas->m_texture.id == 0) {
+                std::cerr << "TextureAtlas: failed to load texture: " << finalImage << "\n";
+            }
+        }
         if (j.contains("frames")) {
             auto frames = j["frames"];
             if (frames.is_object()) {
@@ -110,6 +104,25 @@ std::unique_ptr<TextureAtlas> TextureAtlas::LoadFromJSON(const std::string& json
                         auto fit = atlas->m_frames.find(fnameS);
                         if (fit != atlas->m_frames.end()) {
                             AnimationFrame af; af.src = fit->second; af.duration = 0.1f; af.origin = {0,0};
+                            // read optional per-frame metadata if present under frames[name]
+                            if (j.contains("frames") && j["frames"].contains(fnameS)) {
+                                const auto& frameObj = j["frames"][fnameS];
+                                // rotated / trimmed flags
+                                if (frameObj.contains("rotated")) af.rotated = frameObj["rotated"].get<bool>();
+                                if (frameObj.contains("trimmed")) af.trimmed = frameObj["trimmed"].get<bool>();
+                                // spriteSourceSize: {x,y,w,h} gives offset inside original
+                                if (frameObj.contains("spriteSourceSize") && frameObj["spriteSourceSize"].is_object()) {
+                                    af.spriteSourceSize.x = frameObj["spriteSourceSize"].value("x", 0);
+                                    af.spriteSourceSize.y = frameObj["spriteSourceSize"].value("y", 0);
+                                }
+                                // sourceSize: {w,h}
+                                if (frameObj.contains("sourceSize") && frameObj["sourceSize"].is_object()) {
+                                    af.originalSize.x = frameObj["sourceSize"].value("w", 0);
+                                    af.originalSize.y = frameObj["sourceSize"].value("h", 0);
+                                }
+                                // determine origin: offset within original source (use spriteSourceSize.x/y)
+                                af.origin = { af.spriteSourceSize.x, af.spriteSourceSize.y };
+                            }
                             clip->frames.push_back(af);
                         }
                     }

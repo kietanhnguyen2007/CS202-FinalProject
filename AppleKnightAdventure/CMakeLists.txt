@@ -20,9 +20,11 @@ file(GLOB_RECURSE SOURCES src/*.cpp include/*.h)
 add_executable(AppleKnightAdventure ${SOURCES})
 
 target_include_directories(AppleKnightAdventure PRIVATE include)
+target_include_directories(AppleKnightAdventure PRIVATE raylib/include)
 target_link_libraries(AppleKnightAdventure PRIVATE raylib nlohmann_json::nlohmann_json)
 
 # Test executable for Animator
 add_executable(anim_test tests/anim_test.cpp)
 target_include_directories(anim_test PRIVATE include)
+target_include_directories(anim_test PRIVATE raylib/include)
 target_link_libraries(anim_test PRIVATE raylib nlohmann_json::nlohmann_json)

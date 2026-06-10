@@ -13,6 +13,11 @@ struct AnimationFrame {
     Rectangle src;
     float duration = 0.1f; // seconds
     Vector2 origin{0,0};
+    // Optional metadata for trimmed/rotated frames (TexturePacker/Aseprite compat)
+    bool rotated = false;            // frame stored rotated in atlas
+    bool trimmed = false;            // whether the frame has been trimmed
+    Vector2 spriteSourceSize{0,0};   // trimmed sprite offset (x,y) within the original source
+    Vector2 originalSize{0,0};       // original source size before trimming (w,h stored in x,y)
 };
 
 struct AnimationClip {
