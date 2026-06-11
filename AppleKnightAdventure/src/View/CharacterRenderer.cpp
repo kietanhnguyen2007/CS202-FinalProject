@@ -1,5 +1,4 @@
 #include "View/CharacterRenderer.h"
-#include "Model/Registry.h"
 #include <iostream>
 #include <cmath>
 
@@ -10,10 +9,15 @@ CharacterRenderer& CharacterRenderer::GetInstance() {
     return instance;
 }
 
-bool CharacterRenderer::Register(uint32_t entityId,
-                                  EntityType type,
+bool CharacterRenderer::Register(const Entity* entity,
                                   const std::string& atlasPath,
                                   const std::string& defaultClip) {
+    if (!entity) {
+        std::cerr << "[CharacterRenderer] Register: null entity\n";
+        return false;
+    }
+    uint32_t id = static_cast<uint32_t>(entity->GetId());
+
     // Load or retrieve atlas from cache
     auto atlasIt = m_atlasCache.find(atlasPath);
     if (atlasIt == m_atlasCache.end()) {
@@ -27,7 +31,7 @@ bool CharacterRenderer::Register(uint32_t entityId,
         atlasIt = result.first;
     }
 
-    auto& animator = m_animators[entityId];
+    auto& animator = m_animators[id];
     animator.SetTexture(atlasIt->second->GetTexture());
 
     // Forward all clips from atlas to animator
@@ -36,7 +40,7 @@ bool CharacterRenderer::Register(uint32_t entityId,
         if (clip) animator.AddClip(clip);
     }
 
-    m_entityTypes[entityId] = type;
+    m_entities[id] = entity;
 
     // Try to play default clip if it exists
     if (!defaultClip.empty()) {
@@ -44,7 +48,7 @@ bool CharacterRenderer::Register(uint32_t entityId,
             animator.Play(defaultClip);
         } else {
             std::cerr << "[CharacterRenderer] Default clip not found: " << defaultClip
-                      << " for entity " << entityId << "\n";
+                      << " for entity " << id << "\n";
         }
     }
 
@@ -53,13 +57,13 @@ bool CharacterRenderer::Register(uint32_t entityId,
 
 void CharacterRenderer::Unregister(uint32_t entityId) {
     m_animators.erase(entityId);
-    m_entityTypes.erase(entityId);
+    m_entities.erase(entityId);
     m_lastActions.erase(entityId);
 }
 
 void CharacterRenderer::Clear() {
     m_animators.clear();
-    m_entityTypes.clear();
+    m_entities.clear();
     m_atlasCache.clear();
     m_actionConfigs.clear();
     m_lastActions.clear();
@@ -83,16 +87,15 @@ int CharacterRenderer::DefaultInferAction(const Entity* entity) {
 }
 
 void CharacterRenderer::UpdateAll(float dt) {
-    Registry& registry = Registry::GetInstance();
     for (auto& [id, animator] : m_animators) {
-        const Entity* entity = registry.Get(static_cast<int>(id));
+        auto entityIt = m_entities.find(id);
+        if (entityIt == m_entities.end()) continue;
+
+        const Entity* entity = entityIt->second;
         if (!entity || !entity->IsActive()) continue;
 
         // Auto-switch clip based on inferred action
-        auto typeIt = m_entityTypes.find(id);
-        if (typeIt == m_entityTypes.end()) continue;
-
-        EntityType type = typeIt->second;
+        EntityType type = entity->GetType();
         auto configIt = m_actionConfigs.find(type);
 
         if (configIt != m_actionConfigs.end()) {
@@ -123,9 +126,11 @@ void CharacterRenderer::UpdateAll(float dt) {
 }
 
 void CharacterRenderer::RenderAll() {
-    Registry& registry = Registry::GetInstance();
     for (auto& [id, animator] : m_animators) {
-        const Entity* entity = registry.Get(static_cast<int>(id));
+        auto it = m_entities.find(id);
+        if (it == m_entities.end()) continue;
+
+        const Entity* entity = it->second;
         if (!entity || !entity->IsActive() || !animator.HasTexture()) continue;
 
         View::Renderer::GetInstance().SubmitSprite(
