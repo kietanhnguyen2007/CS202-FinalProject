@@ -32,7 +32,6 @@ private:
     std::unordered_map<uint32_t, Animations::Animator> m_animators;
     std::unordered_map<uint32_t, const Entity*> m_entities;
     std::unordered_map<std::string, std::shared_ptr<Animations::TextureAtlas>> m_atlasCache;
-    uint32_t m_nextId = 1;
 };
 
 } // namespace View

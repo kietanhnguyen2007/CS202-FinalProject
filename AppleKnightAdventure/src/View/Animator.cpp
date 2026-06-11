@@ -84,7 +84,6 @@ void Animator::Update(float dt) {
     // In PingPong mode we use m_playDirection to track current movement
     if (m_playbackMode == PlaybackMode::PingPong) dir = m_playDirection;
 
-    float prevPlayhead = m_playhead;
     m_playhead += dt * m_speed * (float)dir;
 
     // compute clip length

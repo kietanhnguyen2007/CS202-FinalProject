@@ -34,6 +34,7 @@ public:
     // If JSON contains clips, return clip
     bool HasClip(const std::string& clipName) const;
     std::shared_ptr<AnimationClip> GetClip(const std::string& clipName) const;
+    std::vector<std::string> GetClipNames() const;
 
 private:
     Texture2D m_texture{};

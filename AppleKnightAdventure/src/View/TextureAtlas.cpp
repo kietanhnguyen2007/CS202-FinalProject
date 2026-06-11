@@ -184,4 +184,13 @@ std::shared_ptr<AnimationClip> TextureAtlas::GetClip(const std::string& clipName
     return it->second;
 }
 
+std::vector<std::string> TextureAtlas::GetClipNames() const {
+    std::vector<std::string> names;
+    names.reserve(m_clips.size());
+    for (const auto& pair : m_clips) {
+        names.push_back(pair.first);
+    }
+    return names;
+}
+
 } // namespace View::Animations

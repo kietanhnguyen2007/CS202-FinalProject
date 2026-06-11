@@ -28,15 +28,11 @@ void CharacterRenderer::Register(const Entity* entity,
     auto& animator = m_animators[id];
     animator.SetTexture(atlasIt->second->GetTexture());
 
-    // Register all clips from atlas into animator
-    // (In a more advanced setup, we'd query specific clips per action type.)
-    // For now, we simply copy references to loaded AnimationClip objects
-    // by iterating known clip names from the atlas.
-
-    // The animator stores its own shared_ptr copies via AddClip,
-    // which we populate from the atlas's clip list.
-    // Since TextureAtlas stores clips by name, we forward them to the animator
-    // on first registration.
+    // Forward all clips from atlas to animator
+    for (const auto& clipName : atlasIt->second->GetClipNames()) {
+        auto clip = atlasIt->second->GetClip(clipName);
+        if (clip) animator.AddClip(clip);
+    }
 
     m_entities[id] = entity;
 
