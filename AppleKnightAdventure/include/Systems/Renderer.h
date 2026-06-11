@@ -13,7 +13,7 @@ public:
     bool Init(size_t cmdCapacityPerLayer = 4096, size_t textureSlotsPerLayer = 64);
     void Shutdown();
 
-    void BeginFrame(const Camera2D* camera = nullptr);
+    void BeginFrame();
 
     bool SubmitSprite(Texture2D* texture,
                       const Rectangle& src,
@@ -36,6 +36,11 @@ public:
     // debug
     size_t GetDrawCallCount() const { return m_drawCalls; }
     size_t GetSubmittedCount() const { return m_totalSubmitted; }
+    size_t GetFrameSubmittedCount() const { return m_frameSubmitted; }
+    size_t GetDroppedSubmissionCount() const { return m_droppedSubmissions; }
+
+    int GetWindowWidth() const { return m_windowWidth; }
+    int GetWindowHeight() const { return m_windowHeight; }
 
 private:
     Renderer() = default;
@@ -43,10 +48,13 @@ private:
 
     bool m_initialized = false;
     size_t m_cmdCapacityPerLayer = 0;
-    size_t m_textureSlotsPerLayer = 0;
 
     size_t m_drawCalls = 0;
     size_t m_totalSubmitted = 0;
+    size_t m_frameSubmitted = 0;
+    size_t m_droppedSubmissions = 0;
+    int m_windowWidth = 0;
+    int m_windowHeight = 0;
 };
 
 } // namespace Systems
