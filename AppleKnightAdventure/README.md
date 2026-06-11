@@ -2,7 +2,7 @@
 
 **Course:** Programming Systems (CS202)
 **Instructor:** Mr. Ho Tuan Thanh
-**Students:** 25125074 & Nguyen Trong Tien (25125037)
+**Students:** Nguyen Anh Kiet(25125074) & Nguyen Trong Tien (25125037)
 
 ---
 
