@@ -1,0 +1,28 @@
+# UPDATE_VERSION
+
+## Files created
+- `include/View/Animator.h` — copy of AnimationSystem.h, namespace `View::Animations`
+- `src/View/Animator.cpp` — copy of AnimationSystem.cpp, namespace `View::Animations`
+- `include/View/TextureAtlas.h` — copy of TextureAtlas.h, namespace `View::Animations`
+- `src/View/TextureAtlas.cpp` — copy of TextureAtlas.cpp, namespace `View::Animations`
+
+## Files modified
+- `include/Model/Character.h` — removed `#include "Systems/AnimationSystem.h"`, removed `Systems::Animator m_animator` member, removed `GetAnimator()` declarations
+- `src/Model/Character.cpp` — removed `m_animator.Update(dt)`, removed animator-based rendering in `SubmitRender()`, removed `GetAnimator()` definitions
+
+## What changed and why
+- Animation system (Animator, TextureAtlas) moved from `Systems` namespace to `View::Animations` namespace, with copies placed under `include/View/` and `src/View/`.
+- Model layer no longer contains or references any Animator. The `Character` class is now purely logical (position, velocity, health, direction, attack state).
+- This decouples visual/animation responsibilities from the backend, respecting strict MVC separation: View owns all rendering state, Model owns only game logic.
+
+## Current status
+- **Phase 1 complete** (View copies created + Model cleansed of Animator references).
+- **Phase 2 pending**: wire View-side animation handling (e.g., `CharacterRenderer`), then remove original `Systems/AnimationSystem.*` and `Systems/TextureAtlas.*` via `git mv`.
+
+## Manual git mv commands (Phase 2, after View wiring is done)
+```bash
+git mv include/Systems/AnimationSystem.h include/View/Animator.h
+git mv src/Systems/AnimationSystem.cpp src/View/Animator.cpp
+git mv include/Systems/TextureAtlas.h include/View/TextureAtlas.h
+git mv src/Systems/TextureAtlas.cpp src/View/TextureAtlas.cpp
+```
