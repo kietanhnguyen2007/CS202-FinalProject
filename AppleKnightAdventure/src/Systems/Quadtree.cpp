@@ -120,6 +120,10 @@ std::vector<Entity*> Quadtree::Query(Rectangle range) const {
     return result;
 }
 
+void Quadtree::Query(Rectangle range, std::vector<Entity*>& result) const {
+    m_root->Query(range, result);
+}
+
 void Quadtree::Clear() {
     m_root->Clear();
 }

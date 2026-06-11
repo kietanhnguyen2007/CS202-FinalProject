@@ -33,6 +33,7 @@ public:
     void Insert(Entity* entity);
     void InsertBulk(const std::vector<Entity*>& entities);
     std::vector<Entity*> Query(Rectangle range) const;
+    void Query(Rectangle range, std::vector<Entity*>& result) const;
     void Clear();
 };
 
