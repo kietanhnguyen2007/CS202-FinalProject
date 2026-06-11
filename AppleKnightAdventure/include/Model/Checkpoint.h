@@ -12,7 +12,6 @@ public:
     explicit Checkpoint(Vector2 position);
 
     void Update(float deltaTime) override;
-    void Render() override;
 
     bool IsActivated() const;
     void Activate();

@@ -37,7 +37,6 @@ public:
     virtual ~Entity() = default;
 
     virtual void Update(float deltaTime) = 0;
-    virtual void Render() = 0;
 
     // Identifiers
     int GetId() const;

@@ -121,12 +121,6 @@ void ParticleSystem::Update(float deltaTime) {
     }
 }
 
-void ParticleSystem::Render() const {
-    for (const auto* particle : m_active) {
-        particle->Render();
-    }
-}
-
 void ParticleSystem::Emit(Vector2 position, Vector2 velocity, Color color,
                           float lifetime, float size) {
     Particle* p = m_pool.Acquire();

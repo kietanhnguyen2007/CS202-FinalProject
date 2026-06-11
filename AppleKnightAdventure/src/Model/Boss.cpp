@@ -38,9 +38,6 @@ void Boss::Update(float deltaTime) {
     m_phaseTimer += deltaTime;
 }
 
-void Boss::Render() {
-    Character::Render();
-}
 
 BossPhase Boss::GetPhase() const { return m_phase; }
 

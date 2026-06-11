@@ -17,7 +17,6 @@ public:
     explicit Chest(Vector2 position);
 
     void Update(float deltaTime) override;
-    void Render() override;
 
     bool IsOpened() const;
     std::vector<std::unique_ptr<Item>> Open();

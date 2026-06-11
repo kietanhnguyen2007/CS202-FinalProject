@@ -29,9 +29,6 @@ void Pet::Update(float deltaTime) {
     Character::Update(deltaTime);
 }
 
-void Pet::Render() {
-    Character::Render();
-}
 
 PetType Pet::GetPetType() const { return m_petType; }
 int Pet::GetOwnerId() const { return m_ownerId; }

@@ -25,9 +25,6 @@ void Player::Update(float deltaTime) {
     Character::Update(deltaTime);
 }
 
-void Player::Render() {
-    Character::Render();
-}
 
 Inventory& Player::GetInventory() { return m_inventory; }
 const Inventory& Player::GetInventory() const { return m_inventory; }

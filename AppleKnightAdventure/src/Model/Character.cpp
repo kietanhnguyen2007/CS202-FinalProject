@@ -41,9 +41,6 @@ void Character::Update(float deltaTime) {
     if (m_attackTimer > 0) m_attackTimer -= deltaTime;
 }
 
-void Character::Render() {
-    // Rendering handled by View::CharacterRenderer
-}
 
 int Character::GetHealth() const { return m_health; }
 void Character::SetHealth(int health) { m_health = std::min(health, m_maxHealth); }

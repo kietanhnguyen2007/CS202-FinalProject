@@ -25,8 +25,6 @@ Item::Item(Vector2 position, ItemType type, int amount)
 void Item::Update(float deltaTime) {
 }
 
-void Item::Render() {
-    // Rendering handled by View
 
 ItemType Item::GetItemType() const { return m_itemType; }
 int Item::GetAmount() const { return m_amount; }

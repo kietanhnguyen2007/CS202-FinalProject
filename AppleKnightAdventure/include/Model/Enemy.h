@@ -21,7 +21,6 @@ public:
     Enemy(Vector2 position, EnemyType type);
 
     void Update(float deltaTime) override;
-    void Render() override;
 
     EnemyType GetEnemyType() const;
     EnemyState GetState() const;

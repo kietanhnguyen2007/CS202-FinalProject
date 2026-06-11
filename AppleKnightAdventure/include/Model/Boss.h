@@ -21,7 +21,6 @@ public:
     Boss(Vector2 position, Vector2 size);
 
     void Update(float deltaTime) override;
-    void Render() override;
 
     BossPhase GetPhase() const;
     void SetPhase(BossPhase phase);

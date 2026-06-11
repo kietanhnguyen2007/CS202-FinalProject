@@ -20,7 +20,6 @@ public:
     Character(Vector2 position, Vector2 size, EntityType type);
 
     void Update(float deltaTime) override;
-    void Render() override;
 
     int GetHealth() const;
     void SetHealth(int health);

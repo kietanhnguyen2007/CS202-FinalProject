@@ -17,8 +17,6 @@ FakeWall::FakeWall(Vector2 position, Vector2 size)
 void FakeWall::Update(float deltaTime) {
 }
 
-void FakeWall::Render() {
-    // Rendering handled by View
 
 bool FakeWall::IsDestroyed() const { return m_destroyed; }
 

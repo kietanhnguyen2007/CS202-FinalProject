@@ -14,7 +14,6 @@ public:
     explicit FakeWall(Vector2 position, Vector2 size);
 
     void Update(float deltaTime) override;
-    void Render() override;
 
     bool IsDestroyed() const;
     void TakeDamage(int damage);

@@ -17,7 +17,6 @@ public:
     explicit Player(Vector2 position);
 
     void Update(float deltaTime) override;
-    void Render() override;
 
     Inventory& GetInventory();
     const Inventory& GetInventory() const;

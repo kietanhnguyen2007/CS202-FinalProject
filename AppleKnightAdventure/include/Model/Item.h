@@ -16,7 +16,6 @@ public:
     Item(Vector2 position, ItemType type, int amount = 1);
 
     void Update(float deltaTime) override;
-    void Render() override;
 
     ItemType GetItemType() const;
     int GetAmount() const;

@@ -13,7 +13,6 @@ public:
     explicit DualWorldPlayer(Vector2 position, WorldLayer layer = WorldLayer::Light);
 
     void Update(float deltaTime) override;
-    void Render() override;
 
     WorldLayer GetLayer() const;
     void SetLayer(WorldLayer layer);

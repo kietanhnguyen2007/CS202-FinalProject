@@ -20,8 +20,6 @@ Chest::Chest(Vector2 position)
 void Chest::Update(float deltaTime) {
 }
 
-void Chest::Render() {
-    // Rendering handled by View
 
 bool Chest::IsOpened() const { return m_opened; }
 

@@ -19,7 +19,6 @@ public:
                Direction direction, int damage, int ownerId);
 
     void Update(float deltaTime) override;
-    void Render() override;
 
     ProjectileType GetProjectileType() const;
     int GetDamage() const;

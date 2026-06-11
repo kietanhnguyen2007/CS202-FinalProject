@@ -38,7 +38,6 @@ public:
     ~ParticleSystem();
 
     void Update(float deltaTime);
-    void Render() const;
 
     void Emit(Vector2 position, Vector2 velocity, Color color,
               float lifetime, float size);

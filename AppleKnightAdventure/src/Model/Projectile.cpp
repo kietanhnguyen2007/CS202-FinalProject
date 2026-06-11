@@ -45,8 +45,6 @@ void Projectile::Update(float deltaTime) {
     }
 }
 
-void Projectile::Render() {
-    // Rendering handled by View
 
 ProjectileType Projectile::GetProjectileType() const { return m_projectileType; }
 int Projectile::GetDamage() const { return m_damage; }

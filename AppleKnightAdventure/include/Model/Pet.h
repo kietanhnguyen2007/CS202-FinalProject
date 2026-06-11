@@ -17,7 +17,6 @@ public:
     Pet(Vector2 position, PetType type, int ownerId);
 
     void Update(float deltaTime) override;
-    void Render() override;
 
     PetType GetPetType() const;
     int GetOwnerId() const;

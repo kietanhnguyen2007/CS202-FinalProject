@@ -16,8 +16,6 @@ Checkpoint::Checkpoint(Vector2 position)
 void Checkpoint::Update(float deltaTime) {
 }
 
-void Checkpoint::Render() {
-    // Rendering handled by View
 
 bool Checkpoint::IsActivated() const { return m_activated; }
 void Checkpoint::Activate() { m_activated = true; }

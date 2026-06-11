@@ -40,12 +40,6 @@ void RenderSystem::RenderFrame(const Camera2D& camera, std::vector<Entity*>& ent
     View::Renderer& r = View::Renderer::GetInstance();
     BeginMode2D(camera);
     r.BeginFrame();
-
-    for (Entity* e : m_visible) {
-        if (!e || !e->IsActive()) continue;
-        e->Render();
-    }
-
     r.EndFrameAndFlush();
     EndMode2D();
 }

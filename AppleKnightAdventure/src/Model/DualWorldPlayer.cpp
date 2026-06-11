@@ -18,9 +18,6 @@ void DualWorldPlayer::Update(float deltaTime) {
     Player::Update(deltaTime);
 }
 
-void DualWorldPlayer::Render() {
-    Player::Render();
-}
 
 WorldLayer DualWorldPlayer::GetLayer() const { return m_layer; }
 void DualWorldPlayer::SetLayer(WorldLayer layer) { m_layer = layer; }

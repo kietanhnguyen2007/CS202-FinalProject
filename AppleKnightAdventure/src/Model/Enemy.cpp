@@ -54,9 +54,6 @@ void Enemy::Update(float deltaTime) {
     Character::Update(deltaTime);
 }
 
-void Enemy::Render() {
-    Character::Render();
-}
 
 EnemyType Enemy::GetEnemyType() const { return m_enemyType; }
 
