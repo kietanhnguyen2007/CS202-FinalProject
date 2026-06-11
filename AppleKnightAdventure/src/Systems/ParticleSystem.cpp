@@ -62,10 +62,10 @@ void Particle::Render() const {
     if (s_softCircleLoaded) {
         Rectangle src = {0, 0, (float)s_softCircle.width, (float)s_softCircle.height};
         Vector2 scale = {size * 2.0f / src.width, size * 2.0f / src.height};
-        Systems::Renderer::GetInstance().SubmitSprite(
+        View::Renderer::GetInstance().SubmitSprite(
             &s_softCircle, src, position, scale, 0.0f,
             {src.width * 0.5f, src.height * 0.5f}, color,
-            Systems::Layer::Foreground, 0.0f, false, 0);
+            View::Layer::Foreground, 0.0f, false, 0);
     } else {
         DrawCircle((int)position.x, (int)position.y, size, color);
     }

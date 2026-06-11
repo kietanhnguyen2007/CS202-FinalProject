@@ -1,5 +1,4 @@
 #include "Model/Item.h"
-#include "Systems/Renderer.h"
 #include "Utils/Constants.h"
 
 Item::Item()
@@ -27,8 +26,7 @@ void Item::Update(float deltaTime) {
 }
 
 void Item::Render() {
-    SubmitRender();
-}
+    // Rendering handled by View
 
 ItemType Item::GetItemType() const { return m_itemType; }
 int Item::GetAmount() const { return m_amount; }

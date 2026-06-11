@@ -3,7 +3,7 @@
 #include "raylib.h"
 #include <cstdint>
 
-namespace Systems {
+namespace View {
 
 enum class Layer : uint8_t { Background = 0, World = 1, Foreground = 2, UI = 3 };
 
@@ -24,4 +24,4 @@ struct RenderCommand {
     float m_z = 0.0f; // depth for ordering within layer
 };
 
-} // namespace Systems
+} // namespace View

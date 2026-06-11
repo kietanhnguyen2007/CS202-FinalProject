@@ -2,7 +2,6 @@
 #define ENTITY_H
 
 #include "raylib.h"
-#include "Systems/Renderer.h"
 #include <cstdint>
 
 enum class EntityType {
@@ -64,17 +63,6 @@ public:
     // Collision
     Rectangle GetBoundingBox() const;
 
-    // Render fallback
-    void SetRenderTexture(Texture2D* tex, Rectangle src = {}, Vector2 origin = {}, bool flipX = false);
-    Texture2D* GetRenderTexture() const;
-
-    virtual void SubmitRender();
-
-protected:
-    Texture2D* m_renderTexture = nullptr;
-    Rectangle m_renderSrc{};
-    Vector2 m_renderOrigin{};
-    bool m_renderFlipX = false;
 };
 
 #endif

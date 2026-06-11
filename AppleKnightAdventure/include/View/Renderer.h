@@ -1,6 +1,8 @@
 #pragma once
+
 #include "raylib.h"
-#include "Systems/RenderTypes.h"
+#include "View/RenderTypes.h"
+#include <cstddef>
 
 namespace View {
 
@@ -8,32 +10,59 @@ class Renderer {
 public:
     static Renderer& GetInstance();
 
-    void BeginFrame();
-    void EndFrameAndFlush();
+    bool Init(size_t cmdCapacityPerLayer = 4096, size_t textureSlotsPerLayer = 64);
+    void Shutdown();
 
-    bool SubmitSprite(Texture2D* texture, const Rectangle& src, Vector2 pos,
-                      Vector2 scale = {1.0f, 1.0f},
+    void BeginFrame();
+
+    bool SubmitSprite(Texture2D* texture,
+                      const Rectangle& src,
+                      Vector2 pos,
+                      Vector2 scale = {1.0f,1.0f},
                       float rotation = 0.0f,
-                      Vector2 origin = {0.0f, 0.0f},
+                      Vector2 origin = {0,0},
                       Color tint = WHITE,
-                      Systems::Layer layer = Systems::Layer::UI,
+                      Layer layer = Layer::World,
                       float z = 0.0f,
                       bool flipX = false,
                       uint32_t entityId = 0);
 
+    void EndFrameAndFlush();
+
+    void ResizeWindow(int width, int height);
+
     void DrawRectangle(Vector2 pos, Vector2 wsize, Color color,
-                       Systems::Layer layer = Systems::Layer::UI,
+                       Layer layer = Layer::UI,
                        float z = 0.0f);
 
     void DrawText(const char* text, Vector2 pos, int fontSize, Color color);
 
-    void Shutdown();
+    bool IsInitialized() const { return m_initialized; }
+
+    // debug
+    size_t GetDrawCallCount() const { return m_drawCalls; }
+    size_t GetSubmittedCount() const { return m_totalSubmitted; }
+    size_t GetFrameSubmittedCount() const { return m_frameSubmitted; }
+    size_t GetDroppedSubmissionCount() const { return m_droppedSubmissions; }
+
+    int GetWindowWidth() const { return m_windowWidth; }
+    int GetWindowHeight() const { return m_windowHeight; }
 
 private:
     Renderer() = default;
     ~Renderer() = default;
 
     void EnsureWhitePixel();
+
+    bool m_initialized = false;
+    size_t m_cmdCapacityPerLayer = 0;
+
+    size_t m_drawCalls = 0;
+    size_t m_totalSubmitted = 0;
+    size_t m_frameSubmitted = 0;
+    size_t m_droppedSubmissions = 0;
+    int m_windowWidth = 0;
+    int m_windowHeight = 0;
 
     Texture2D m_whitePixel = {0};
     bool m_whitePixelReady = false;

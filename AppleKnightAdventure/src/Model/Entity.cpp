@@ -1,5 +1,4 @@
 #include "Model/Entity.h"
-#include "Systems/Renderer.h"
 
 Entity::Entity()
     : m_id(0)
@@ -59,24 +58,4 @@ Rectangle Entity::GetBoundingBox() const {
     return {m_position.x, m_position.y, m_size.x * m_scale, m_size.y * m_scale};
 }
 
-void Entity::SetRenderTexture(Texture2D* tex, Rectangle src, Vector2 origin, bool flipX) {
-    m_renderTexture = tex;
-    m_renderSrc = src;
-    m_renderOrigin = origin;
-    m_renderFlipX = flipX;
-}
 
-Texture2D* Entity::GetRenderTexture() const {
-    return m_renderTexture;
-}
-
-void Entity::SubmitRender() {
-    if (!m_renderTexture) return;
-    if (m_renderSrc.width == 0) {
-        m_renderSrc = {0, 0, (float)m_renderTexture->width, (float)m_renderTexture->height};
-    }
-    Systems::Renderer::GetInstance().SubmitSprite(
-        m_renderTexture, m_renderSrc, m_position,
-        {m_scale, m_scale}, m_rotation, m_renderOrigin,
-        WHITE, Systems::Layer::World, 0.0f, m_renderFlipX, m_id);
-}

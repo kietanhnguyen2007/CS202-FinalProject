@@ -1,5 +1,4 @@
 #include "Model/Projectile.h"
-#include "Systems/Renderer.h"
 #include "Utils/Constants.h"
 
 Projectile::Projectile()
@@ -47,8 +46,7 @@ void Projectile::Update(float deltaTime) {
 }
 
 void Projectile::Render() {
-    SubmitRender();
-}
+    // Rendering handled by View
 
 ProjectileType Projectile::GetProjectileType() const { return m_projectileType; }
 int Projectile::GetDamage() const { return m_damage; }

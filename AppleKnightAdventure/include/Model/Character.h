@@ -21,7 +21,6 @@ public:
 
     void Update(float deltaTime) override;
     void Render() override;
-    void SubmitRender() override;
 
     int GetHealth() const;
     void SetHealth(int health);

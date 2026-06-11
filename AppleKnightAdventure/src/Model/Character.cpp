@@ -42,13 +42,7 @@ void Character::Update(float deltaTime) {
 }
 
 void Character::Render() {
-    SubmitRender();
-}
-
-void Character::SubmitRender() {
-    if (m_renderTexture) {
-        Entity::SubmitRender();
-    }
+    // Rendering handled by View::CharacterRenderer
 }
 
 int Character::GetHealth() const { return m_health; }

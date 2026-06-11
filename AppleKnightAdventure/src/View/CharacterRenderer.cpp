@@ -141,7 +141,7 @@ void CharacterRenderer::RenderAll() {
             entity->GetRotation(),
             animator.GetCurrentOrigin(),
             WHITE,
-            Systems::Layer::World,
+            View::Layer::World,
             0.0f,
             animator.GetFlipX(),
             id);

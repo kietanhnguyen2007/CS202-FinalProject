@@ -1,5 +1,5 @@
 #include "Systems/RenderSystem.h"
-#include "Systems/Renderer.h"
+#include "View/Renderer.h"
 #include "raylib.h"
 
 namespace Systems {
@@ -37,7 +37,7 @@ void RenderSystem::RenderFrame(const Camera2D& camera, std::vector<Entity*>& ent
     m_quadtree.Query(viewRect, m_visible);
     m_visibleCount = m_visible.size();
 
-    Renderer& r = Renderer::GetInstance();
+    View::Renderer& r = View::Renderer::GetInstance();
     BeginMode2D(camera);
     r.BeginFrame();
 

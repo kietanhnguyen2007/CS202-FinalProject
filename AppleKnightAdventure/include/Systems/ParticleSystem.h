@@ -2,7 +2,7 @@
 #define PARTICLESYSTEM_H
 
 #include "raylib.h"
-#include "Systems/Renderer.h"
+#include "View/Renderer.h"
 #include "ObjectPool.h"
 #include <vector>
 

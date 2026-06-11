@@ -21,8 +21,7 @@ void Chest::Update(float deltaTime) {
 }
 
 void Chest::Render() {
-    SubmitRender();
-}
+    // Rendering handled by View
 
 bool Chest::IsOpened() const { return m_opened; }
 
