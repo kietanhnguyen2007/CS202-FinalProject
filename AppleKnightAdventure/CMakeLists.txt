@@ -27,4 +27,8 @@ add_executable(AppleKnightAdventure ${SOURCES})
 target_include_directories(AppleKnightAdventure PRIVATE include)
 target_link_libraries(AppleKnightAdventure PRIVATE raylib nlohmann_json::nlohmann_json winmm ws2_32)
 
-
+add_custom_command(TARGET AppleKnightAdventure POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "${CMAKE_SOURCE_DIR}/raylib/lib/raylib.dll"
+    $<TARGET_FILE_DIR:AppleKnightAdventure>
+)
