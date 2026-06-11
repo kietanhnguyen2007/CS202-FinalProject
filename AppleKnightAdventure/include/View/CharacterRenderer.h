@@ -25,7 +25,8 @@ public:
     static CharacterRenderer& GetInstance();
 
     // Returns true on success, false if atlas fails to load
-    bool Register(const Entity* entity,
+    bool Register(uint32_t entityId,
+                  EntityType type,
                   const std::string& atlasPath,
                   const std::string& defaultClip = "idle");
     void Unregister(uint32_t entityId);
@@ -58,7 +59,7 @@ private:
     };
 
     std::unordered_map<uint32_t, Animations::Animator> m_animators;
-    std::unordered_map<uint32_t, const Entity*> m_entities;
+    std::unordered_map<uint32_t, EntityType> m_entityTypes;
     std::unordered_map<std::string, std::shared_ptr<Animations::TextureAtlas>> m_atlasCache;
     std::unordered_map<EntityType, ActionConfig> m_actionConfigs;
     std::unordered_map<uint32_t, int> m_lastActions;

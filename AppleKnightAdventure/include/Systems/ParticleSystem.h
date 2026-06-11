@@ -2,7 +2,6 @@
 #define PARTICLESYSTEM_H
 
 #include "raylib.h"
-#include "View/Renderer.h"
 #include "ObjectPool.h"
 #include <vector>
 
@@ -22,7 +21,6 @@ struct Particle {
     Particle();
 
     void Update(float deltaTime);
-    void Render() const;
     float GetProgress() const;
     bool IsExpired() const;
 };
@@ -38,6 +36,8 @@ public:
     ~ParticleSystem();
 
     void Update(float deltaTime);
+
+    const std::vector<Particle*>& GetActive() const { return m_active; }
 
     void Emit(Vector2 position, Vector2 velocity, Color color,
               float lifetime, float size);

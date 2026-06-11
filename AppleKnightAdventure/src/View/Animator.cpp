@@ -53,6 +53,7 @@ bool Animator::Play(const std::string& name, float speed, bool reset) {
             m_playhead = 0.0f;
             m_playDirection = 1;
         }
+        m_pingPongForward = true;
         // set starting frame/time according to playhead
         Seek(m_playhead);
     }
@@ -111,16 +112,36 @@ void Animator::Update(float dt) {
             }
         }
     } else if (m_playbackMode == PlaybackMode::PingPong) {
-        // For ping-pong, reflect around bounds using period normalization
-        float period = clipLength * 2.0f;
-        m_playhead = std::fmod(m_playhead, period);
-        if (m_playhead < 0.0f) m_playhead += period;
-        if (m_playhead >= clipLength) {
-            // mirrored phase
-            m_playDirection = -1;
-            m_playhead = period - m_playhead; // reflect to [0, clipLength]
+        if (m_current->loop) {
+            // Infinite ping-pong: wrap playhead with period 2*clipLength and reflect
+            float period = clipLength * 2.0f;
+            m_playhead = std::fmod(m_playhead, period);
+            if (m_playhead < 0.0f) m_playhead += period;
+            if (m_playhead >= clipLength) {
+                m_playDirection = -1;
+                m_playhead = period - m_playhead;
+            } else {
+                m_playDirection = 1;
+            }
         } else {
-            m_playDirection = 1;
+            // Single forward+reverse cycle, then stop
+            if (m_pingPongForward) {
+                m_playDirection = 1;
+                if (m_playhead >= clipLength) {
+                    m_pingPongForward = false;
+                    m_playDirection = -1;
+                    m_playhead = clipLength * 2.0f - m_playhead;
+                    if (m_playhead < 0.0f) m_playhead = 0.0f;
+                }
+            } else {
+                m_playDirection = -1;
+                if (m_playhead <= 0.0f) {
+                    m_playhead = 0.0f;
+                    m_playing = false;
+                    if (OnClipFinished) OnClipFinished(m_currentName);
+                    return;
+                }
+            }
         }
     }
 

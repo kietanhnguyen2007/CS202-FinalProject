@@ -1,5 +1,6 @@
 #include "View/GameView.h"
 #include "View/CharacterRenderer.h"
+#include "View/ParticleRenderer.h"
 #include "View/Renderer.h"
 
 namespace View {
@@ -12,6 +13,7 @@ GameView& GameView::GetInstance() {
 void GameView::Init() {
     // Initialize view components
     View::Renderer::GetInstance();
+    View::ParticleRenderer::GetInstance();
 }
 
 void GameView::Update(float dt) {
@@ -24,6 +26,7 @@ void GameView::Render() {
 
 void GameView::Shutdown() {
     View::CharacterRenderer::GetInstance().Clear();
+    View::ParticleRenderer::GetInstance().Shutdown();
 }
 
 } // namespace View

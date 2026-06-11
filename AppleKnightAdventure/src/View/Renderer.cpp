@@ -196,6 +196,10 @@ bool Renderer::SubmitSprite(Texture2D* texture,
                             bool flipX,
                             uint32_t entityId) {
     if (!m_initialized) return false;
+    if (!texture) {
+        s_pendingDropped.fetch_add(1, std::memory_order_relaxed);
+        return false;
+    }
 
     if (std::this_thread::get_id() == s_mainThreadId) {
         LayerBuffer& lb = s_layers[static_cast<int>(layer)];

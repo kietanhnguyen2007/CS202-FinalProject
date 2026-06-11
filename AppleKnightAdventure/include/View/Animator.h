@@ -104,6 +104,7 @@ private:
     PlaybackMode m_playbackMode = PlaybackMode::Normal;
     int m_playDirection = 1; // +1 forward, -1 backward (used for Reverse and PingPong)
     float m_playhead = 0.0f; // absolute time into the clip (seconds)
+    bool m_pingPongForward = true; // tracks forward/reverse phase in PingPong mode
 };
 
 } // namespace View::Animations
