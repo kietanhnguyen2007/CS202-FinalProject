@@ -9,7 +9,7 @@
 namespace Systems {
 
 TextureAtlas::~TextureAtlas() {
-    if (m_texture.id) UnloadTexture(m_texture);
+    if (m_texture.id != 0) ::UnloadTexture(m_texture);
 }
 
 std::unique_ptr<TextureAtlas> TextureAtlas::LoadFromJSON(const std::string& jsonPath) {

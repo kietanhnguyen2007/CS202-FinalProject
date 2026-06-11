@@ -111,3 +111,7 @@ Rectangle Character::GetAttackBoundingBox() const {
 Systems::Animator& Character::GetAnimator() {
     return m_animator;
 }
+
+const Systems::Animator& Character::GetAnimator() const {
+    return m_animator;
+}

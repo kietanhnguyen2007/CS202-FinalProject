@@ -27,6 +27,7 @@ public:
 
     // Animator access
     Systems::Animator& GetAnimator();
+    const Systems::Animator& GetAnimator() const;
 
     int GetHealth() const;
     void SetHealth(int health);

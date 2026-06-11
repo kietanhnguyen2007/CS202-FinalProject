@@ -14,8 +14,8 @@ SoundManager& SoundManager::GetInstance() {
 
 bool SoundManager::InitAudio() {
     if (!m_audioInitialized) {
-        InitAudioDevice();
-        m_audioInitialized = IsAudioDeviceReady();
+        ::InitAudioDevice();
+        m_audioInitialized = ::IsAudioDeviceReady();
     }
     return m_audioInitialized;
 }
@@ -23,7 +23,7 @@ bool SoundManager::InitAudio() {
 void SoundManager::CloseAudio() {
     UnloadAll();
     if (m_audioInitialized) {
-        CloseAudioDevice();
+        ::CloseAudioDevice();
         m_audioInitialized = false;
     }
 }
@@ -35,7 +35,7 @@ bool SoundManager::IsAudioInitialized() const {
 bool SoundManager::LoadSound(const std::string& name, const std::string& filepath) {
     if (!m_audioInitialized) return false;
     if (m_sounds.find(name) != m_sounds.end()) {
-        UnloadSound(m_sounds[name]);
+        ::UnloadSound(m_sounds[name]);
     }
     Sound sound = ::LoadSound(filepath.c_str());
     if (sound.frameCount > 0) {
@@ -48,9 +48,9 @@ bool SoundManager::LoadSound(const std::string& name, const std::string& filepat
 bool SoundManager::LoadMusic(const std::string& name, const std::string& filepath) {
     if (!m_audioInitialized) return false;
     if (m_music.find(name) != m_music.end()) {
-        UnloadMusicStream(m_music[name]);
+        ::UnloadMusicStream(m_music[name]);
     }
-    Music music = LoadMusicStream(filepath.c_str());
+    Music music = ::LoadMusicStream(filepath.c_str());
     if (music.frameCount > 0) {
         m_music[name] = music;
         return true;
@@ -62,7 +62,7 @@ void SoundManager::PlaySound(const std::string& name) {
     if (!m_audioInitialized) return;
     auto it = m_sounds.find(name);
     if (it != m_sounds.end()) {
-        SetSoundVolume(it->second, m_sfxVolume);
+        ::SetSoundVolume(it->second, m_sfxVolume);
         ::PlaySound(it->second);
     }
 }
@@ -101,28 +101,28 @@ void SoundManager::PlayMusic(const std::string& name) {
     auto it = m_music.find(name);
     if (it != m_music.end()) {
         ::SetMusicVolume(it->second, m_musicVolume);
-        PlayMusicStream(it->second);
+        ::PlayMusicStream(it->second);
     }
 }
 
 void SoundManager::StopMusic(const std::string& name) {
     auto it = m_music.find(name);
     if (it != m_music.end()) {
-        StopMusicStream(it->second);
+        ::StopMusicStream(it->second);
     }
 }
 
 void SoundManager::PauseMusic(const std::string& name) {
     auto it = m_music.find(name);
     if (it != m_music.end()) {
-        PauseMusicStream(it->second);
+        ::PauseMusicStream(it->second);
     }
 }
 
 void SoundManager::ResumeMusic(const std::string& name) {
     auto it = m_music.find(name);
     if (it != m_music.end()) {
-        ResumeMusicStream(it->second);
+        ::ResumeMusicStream(it->second);
     }
 }
 
@@ -136,7 +136,7 @@ void SoundManager::UpdateMusicStream(const std::string& name) {
 bool SoundManager::IsMusicPlaying(const std::string& name) const {
     auto it = m_music.find(name);
     if (it != m_music.end()) {
-        return IsMusicStreamPlaying(it->second);
+        return ::IsMusicStreamPlaying(it->second);
     }
     return false;
 }
@@ -144,7 +144,7 @@ bool SoundManager::IsMusicPlaying(const std::string& name) const {
 void SoundManager::SetSFXVolume(float volume) {
     m_sfxVolume = volume;
     for (auto& pair : m_sounds) {
-        SetSoundVolume(pair.second, volume);
+        ::SetSoundVolume(pair.second, volume);
     }
 }
 
@@ -165,11 +165,11 @@ float SoundManager::GetMusicVolume() const {
 
 void SoundManager::UnloadAll() {
     for (auto& pair : m_sounds) {
-        UnloadSound(pair.second);
+        ::UnloadSound(pair.second);
     }
     m_sounds.clear();
     for (auto& pair : m_music) {
-        UnloadMusicStream(pair.second);
+        ::UnloadMusicStream(pair.second);
     }
     m_music.clear();
 }
