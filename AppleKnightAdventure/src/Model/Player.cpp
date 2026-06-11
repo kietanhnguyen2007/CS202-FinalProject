@@ -1,4 +1,6 @@
 #include "Model/Player.h"
+#include "Systems/Renderer.h"
+#include "raylib.h"
 
 Player::Player()
     : Character(EntityType::Player)
@@ -25,6 +27,23 @@ void Player::Update(float deltaTime) {
 }
 
 void Player::Render() {
+    // Smoke test: if renderer initialized, submit a small procedural sprite.
+    static bool s_texInit = false;
+    static Texture2D s_texture = {0};
+    if (!s_texInit) {
+        Image img = GenImageChecked(32, 32, 8, 8, RED, BLUE);
+        s_texture = LoadTextureFromImage(img);
+        UnloadImage(img);
+        s_texInit = true;
+    }
+
+    Systems::Renderer& r = Systems::Renderer::GetInstance();
+    Rectangle src = {0,0,(float)s_texture.width,(float)s_texture.height};
+    if (r.IsInitialized()) {
+        r.SubmitSprite(&s_texture, src, m_position, {1.0f,1.0f}, 0.0f, {(float)s_texture.width*0.5f,(float)s_texture.height*0.5f}, WHITE, Systems::Layer::World, 0.0f, false, 0);
+    } else {
+        DrawTexture(s_texture, (int)(m_position.x - s_texture.width/2), (int)(m_position.y - s_texture.height/2), WHITE);
+    }
 }
 
 Inventory& Player::GetInventory() { return m_inventory; }
