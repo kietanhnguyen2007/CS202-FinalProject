@@ -23,9 +23,11 @@ set_target_properties(raylib PROPERTIES
 file(GLOB_RECURSE SOURCES src/*.cpp include/*.h)
 
 add_executable(AppleKnightAdventure ${SOURCES})
+set_target_properties(AppleKnightAdventure PROPERTIES WIN32_EXECUTABLE FALSE)
 
 target_include_directories(AppleKnightAdventure PRIVATE include)
 target_link_libraries(AppleKnightAdventure PRIVATE raylib nlohmann_json::nlohmann_json winmm ws2_32)
+target_link_options(AppleKnightAdventure PRIVATE -mconsole)
 
 add_custom_command(TARGET AppleKnightAdventure POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
