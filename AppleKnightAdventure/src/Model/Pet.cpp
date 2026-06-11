@@ -30,6 +30,7 @@ void Pet::Update(float deltaTime) {
 }
 
 void Pet::Render() {
+    Character::Render();
 }
 
 PetType Pet::GetPetType() const { return m_petType; }

@@ -24,6 +24,7 @@ public:
 
     void Update(float deltaTime) override;
     void Render() override;
+    void SubmitRender() override;
 
     // Animator access
     Systems::Animator& GetAnimator();

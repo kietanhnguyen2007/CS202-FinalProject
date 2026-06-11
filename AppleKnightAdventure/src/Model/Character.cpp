@@ -44,6 +44,26 @@ void Character::Update(float deltaTime) {
 }
 
 void Character::Render() {
+    SubmitRender();
+}
+
+void Character::SubmitRender() {
+    if (m_animator.HasTexture()) {
+        Systems::Renderer::GetInstance().SubmitSprite(
+            m_animator.GetTexture(),
+            m_animator.GetCurrentSrcRect(),
+            m_position,
+            {m_scale, m_scale},
+            m_rotation,
+            m_animator.GetCurrentOrigin(),
+            WHITE,
+            Systems::Layer::World,
+            0.0f,
+            m_animator.GetFlipX(),
+            m_id);
+    } else if (m_renderTexture) {
+        Entity::SubmitRender();
+    }
 }
 
 int Character::GetHealth() const { return m_health; }
