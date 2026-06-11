@@ -1,4 +1,5 @@
 #include "Model/Player.h"
+#include "raylib.h"
 
 Player::Player()
     : Character(EntityType::Player)
@@ -25,6 +26,7 @@ void Player::Update(float deltaTime) {
 }
 
 void Player::Render() {
+    Character::Render();
 }
 
 Inventory& Player::GetInventory() { return m_inventory; }

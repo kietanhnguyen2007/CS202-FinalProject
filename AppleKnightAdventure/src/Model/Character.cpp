@@ -39,11 +39,16 @@ void Character::Update(float deltaTime) {
     m_position.x += m_velocity.x * deltaTime;
     m_position.y += m_velocity.y * deltaTime;
     if (m_attackTimer > 0) m_attackTimer -= deltaTime;
-    // update animator
-    m_animator.Update(deltaTime);
 }
 
 void Character::Render() {
+    SubmitRender();
+}
+
+void Character::SubmitRender() {
+    if (m_renderTexture) {
+        Entity::SubmitRender();
+    }
 }
 
 int Character::GetHealth() const { return m_health; }
@@ -108,10 +113,4 @@ Rectangle Character::GetAttackBoundingBox() const {
     }
 }
 
-Systems::Animator& Character::GetAnimator() {
-    return m_animator;
-}
 
-const Systems::Animator& Character::GetAnimator() const {
-    return m_animator;
-}

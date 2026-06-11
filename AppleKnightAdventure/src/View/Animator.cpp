@@ -1,4 +1,4 @@
-#include "Systems/AnimationSystem.h"
+#include "View/Animator.h"
 #include <cmath>
 #include <algorithm>
 
@@ -7,7 +7,7 @@
 // a frame boundary (in seconds).
 static constexpr float PLAYHEAD_EPS = 1e-5f;
 
-namespace Systems {
+namespace View::Animations {
 
 Animator::Animator() = default;
 
@@ -84,7 +84,6 @@ void Animator::Update(float dt) {
     // In PingPong mode we use m_playDirection to track current movement
     if (m_playbackMode == PlaybackMode::PingPong) dir = m_playDirection;
 
-    float prevPlayhead = m_playhead;
     m_playhead += dt * m_speed * (float)dir;
 
     // compute clip length
@@ -241,4 +240,4 @@ Animator::PlaybackMode Animator::GetPlaybackMode() const {
     return m_playbackMode;
 }
 
-} // namespace Systems
+} // namespace View::Animations

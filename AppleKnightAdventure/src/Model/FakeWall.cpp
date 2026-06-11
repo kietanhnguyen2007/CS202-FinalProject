@@ -18,6 +18,7 @@ void FakeWall::Update(float deltaTime) {
 }
 
 void FakeWall::Render() {
+    SubmitRender();
 }
 
 bool FakeWall::IsDestroyed() const { return m_destroyed; }

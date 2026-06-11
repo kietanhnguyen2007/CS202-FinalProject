@@ -2,6 +2,7 @@
 #define PARTICLESYSTEM_H
 
 #include "raylib.h"
+#include "Systems/Renderer.h"
 #include "ObjectPool.h"
 #include <vector>
 
@@ -34,6 +35,7 @@ protected:
 public:
     ParticleSystem();
     explicit ParticleSystem(size_t initialSize);
+    ~ParticleSystem();
 
     void Update(float deltaTime);
     void Render() const;
@@ -49,6 +51,8 @@ public:
 
     void Clear();
     size_t GetActiveCount() const;
+
+    static void Shutdown();
 };
 
 #endif

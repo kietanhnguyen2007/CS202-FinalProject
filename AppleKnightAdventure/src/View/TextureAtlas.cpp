@@ -1,4 +1,4 @@
-#include "Systems/TextureAtlas.h"
+#include "View/TextureAtlas.h"
 #include "Utils/Constants.h"
 #include <fstream>
 #include <sstream>
@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <nlohmann/json.hpp>
 
-namespace Systems {
+namespace View::Animations {
 
 TextureAtlas::~TextureAtlas() {
     if (m_texture.id != 0) ::UnloadTexture(m_texture);
@@ -184,4 +184,13 @@ std::shared_ptr<AnimationClip> TextureAtlas::GetClip(const std::string& clipName
     return it->second;
 }
 
-} // namespace Systems
+std::vector<std::string> TextureAtlas::GetClipNames() const {
+    std::vector<std::string> names;
+    names.reserve(m_clips.size());
+    for (const auto& pair : m_clips) {
+        names.push_back(pair.first);
+    }
+    return names;
+}
+
+} // namespace View::Animations

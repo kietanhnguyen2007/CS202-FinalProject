@@ -5,9 +5,9 @@
 #include <vector>
 #include <memory>
 #include "raylib.h"
-#include "AnimationSystem.h"
+#include "View/Animator.h"
 
-namespace Systems {
+namespace View::Animations {
 
 // Simple texture atlas that loads JSON metadata and a texture
 class TextureAtlas {
@@ -34,6 +34,7 @@ public:
     // If JSON contains clips, return clip
     bool HasClip(const std::string& clipName) const;
     std::shared_ptr<AnimationClip> GetClip(const std::string& clipName) const;
+    std::vector<std::string> GetClipNames() const;
 
 private:
     Texture2D m_texture{};
@@ -42,4 +43,4 @@ private:
     std::unordered_map<std::string, std::shared_ptr<AnimationClip>> m_clips;
 };
 
-} // namespace Systems
+} // namespace View::Animations

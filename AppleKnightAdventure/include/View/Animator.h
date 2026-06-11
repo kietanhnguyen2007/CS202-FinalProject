@@ -7,7 +7,7 @@
 #include <memory>
 #include "raylib.h"
 
-namespace Systems {
+namespace View::Animations {
 
 struct AnimationFrame {
     Rectangle src;
@@ -106,4 +106,4 @@ private:
     float m_playhead = 0.0f; // absolute time into the clip (seconds)
 };
 
-} // namespace Systems
+} // namespace View::Animations
