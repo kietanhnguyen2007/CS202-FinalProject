@@ -22,6 +22,20 @@ Player::Player(Vector2 position)
 
 void Player::Update(float deltaTime) {
     Character::Update(deltaTime);
+
+    if (!IsAlive()) {
+        m_state = State::Dead;
+    } else if (m_attackTimer > 0.0f) {
+        m_state = State::Attack;
+    } else if (m_velocity.y < 0.0f) {
+        m_state = State::Jump;
+    } else if (m_velocity.y > 0.0f) {
+        m_state = State::Fall;
+    } else if (m_velocity.x != 0.0f || m_velocity.y != 0.0f) {
+        m_state = State::Walk;
+    } else {
+        m_state = State::Idle;
+    }
 }
 
 void Player::Render() {

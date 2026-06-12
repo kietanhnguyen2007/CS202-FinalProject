@@ -6,6 +6,18 @@
 #include "Utils/Constants.h"
 
 class Character : public Entity {
+public:
+    enum class State {
+        Idle,
+        Walk,
+        Jump,
+        Fall,
+        Attack,
+        Hurt,
+        Dead,
+        Skill
+    };
+
 protected:
     int m_health;
     int m_maxHealth;
@@ -13,6 +25,7 @@ protected:
     Direction m_direction;
     float m_attackCooldown;
     float m_attackTimer;
+    State m_state;
 
 public:
     Character();
@@ -35,6 +48,9 @@ public:
 
     Direction GetDirection() const;
     void SetDirection(Direction direction);
+
+    State GetState() const;
+    void SetState(State state);
 
     void Move(Vector2 dir, float deltaTime);
 

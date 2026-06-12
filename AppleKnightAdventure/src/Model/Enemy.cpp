@@ -52,6 +52,25 @@ Enemy::Enemy(Vector2 position, EnemyType type)
 
 void Enemy::Update(float deltaTime) {
     Character::Update(deltaTime);
+
+    switch (m_state) {
+        case EnemyState::Idle:
+        case EnemyState::Patrol:
+            Character::SetState(State::Idle);
+            break;
+        case EnemyState::Chase:
+            Character::SetState(State::Walk);
+            break;
+        case EnemyState::Attack:
+            Character::SetState(State::Attack);
+            break;
+        case EnemyState::Hurt:
+            Character::SetState(State::Hurt);
+            break;
+        case EnemyState::Dead:
+            Character::SetState(State::Dead);
+            break;
+    }
 }
 
 void Enemy::Render() {
