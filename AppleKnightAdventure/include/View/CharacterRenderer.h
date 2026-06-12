@@ -19,6 +19,7 @@ constexpr int ACTION_HURT   = 3;
 constexpr int ACTION_DEAD   = 4;
 constexpr int ACTION_JUMP   = 5;
 constexpr int ACTION_SKILL  = 6;
+constexpr int ACTION_FALL   = 7;
 
 class CharacterRenderer {
 public:

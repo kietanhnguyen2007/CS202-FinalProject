@@ -1,4 +1,5 @@
 #include "View/EntityRenderer.h"
+#include "View/Renderer.h"
 
 namespace View {
 
@@ -16,7 +17,9 @@ void EntityRenderer::Register(const Entity* entity, Texture2D* tex,
         src = {0, 0, (float)tex->width, (float)tex->height};
     }
 
-    m_entities[id] = {tex, src, origin, flipX};
+    // Lưu ý: Cần thêm trường 'const Entity* entity' vào cấu trúc struct/tuple của m_entities trong file header
+    // Ví dụ: struct EntityRenderData { const Entity* entity; Texture2D* texture; Rectangle src; Vector2 origin; bool flipX; };
+    m_entities[id] = {entity, tex, src, origin, flipX};
 }
 
 void EntityRenderer::Unregister(uint32_t entityId) {
@@ -29,9 +32,21 @@ void EntityRenderer::Clear() {
 
 void EntityRenderer::RenderAll() {
     for (const auto& [id, data] : m_entities) {
-        // Entity lookup is optional; position/scale/rotation are stored per-register
-        // For a full implementation, we'd need a map of entity pointers too.
-        // Currently this is a stub for future BE integration.
+        const Entity* entity = data.entity;
+        if (!entity || !entity->IsActive() || !data.texture) continue;
+
+        View::Renderer::GetInstance().SubmitSprite(
+            data.texture,
+            data.src,
+            entity->GetPosition(),
+            {entity->GetScale(), entity->GetScale()},
+            entity->GetRotation(),
+            data.origin,
+            WHITE,             // Màu tint mặc định
+            View::Layer::World, // Hoặc Backgound/Foreground tùy loại Entity
+            0.0f,
+            data.flipX,
+            id);
     }
 }
 

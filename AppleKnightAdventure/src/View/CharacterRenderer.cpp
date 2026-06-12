@@ -82,7 +82,12 @@ void CharacterRenderer::SetInferFunction(EntityType type,
 int CharacterRenderer::DefaultInferAction(const Entity* entity) {
     if (!entity || !entity->IsActive()) return ACTION_DEAD;
     auto vel = entity->GetVelocity();
-    if (std::abs(vel.x) > 0.1f || std::abs(vel.y) > 0.1f) return ACTION_WALK;
+    
+    // Trục Y trong 2D thông thường: hướng lên là âm, hướng xuống là dương
+    if (vel.y < -0.1f) return ACTION_JUMP;   // Giả sử có ACTION_JUMP
+    if (vel.y > 0.1f) return ACTION_FALL;    // Giả sử có ACTION_FALL
+    
+    if (std::abs(vel.x) > 0.1f) return ACTION_WALK;
     return ACTION_IDLE;
 }
 

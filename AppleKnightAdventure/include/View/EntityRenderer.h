@@ -24,6 +24,7 @@ private:
     ~EntityRenderer() = default;
 
     struct RenderData {
+        const Entity* entity;
         Texture2D* texture;
         Rectangle src;
         Vector2 origin;
