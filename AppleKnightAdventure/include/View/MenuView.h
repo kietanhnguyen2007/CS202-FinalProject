@@ -17,7 +17,7 @@ class MenuView {
 public:
     static MenuView& GetInstance();
 
-    void Init();
+    bool Init();
     bool LoadResources(const std::string& atlasJsonPath);
     void Shutdown();
 

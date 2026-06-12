@@ -19,6 +19,12 @@ bool CharacterRenderer::Register(const Entity* entity,
     }
     uint32_t id = static_cast<uint32_t>(entity->GetId());
 
+    // Check for double-register (warn and skip if same entity already registered)
+    if (m_entities.find(id) != m_entities.end()) {
+        // Already registered — this is safe to ignore (re-registration with same id)
+        return true;
+    }
+
     // Load or retrieve atlas from cache
     auto atlasIt = m_atlasCache.find(atlasPath);
     if (atlasIt == m_atlasCache.end()) {
@@ -77,9 +83,16 @@ bool CharacterRenderer::Register(const Entity* entity,
 }
 
 void CharacterRenderer::Unregister(uint32_t entityId) {
+    // Fire callback before removing (so callback can read entity data if needed)
+    auto cbIt = m_removeCallbacks.find(entityId);
+    if (cbIt != m_removeCallbacks.end()) {
+        cbIt->second(entityId);
+        m_removeCallbacks.erase(cbIt);
+    }
     m_animators.erase(entityId);
     m_entities.erase(entityId);
     m_lastActions.erase(entityId);
+    m_bossPhases.erase(entityId);
 }
 
 void CharacterRenderer::Clear() {
@@ -89,6 +102,19 @@ void CharacterRenderer::Clear() {
     m_actionConfigs.clear();
     m_lastActions.clear();
     m_bossPhases.clear();
+    m_removeCallbacks.clear();
+}
+
+bool CharacterRenderer::IsRegistered(uint32_t entityId) const {
+    return m_entities.find(entityId) != m_entities.end();
+}
+
+void CharacterRenderer::SetOnEntityRemovedCallback(uint32_t entityId, std::function<void(uint32_t)> cb) {
+    if (cb) m_removeCallbacks[entityId] = std::move(cb);
+}
+
+void CharacterRenderer::ClearOnEntityRemovedCallback(uint32_t entityId) {
+    m_removeCallbacks.erase(entityId);
 }
 
 void CharacterRenderer::SetActionClipMap(EntityType type,

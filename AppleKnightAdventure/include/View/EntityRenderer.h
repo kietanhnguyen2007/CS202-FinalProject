@@ -3,6 +3,7 @@
 #include "View/Renderer.h"
 #include "Model/Entity.h"
 #include <unordered_map>
+#include <functional>
 
 namespace View {
 
@@ -32,6 +33,11 @@ public:
         return it->second.entity;
     }
 
+    // Memory safety
+    bool IsRegistered(uint32_t entityId) const;
+    void SetOnEntityRemovedCallback(uint32_t entityId, std::function<void(uint32_t)> cb);
+    void ClearOnEntityRemovedCallback(uint32_t entityId);
+
 private:
     EntityRenderer() = default;
     ~EntityRenderer() = default;
@@ -46,6 +52,7 @@ private:
     };
 
     std::unordered_map<uint32_t, RenderData> m_entities;
+    std::unordered_map<uint32_t, std::function<void(uint32_t)>> m_removeCallbacks;
 };
 
 } // namespace View

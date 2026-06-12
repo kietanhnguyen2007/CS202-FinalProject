@@ -16,7 +16,7 @@ class GameView {
 public:
     static GameView& GetInstance();
 
-    void Init();
+    bool Init();
     void Update(float dt);
 
     // Render world with optional dual-world shader

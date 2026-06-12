@@ -15,38 +15,54 @@ Tài liệu này dành cho team **Controller**, **System**, **Model** — hướ
 
 ## 2. Initialization Flow
 
-Controller phải gọi theo thứ tự này **một lần** khi game khởi động (sau `InitWindow()`):
+Controller phải gọi theo thứ tự này **một lần** khi game khởi động (sau `InitWindow()`).
+
+**Quan trọng**: Tất cả hàm `Init()` đều trả về `bool`. Controller **bắt buộc kiểm tra** và gọi `ShowErrorDialog` nếu thất bại.
 
 ```cpp
 // 1. Core renderer
-View::Renderer::GetInstance().Init();
+if (!View::Renderer::GetInstance().Init()) {
+    // Critical failure — cannot render anything
+    return;
+}
 
 // 2. Game view (tilesets, shaders, particles)
-View::GameView::GetInstance().Init();
+if (!View::GameView::GetInstance().Init()) {
+    View::MenuView::GetInstance().ShowErrorDialog("Failed to init GameView");
+    return;
+}
 
 // 3. UI components
-View::HUDView::GetInstance().Init();
+if (!View::HUDView::GetInstance().Init()) {
+    View::MenuView::GetInstance().ShowErrorDialog("Failed to init HUD");
+    return;
+}
 View::HUDView::GetInstance().LoadResources("assets/ui/ui_atlas.json");
 
-View::MenuView::GetInstance().Init();
+if (!View::MenuView::GetInstance().Init()) {
+    // Fallback: game can still run without menu
+}
 View::MenuView::GetInstance().LoadResources("assets/ui/ui_atlas.json");
 
-View::InventoryView::GetInstance().Init();
+if (!View::InventoryView::GetInstance().Init()) { /* non-critical */ }
 View::InventoryView::GetInstance().LoadResources("assets/ui/ui_atlas.json");
 
-View::SkillBarView::GetInstance().Init();
+if (!View::SkillBarView::GetInstance().Init()) { /* non-critical */ }
 View::SkillBarView::GetInstance().LoadResources("assets/ui/ui_atlas.json");
 
-View::ResultView::GetInstance().Init();
+if (!View::ResultView::GetInstance().Init()) { /* non-critical */ }
+
+View::UIStateManager::GetInstance().Init();
+
 View::EnemyStatusRenderer::GetInstance().LoadResources("assets/ui/ui_atlas.json");
 
 // 4. Load tilesheets (gọi sau InitWindow, trước game loop):
-// GameView::GetInstance().LoadTileset(0, "assets/tilesets/ground.png", 8);
-// GameView::GetInstance().LoadTileset(1, "assets/tilesets/wall.png", 4);
+// if (!GameView::GetInstance().LoadTileset(0, "assets/tilesets/ground.png", 8)) { error }
 ```
 
 **Shutdown** (khi thoát game):
 ```cpp
+View::UIStateManager::GetInstance().Shutdown();
 View::GameView::GetInstance().Shutdown();
 View::ResultView::GetInstance().Shutdown();
 View::InventoryView::GetInstance().Shutdown();
@@ -69,14 +85,15 @@ GameView::GetInstance().Update(dt);
 // GameView::GetInstance().RenderTilemap(dualWorldPtr);
 GameView::GetInstance().Render(camera, particleSystem.GetActive(), dt);
 
-// B. UI pass (screen-space overlays)
-HUDView::GetInstance().Render();          // HP bar, coins
-SkillBarView::GetInstance().Render();     // skill icons + cooldown
-InteractPrompt::GetInstance().Render();   // "Press E to open" (nếu visible)
-MenuView::GetInstance().Render();         // pause overlay / error dialog (nếu visible)
-InventoryView::GetInstance().Render();    // inventory grid (nếu open)
-ResultView::GetInstance().Render();       // level result / game over (nếu visible)
+// B. UI pass — single call, UIStateManager handles order + dimming
+UIStateManager::GetInstance().RenderAll();
 ```
+
+`UIStateManager::RenderAll()` tự động:
+- Render HUD → SkillBar → InteractPrompt (luôn visible nếu active)
+- Render các modal layer (Menu → Inventory → Result) theo stack order
+- Tự động vẽ dim overlay cho layer dưới top layer
+- Controller **không cần** gọi SetVisible/Hide thủ công cho từng component
 
 ---
 
@@ -231,6 +248,48 @@ ResultView::GetInstance().Render();       // level result / game over (nếu vis
 
 ---
 
+### 4.14 UIStateManager
+
+| API | Khi nào gọi | Ghi chú |
+|-----|-------------|---------|
+| `Init()` / `Shutdown()` | Startup / Shutdown | Trả về bool |
+| `Push(layer)` | Khi mở modal UI (Inventory, Menu, Result) | Push lên stack, tự động dim layer dưới |
+| `Pop()` | Khi đóng modal UI | Pop top layer |
+| `Clear()` | Khi chuyển scene | Pop tất cả |
+| `GetTopLayer()` | Bất kỳ | Layer nào đang nhận input |
+| `IsOverlayActive()` | Bất kỳ | Có modal nào đang mở không |
+| `RenderAll()` | Mỗi frame (UI pass) | Render tất cả layer với dimming |
+
+**UILayer enum** (thứ tự render từ dưới lên):
+```
+HUD(0) → SkillBar(1) → InteractPrompt(2) → Menu(3) → Inventory(4) → Result(5)
+```
+
+**Modal layers** (cần Push/Pop): `Menu`, `Inventory`, `Result`
+**Non-modal layers** (luôn render khi visible): `HUD`, `SkillBar`, `InteractPrompt`
+
+Controller flow với UIStateManager:
+```cpp
+// Mở Inventory (HUD tự động dim)
+UIStateManager::GetInstance().Push(UILayer::Inventory);
+InventoryView::GetInstance().SetInventorySnapshot(player.GetInventory());
+InventoryView::GetInstance().SetSelectionIndex(0);
+
+// Đóng Inventory
+UIStateManager::GetInstance().Pop();
+
+// Pause game
+UIStateManager::GetInstance().Push(UILayer::Menu);
+MenuView::GetInstance().ShowPauseOverlay();
+
+// Resume
+UIStateManager::GetInstance().Pop();
+
+// Level complete
+UIStateManager::GetInstance().Push(UILayer::Result);
+ResultView::GetInstance().Show(snapshot);
+```
+
 ## 5. Event Flow Diagrams
 
 ### 5.1 Elemental Reaction
@@ -315,7 +374,7 @@ Controller: player gần Checkpoint + nhấn E
 
 ---
 
-## 7. Contract: Khi Backend Teams Thêm Feature Mới
+## 7. Contract: Khi Backend Teams Thêm Feature Mới(Tạo file md hoặc team view phải đọc lại)
 
 ### 7.1 Model team thêm:
 
@@ -325,6 +384,27 @@ Controller: player gần Checkpoint + nhấn E
 | **Field mới trên Entity** | Nếu cần hiển thị → thêm getter + render code trong View component tương ứng |
 | **Enum value mới** (ItemType, SkillType, v.v.) | Nếu có visual khác → thêm sprite/color mapping |
 | **Class mới kế thừa Entity** | Nếu cần render riêng → `CharacterRenderer::Register` hoặc `EntityRenderer::Register` |
+
+**⚠️ Memory Safety — BẮT BUỘC**: `CharacterRenderer::Register` và `EntityRenderer::Register` lưu raw `const Entity*`. Nếu Entity bị destroy mà không gọi `Unregister`, View có dangling pointer → crash.
+
+| Vấn đề | Giải pháp (Model team) |
+|--------|----------------------|
+| Entity destroy không báo View | Model team thêm `std::function<void(int)> m_onDestroyed` trong `Entity.h`. Destructor của Entity gọi callback này. Controller gọi `CharacterRenderer::Unregister(id)` trong callback. |
+| Quên Unregister thủ công | Model team implement lifecycle hook trong GameState: mỗi khi `RemoveEntity(id)` hoặc entity die, tự động gọi `EntityRenderer::Unregister(id)` và `CharacterRenderer::Unregister(id)`. |
+
+**View team đã hỗ trợ**:
+- `CharacterRenderer::SetOnEntityRemovedCallback(entityId, cb)` — đăng ký callback được gọi khi Unregister
+- `EntityRenderer::SetOnEntityRemovedCallback(entityId, cb)` — tương tự
+- `CharacterRenderer::IsRegistered(entityId)` — kiểm tra entity đã register chưa
+
+**Controller team nên**:
+```cpp
+// Khi entity spawn:
+CharacterRenderer::GetInstance().Register(entity, "assets/char.json");
+// Đăng ký callback cleanup (nếu Model chưa có auto-cleanup):
+// Khi entity destroy TRONG Controller:
+CharacterRenderer::GetInstance().Unregister(entityId);
+```
 
 ### 7.2 Systems team thêm:
 
@@ -386,7 +466,9 @@ View mong đợi asset paths và frame names theo convention:
 
 ## 9. Notes & Cảnh báo
 
-- `CharacterRenderer::Register` lưu raw pointer. **Bắt buộc** gọi `Unregister(entityId)` trước khi Entity bị destroy.
+- **Init() return bool**: Tất cả `Init()` đều trả về `bool`. Controller **phải kiểm tra** — nếu false, gọi `MenuView::ShowErrorDialog(msg)` thay vì tiếp tục khởi tạo.
+- **UIStateManager**: Controller nên dùng `UIStateManager::Push/Pop` thay vì gọi SetVisible/Open/Close thủ công. Tránh spaghetti khi nhiều lớp UI chồng lên nhau.
+- **Memory Safety**: `CharacterRenderer::Register` và `EntityRenderer::Register` lưu raw pointer. Model team chưa có auto-cleanup → Controller **bắt buộc** gọi `Unregister(entityId)` trước khi Entity destroy. View team đã thêm `SetOnEntityRemovedCallback` và `IsRegistered` để hỗ trợ defensive programming.
 - `Renderer::SubmitSprite` trả về `bool`. Nếu false (capacity exceeded), submission bị drop.
 - `SoundManager` trong View chỉ dùng cho UI feedback. Gameplay sounds (attack, coin, damage) do Controller gọi.
 - `InteractPrompt` chỉ render text + backdrop. Controller quyết định khi nào show/hide dựa trên Model state.

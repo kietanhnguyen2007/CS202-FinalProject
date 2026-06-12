@@ -9,8 +9,9 @@ MenuView& MenuView::GetInstance() {
     return inst;
 }
 
-void MenuView::Init() {
+bool MenuView::Init() {
     m_loaded = true;
+    return true;
 }
 
 bool MenuView::LoadResources(const std::string& atlasJsonPath) {

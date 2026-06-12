@@ -17,7 +17,7 @@ class ResultView {
 public:
     static ResultView& GetInstance();
 
-    void Init();
+    bool Init();
     bool LoadResources(const std::string& atlasJsonPath);
     void Shutdown();
 

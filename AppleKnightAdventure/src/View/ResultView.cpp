@@ -9,7 +9,8 @@ ResultView& ResultView::GetInstance() {
     return inst;
 }
 
-void ResultView::Init() {
+bool ResultView::Init() {
+    return true;
 }
 
 bool ResultView::LoadResources(const std::string& atlasJsonPath) {

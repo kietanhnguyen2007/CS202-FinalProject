@@ -13,8 +13,9 @@ InventoryView& InventoryView::GetInstance() {
     return inst;
 }
 
-void InventoryView::Init() {
+bool InventoryView::Init() {
     m_loaded = true;
+    return true;
 }
 
 bool InventoryView::LoadResources(const std::string& atlasJsonPath) {

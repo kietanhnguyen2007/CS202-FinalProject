@@ -1,5 +1,6 @@
 #include "View/EntityRenderer.h"
 #include "View/Renderer.h"
+#include <functional>
 
 namespace View {
 
@@ -23,11 +24,29 @@ void EntityRenderer::Register(const Entity* entity, Texture2D* tex,
 }
 
 void EntityRenderer::Unregister(uint32_t entityId) {
+    auto cbIt = m_removeCallbacks.find(entityId);
+    if (cbIt != m_removeCallbacks.end()) {
+        cbIt->second(entityId);
+        m_removeCallbacks.erase(cbIt);
+    }
     m_entities.erase(entityId);
 }
 
 void EntityRenderer::Clear() {
     m_entities.clear();
+    m_removeCallbacks.clear();
+}
+
+bool EntityRenderer::IsRegistered(uint32_t entityId) const {
+    return m_entities.find(entityId) != m_entities.end();
+}
+
+void EntityRenderer::SetOnEntityRemovedCallback(uint32_t entityId, std::function<void(uint32_t)> cb) {
+    if (cb) m_removeCallbacks[entityId] = std::move(cb);
+}
+
+void EntityRenderer::ClearOnEntityRemovedCallback(uint32_t entityId) {
+    m_removeCallbacks.erase(entityId);
 }
 
 void EntityRenderer::RenderAll() {

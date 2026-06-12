@@ -55,6 +55,15 @@ public:
     void SetBossPhase(uint32_t entityId, BossPhase phase);
     void ClearBossPhase(uint32_t entityId);
 
+    // Memory safety:
+    // Check if entityId is currently registered
+    bool IsRegistered(uint32_t entityId) const;
+    // Register a callback invoked when this entity is removed via Unregister.
+    // NOTE: this is NOT auto-triggered by Model — Controller/Model must call Unregister.
+    // For auto-cleanup, Model team should hook Unregister into entity lifecycle (see VIEW_API_GUIDE.md §7).
+    void SetOnEntityRemovedCallback(uint32_t entityId, std::function<void(uint32_t)> cb);
+    void ClearOnEntityRemovedCallback(uint32_t entityId);
+
 private:
     CharacterRenderer() = default;
     ~CharacterRenderer() = default;
@@ -79,6 +88,9 @@ private:
 
     // Boss phase visual overrides
     std::unordered_map<uint32_t, BossPhase> m_bossPhases;
+
+    // Entity lifecycle callbacks (Controller/Model hooks Unregister into these)
+    std::unordered_map<uint32_t, std::function<void(uint32_t)>> m_removeCallbacks;
 };
 
 } // namespace View

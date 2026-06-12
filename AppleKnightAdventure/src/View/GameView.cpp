@@ -20,10 +20,13 @@ GameView& GameView::GetInstance() {
     return instance;
 }
 
-void GameView::Init() {
-    View::Renderer::GetInstance();
+bool GameView::Init() {
+    if (!View::Renderer::GetInstance().IsInitialized()) {
+        return false;
+    }
     View::ParticleRenderer::GetInstance();
     LoadShadowShader();
+    return true;
 }
 
 void GameView::LoadShadowShader() {

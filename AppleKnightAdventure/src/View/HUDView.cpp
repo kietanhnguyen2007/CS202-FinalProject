@@ -11,8 +11,9 @@ HUDView& HUDView::GetInstance() {
     return inst;
 }
 
-void HUDView::Init() {
+bool HUDView::Init() {
     m_loaded = true;
+    return true;
 }
 
 bool HUDView::LoadResources(const std::string& atlasJsonPath) {

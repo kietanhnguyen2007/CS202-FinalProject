@@ -22,7 +22,7 @@ class SkillBarView {
 public:
     static SkillBarView& GetInstance();
 
-    void Init();
+    bool Init();
     bool LoadResources(const std::string& atlasJsonPath);
     void Shutdown();
 

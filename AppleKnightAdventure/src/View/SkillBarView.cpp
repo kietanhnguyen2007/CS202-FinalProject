@@ -11,15 +11,15 @@ SkillBarView& SkillBarView::GetInstance() {
     return inst;
 }
 
-void SkillBarView::Init() {
+bool SkillBarView::Init() {
     m_loaded = true;
-    // Default 4 skills
     m_skills = {
         { SkillType::Fireball, 2.0f, 0.0f },
         { SkillType::Heal,     5.0f, 0.0f },
         { SkillType::Dash,     1.5f, 0.0f },
         { SkillType::Shield,   4.0f, 0.0f },
     };
+    return true;
 }
 
 bool SkillBarView::LoadResources(const std::string& atlasJsonPath) {
