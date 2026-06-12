@@ -120,8 +120,5 @@ void InventoryView::DetachObservable() {
         m_attachedObservable->OnItemAddedCallback = nullptr;
         m_attachedObservable->OnItemRemovedCallback = nullptr;
         m_attachedObservable->OnClearedCallback = nullptr;
-        m_attachedObservable = nullptr;
     }
 }
-
-void InventoryView::RegisterOnRequestUseItem(std::function<void(int)> cb) { m_onRequestUse = cb; }
