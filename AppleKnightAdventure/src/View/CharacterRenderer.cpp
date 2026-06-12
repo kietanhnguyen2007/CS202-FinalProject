@@ -2,6 +2,7 @@
 #include "View/ElementalFX.h"
 #include <iostream>
 #include <cmath>
+#include <cassert>
 
 namespace View {
 
@@ -33,7 +34,9 @@ bool CharacterRenderer::Register(const Entity* entity,
         std::cerr << "[CharacterRenderer] Register: null entity\n";
         return false;
     }
-    uint32_t id = static_cast<uint32_t>(entity->GetId());
+    int rawId = entity->GetId();
+    assert(rawId >= 0);
+    uint32_t id = static_cast<uint32_t>(rawId);
 
     // Check for double-register (warn and skip if same entity already registered)
     if (m_entities.find(id) != m_entities.end()) {
@@ -96,7 +99,6 @@ void CharacterRenderer::Unregister(uint32_t entityId) {
     // Fire callback before removing (so callback can read entity data if needed)
     auto cbIt = m_removeCallbacks.find(entityId);
     if (cbIt != m_removeCallbacks.end()) {
-        cbIt->second(entityId);
         auto cb = std::move(cbIt->second);
         m_removeCallbacks.erase(cbIt);
         cb(entityId);

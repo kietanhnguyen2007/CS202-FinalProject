@@ -41,6 +41,7 @@ void GameView::LoadShadowShader() {
 void GameView::Update(float dt) {
     View::CharacterRenderer::GetInstance().UpdateAll(dt);
     View::FloatingTextManager::GetInstance().Update(dt);
+    View::EnemyStatusRenderer::GetInstance().Update(dt);
     if (View::ResultView::GetInstance().IsVisible()) {
         View::ResultView::GetInstance().Update(dt);
     }

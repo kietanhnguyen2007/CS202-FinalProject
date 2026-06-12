@@ -44,8 +44,7 @@ bool UIStateManager::IsLayerVisible(UILayer layer) const {
         case UILayer::HUD:           return true; // always visible (dimmed when under modal)
         case UILayer::SkillBar:      return SkillBarView::GetInstance().IsOpen();
         case UILayer::InteractPrompt: return InteractPrompt::GetInstance().IsVisible();
-        case UILayer::Menu:          return MenuView::GetInstance().GetMode() != MenuMode::Main
-                                            || true; // menu visible at main menu too
+        case UILayer::Menu:          return true; // MenuView tự quản lý visibility qua m_visible + m_mode
         case UILayer::Inventory:     return InventoryView::GetInstance().IsOpen();
         case UILayer::Result:        return ResultView::GetInstance().IsVisible();
     }

@@ -1,6 +1,7 @@
 #include "View/EntityRenderer.h"
 #include "View/Renderer.h"
 #include <functional>
+#include <cassert>
 
 namespace View {
 
@@ -12,15 +13,21 @@ EntityRenderer& EntityRenderer::GetInstance() {
 void EntityRenderer::Register(const Entity* entity, Texture2D* tex,
                                Rectangle src, Vector2 origin, bool flipX) {
     if (!entity || !tex) return;
-    uint32_t id = static_cast<uint32_t>(entity->GetId());
+    int rawId = entity->GetId();
+    assert(rawId >= 0);
+    uint32_t id = static_cast<uint32_t>(rawId);
 
     if (src.width == 0) {
         src = {0, 0, (float)tex->width, (float)tex->height};
     }
 
-    // Lưu ý: Cần thêm trường 'const Entity* entity' vào cấu trúc struct/tuple của m_entities trong file header
-    // Ví dụ: struct EntityRenderData { const Entity* entity; Texture2D* texture; Rectangle src; Vector2 origin; bool flipX; };
-    m_entities[id] = {entity, tex, src, origin, flipX};
+    auto& data = m_entities[id];
+    data.entity = entity;
+    data.texture = tex;
+    data.src = src;
+    data.origin = origin;
+    data.flipX = flipX;
+    data.visible = true; // Mặc định hiển thị, tránh lỗi khởi tạo thiếu tự động chuyển thành false
 }
 
 void EntityRenderer::Unregister(uint32_t entityId) {
@@ -86,7 +93,6 @@ void EntityRenderer::UpdateSpriteRect(uint32_t entityId, const Rectangle& src) {
 void EntityRenderer::SetEntityVisible(uint32_t entityId, bool visible) {
     auto it = m_entities.find(entityId);
     if (it == m_entities.end()) return;
-    it->second.entity = it->second.entity; // no-op to silence unused warning
     it->second.visible = visible;
 }
 

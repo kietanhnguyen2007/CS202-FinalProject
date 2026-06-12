@@ -30,12 +30,14 @@ void InventoryView::Shutdown() {
 
 void InventoryView::Open() {
     m_open = true;
-    SoundManager::GetInstance().PlaySound("ui_inventory_open");
+    auto& sm = SoundManager::GetInstance();
+    if (sm.IsAudioInitialized()) sm.PlaySound("ui_inventory_open");
 }
 
 void InventoryView::Close() {
     m_open = false;
-    SoundManager::GetInstance().PlaySound("ui_inventory_close");
+    auto& sm = SoundManager::GetInstance();
+    if (sm.IsAudioInitialized()) sm.PlaySound("ui_inventory_close");
 }
 bool InventoryView::IsOpen() const { return m_open; }
 
