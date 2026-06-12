@@ -1,34 +1,35 @@
-# UPDATE_VERSION — Phase 2 Complete
+## View Layer Update
 
-## Files created (Phase 1)
-- `include/View/Animator.h` — copy of AnimationSystem.h, namespace `View::Animations`
-- `src/View/Animator.cpp` — copy of AnimationSystem.cpp, namespace `View::Animations`
-- `include/View/TextureAtlas.h` — copy of TextureAtlas.h, namespace `View::Animations`
-- `src/View/TextureAtlas.cpp` — copy of TextureAtlas.cpp, namespace `View::Animations`
+Files created/modified:
+- Added include/View/FloatingText.h and src/View/FloatingText.cpp
+- Added include/View/EnemyStatusRenderer.h and src/View/EnemyStatusRenderer.cpp
+- Added include/View/ElementalFX.h and src/View/ElementalFX.cpp
+- Added include/View/UIHelpers.h
+- Added include/View/HUDView.h and src/View/HUDView.cpp
+- Added include/View/ResultView.h and src/View/ResultView.cpp
+- Added include/View/InventoryView.h and src/View/InventoryView.cpp (grid UI + ObservableList attach)
+- Added include/View/MenuView.h and src/View/MenuView.cpp (menu highlight)
+- Added src/View/ControllerIntegrationExample.cpp (documentation only)
+- Modified include/View/EntityRenderer.h and src/View/EntityRenderer.cpp to support UpdateSpriteRect, SetEntityVisible, GetEntityPtr
+- Modified include/View/ParticleRenderer.h and src/View/ParticleRenderer.cpp to support EmitBurst and debris rendering
+- Modified include/View/GameView.h and src/View/GameView.cpp for dual-world layer + shadow shader, floating text, enemy status, result view integration
+- Modified include/View/CharacterRenderer.h and src/View/CharacterRenderer.cpp to support Elemental tint, PlayAction, Pet defaults, and aura sprite rendering
+- Modified include/View/EnemyStatusRenderer.h and src/View/EnemyStatusRenderer.cpp to load atlas sprite frames for status icons
+- Modified src/main.cpp → runnable smoke test with all views
+- Added assets/shaders/shadow.vs and assets/shaders/shadow.fs (dual-world post-process)
 
-## Files created (Phase 2)
-- `include/View/CharacterRenderer.h` — centralized animation handler in View layer
-- `src/View/CharacterRenderer.cpp` — implementation with Register/UpdateAll/RenderAll
+What changed and why:
+- InventoryView: art-driven grid UI with snapshot API, controller-owned selection, plus AttachObservable for ObservableList<const Item*> auto-update
+- MenuView: passive menu rendering; Update(selectedIndex) highlights current selection
+- FloatingText: Emit large short-lived text in world coords; Update/Render
+- EnemyStatusRenderer: uses atlas frames (status/burn, status/wet, status/shocked) when available; fallback text icons; emits floating text on status set
+- ElementalFX: per-entity DamageType tint; CharacterRenderer uses tint in SubmitSprite and renders aura frames behind character when atlas has aura/ elements
+- CharacterRenderer: PlayAction method for precise attack/hurt/skill animation switching; register defaults for Pet type (idle/walk/attack/dead); stores entity->atlas map for aura queries
+- ParticleRenderer: EmitBurst helper creates short-lived view-managed debris; RenderAll now advances and draws it
+- GameView: supports SetActiveWorldLayer(WorldLayer, lightPos) — applies shadow shader for Shadow layer; integrates all view components (floating text, enemy status, entity, result, menu rendering)
+- EntityRenderer: UpdateSpriteRect (chest open), SetEntityVisible (fake wall destroy), GetEntityPtr accessor for other view components
+- Shaders: shadow.fs darkens screen except circular light around player position
+- main.cpp: full smoke test with keyboard controls (M=menu, I=inventory, S=results, F=particles, arrows=menu)
 
-## Files modified
-- `include/Model/Character.h` — removed `#include "Systems/AnimationSystem.h"`, removed `Systems::Animator m_animator` member, removed `GetAnimator()` declarations
-- `src/Model/Character.cpp` — removed `m_animator.Update(dt)`, removed animator-based rendering in `SubmitRender()`, removed `GetAnimator()` definitions
-- `include/View/GameView.h` — added proper declarations with Init/Update/Render/Shutdown
-- `src/View/GameView.cpp` — integrated CharacterRenderer::UpdateAll/RenderAll into game loop
-
-## Files deleted
-- `include/Systems/AnimationSystem.h` — superseded by `include/View/Animator.h`
-- `src/Systems/AnimationSystem.cpp` — superseded by `src/View/Animator.cpp`
-- `include/Systems/TextureAtlas.h` — superseded by `include/View/TextureAtlas.h`
-- `src/Systems/TextureAtlas.cpp` — superseded by `src/View/TextureAtlas.cpp`
-
-## What changed and why
-- Animation system (Animator, TextureAtlas, CharacterRenderer) fully moved to View layer under `View::Animations` namespace.
-- Model layer no longer contains or references any Animator. Character and its subclasses are purely logical (position, velocity, health, direction, attack state).
-- GameView now orchestrates CharacterRenderer::UpdateAll/RenderAll in the frame loop.
-- Original Systems/AnimationSystem.* and Systems/TextureAtlas.* deleted — no code remains that includes them.
-
-## Current status
-- Complete. All animation responsibilities reside in View layer.
-- FE can now use `View::CharacterRenderer` to register entities and drive their animation.
-- BE can focus on pure game logic (Model) without visual dependencies.
+Status:
+- All changes are confined to the View folder and related headers. Controllers/models must call the view APIs to display statuses, floating text, play actions, swap chest frames, and trigger debris emissions.
