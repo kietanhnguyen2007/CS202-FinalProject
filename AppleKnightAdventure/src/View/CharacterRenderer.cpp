@@ -10,6 +10,22 @@ CharacterRenderer& CharacterRenderer::GetInstance() {
     return instance;
 }
 
+bool CharacterRenderer::PreloadAtlas(const std::string& atlasPath) {
+    if (m_atlasCache.find(atlasPath) != m_atlasCache.end()) {
+        return true; // Đã load rồi
+    }
+
+    auto atlas = Animations::TextureAtlas::LoadFromJSON(atlasPath);
+    if (!atlas) {
+        std::cerr << "[CharacterRenderer] Preload failed: " << atlasPath << "\n";
+        return false;
+    }
+    
+    atlas->LoadTexture();
+    m_atlasCache.emplace(atlasPath, std::move(atlas));
+    return true;
+}
+
 bool CharacterRenderer::Register(const Entity* entity,
                                   const std::string& atlasPath,
                                   const std::string& defaultClip) {
@@ -28,14 +44,8 @@ bool CharacterRenderer::Register(const Entity* entity,
     // Load or retrieve atlas from cache
     auto atlasIt = m_atlasCache.find(atlasPath);
     if (atlasIt == m_atlasCache.end()) {
-        auto atlas = Animations::TextureAtlas::LoadFromJSON(atlasPath);
-        if (!atlas) {
-            std::cerr << "[CharacterRenderer] Failed to load atlas: " << atlasPath << "\n";
-            return false;
-        }
-        atlas->LoadTexture();
-        auto result = m_atlasCache.emplace(atlasPath, std::move(atlas));
-        atlasIt = result.first;
+        if (!PreloadAtlas(atlasPath)) return false;
+        atlasIt = m_atlasCache.find(atlasPath);
     }
 
     auto& animator = m_animators[id];
@@ -87,7 +97,9 @@ void CharacterRenderer::Unregister(uint32_t entityId) {
     auto cbIt = m_removeCallbacks.find(entityId);
     if (cbIt != m_removeCallbacks.end()) {
         cbIt->second(entityId);
+        auto cb = std::move(cbIt->second);
         m_removeCallbacks.erase(cbIt);
+        cb(entityId);
     }
     m_animators.erase(entityId);
     m_entities.erase(entityId);

@@ -26,6 +26,9 @@ class CharacterRenderer {
 public:
     static CharacterRenderer& GetInstance();
 
+    // Preload atlas vào cache để tránh lag giật (I/O disk) khi spawn Entity giữa game
+    bool PreloadAtlas(const std::string& atlasPath);
+
     // Returns true on success, false if atlas fails to load
     // NOTE: entity pointer is stored raw. Caller MUST Unregister(entityId)
     //       before the Entity is destroyed to avoid dangling pointer access.
