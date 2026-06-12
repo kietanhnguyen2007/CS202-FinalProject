@@ -33,8 +33,9 @@ void EntityRenderer::Register(const Entity* entity, Texture2D* tex,
 void EntityRenderer::Unregister(uint32_t entityId) {
     auto cbIt = m_removeCallbacks.find(entityId);
     if (cbIt != m_removeCallbacks.end()) {
-        cbIt->second(entityId);
+        auto cb = std::move(cbIt->second);
         m_removeCallbacks.erase(cbIt);
+        cb(entityId);
     }
     m_entities.erase(entityId);
 }

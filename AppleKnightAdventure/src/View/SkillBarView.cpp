@@ -44,7 +44,6 @@ std::string SkillBarView::SkillLabel(SkillType t) {
 }
 
 void SkillBarView::Update(float dt, const Player* player) {
-    if (!m_open || !m_loaded) return;
     // Update cooldown timers
     for (auto& s : m_skills) {
         if (s.currentTimer > 0.0f) {
@@ -52,6 +51,8 @@ void SkillBarView::Update(float dt, const Player* player) {
             if (s.currentTimer < 0.0f) s.currentTimer = 0.0f;
         }
     }
+
+    if (!m_open || !m_loaded) return;
     if (player) {
         // Show skill points if needed
     }

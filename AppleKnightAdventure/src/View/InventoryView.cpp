@@ -26,18 +26,17 @@ bool InventoryView::LoadResources(const std::string& atlasJsonPath) {
 
 void InventoryView::Shutdown() {
     m_loaded = false;
+    DetachObservable();
 }
 
 void InventoryView::Open() {
     m_open = true;
-    auto& sm = SoundManager::GetInstance();
-    if (sm.IsAudioInitialized()) sm.PlaySound("ui_inventory_open");
+    SoundManager::GetInstance().PlaySound("ui_inventory_open");
 }
 
 void InventoryView::Close() {
     m_open = false;
-    auto& sm = SoundManager::GetInstance();
-    if (sm.IsAudioInitialized()) sm.PlaySound("ui_inventory_close");
+    SoundManager::GetInstance().PlaySound("ui_inventory_close");
 }
 bool InventoryView::IsOpen() const { return m_open; }
 
