@@ -41,7 +41,6 @@ bool Animator::Play(const std::string& name, float speed, bool reset) {
         m_current = clipPtr;
         m_currentName = name;
         m_frameIndex = 0;
-        m_timer = 0.0f;
         // initialize playhead and playback helpers
         // If reset requested, position playhead at start or end depending on playback mode
         float clipLength = m_current->totalDuration;
@@ -67,7 +66,7 @@ void Animator::Stop() {
     m_current = nullptr;
     m_currentName.clear();
     m_frameIndex = 0;
-    m_timer = 0.0f;
+    m_playhead = 0.0f;
 }
 
 void Animator::Pause() { m_playing = false; }
@@ -100,12 +99,12 @@ void Animator::Update(float dt) {
             if (m_playhead < 0.0f) m_playhead += clipLength;
         } else {
             // clamp to [0, clipLength]
-            if (m_playhead < 0.0f) {
+            if (m_playhead < PLAYHEAD_EPS) {
                 m_playhead = 0.0f;
                 m_playing = false;
                 if (OnClipFinished) OnClipFinished(m_currentName);
             }
-            if (m_playhead > clipLength) {
+            if (m_playhead > clipLength - PLAYHEAD_EPS) {
                 m_playhead = clipLength;
                 m_playing = false;
                 if (OnClipFinished) OnClipFinished(m_currentName);
@@ -145,34 +144,25 @@ void Animator::Update(float dt) {
         }
     }
 
-    // Recalculate frame index and timer from playhead
+    // Recalculate frame index from playhead
     float acc = 0.0f;
     int newIndex = 0;
-    float newTimer = 0.0f;
     for (size_t i = 0; i < m_current->frames.size(); ++i) {
         float d = m_current->frames[i].duration;
         if (!(d > 0.0f)) d = 0.001f;
-        // Use a small epsilon to ensure values extremely close to the upper
-        // boundary are classified consistently with expectations (avoid
-        // floating-point rounding pushing playhead to previous frame).
         if (m_playhead < acc + d - PLAYHEAD_EPS) {
             newIndex = (int)i;
-            newTimer = m_playhead - acc;
             break;
         }
         acc += d;
     }
 
-    // If no frame matched (e.g. playhead at exact clipLength for non-looping
-    // clips), map to the last frame as a fallback (consistent with Seek()).
     if (newIndex == 0 && m_playhead + PLAYHEAD_EPS >= clipLength) {
         newIndex = (int)m_current->frames.size() - 1;
-        newTimer = 0.0f;
     }
 
     int prevIndex = m_frameIndex;
     m_frameIndex = newIndex;
-    m_timer = newTimer;
 
     if (OnFrameChanged && prevIndex != m_frameIndex) OnFrameChanged(m_currentName, m_frameIndex);
 }
@@ -199,37 +189,46 @@ int Animator::GetTotalFrames() const {
 
 void Animator::Seek(float seconds) {
     if (!m_current || m_current->frames.empty()) return;
-    // Compute clip length
     float clipLength = m_current->totalDuration;
     if (clipLength <= 0.0f) clipLength = m_current->frames.size() * 0.001f;
     if (clipLength <= 0.0f) return;
 
     float target = seconds;
     if (target < 0.0f) target = 0.0f;
-    if (m_current->loop) {
-        // wrap using fmod
+
+    if (m_playbackMode == PlaybackMode::PingPong) {
+        float period = clipLength * 2.0f;
+        if (m_current->loop) {
+            target = std::fmod(target, period);
+            if (target < 0.0f) target += period;
+        } else {
+            if (target > period) target = period;
+        }
+    } else if (m_current->loop) {
         target = std::fmod(target, clipLength);
         if (target < 0.0f) target += clipLength;
     } else {
-        if (target < 0.0f) target = 0.0f;
         if (target > clipLength) target = clipLength;
     }
+
     m_playhead = target;
-    // recompute frame index and timer
+    // For PingPong reverse phase, reflect playhead for frame mapping
+    float effectivePlayhead = m_playhead;
+    if (m_playbackMode == PlaybackMode::PingPong && effectivePlayhead >= clipLength) {
+        float period = clipLength * 2.0f;
+        effectivePlayhead = period - effectivePlayhead;
+    }
     float acc = 0.0f;
     for (size_t i = 0; i < m_current->frames.size(); ++i) {
         float d = m_current->frames[i].duration;
         if (!(d > 0.0f)) d = 0.001f;
-        if (m_playhead < acc + d - PLAYHEAD_EPS) {
+        if (effectivePlayhead < acc + d - PLAYHEAD_EPS) {
             m_frameIndex = (int)i;
-            m_timer = m_playhead - acc;
             return;
         }
         acc += d;
     }
-    // fallback to last frame
     m_frameIndex = (int)m_current->frames.size() - 1;
-    m_timer = 0.0f;
 }
 
 void Animator::SetFrame(int index) {
@@ -245,7 +244,6 @@ void Animator::SetFrame(int index) {
     }
     m_playhead = acc;
     m_frameIndex = index;
-    m_timer = 0.0f;
 }
 
 float Animator::GetPlayheadTime() const {

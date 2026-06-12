@@ -96,7 +96,6 @@ private:
     std::shared_ptr<AnimationClip> m_current = nullptr;
     std::string m_currentName;
     int m_frameIndex = 0;
-    float m_timer = 0.0f;
     bool m_playing = false;
     float m_speed = 1.0f;
     bool m_flipX = false;

@@ -11,7 +11,6 @@ GameView& GameView::GetInstance() {
 }
 
 void GameView::Init() {
-    // Initialize view components
     View::Renderer::GetInstance();
     View::ParticleRenderer::GetInstance();
 }
@@ -20,8 +19,17 @@ void GameView::Update(float dt) {
     View::CharacterRenderer::GetInstance().UpdateAll(dt);
 }
 
-void GameView::Render() {
+void GameView::Render(const Camera2D& camera, const std::vector<Particle*>& particles) {
+    View::Renderer& r = View::Renderer::GetInstance();
+
+    BeginMode2D(camera);
+    r.BeginFrame();
+
     View::CharacterRenderer::GetInstance().RenderAll();
+    View::ParticleRenderer::GetInstance().RenderAll(particles);
+
+    r.EndFrameAndFlush();
+    EndMode2D();
 }
 
 void GameView::Shutdown() {

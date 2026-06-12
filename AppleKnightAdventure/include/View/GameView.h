@@ -1,5 +1,10 @@
 #pragma once
 
+#include "raylib.h"
+#include <vector>
+
+struct Particle;
+
 namespace View {
 
 class GameView {
@@ -8,7 +13,7 @@ public:
 
     void Init();
     void Update(float dt);
-    void Render();
+    void Render(const Camera2D& camera, const std::vector<Particle*>& particles = {});
     void Shutdown();
 
 private:

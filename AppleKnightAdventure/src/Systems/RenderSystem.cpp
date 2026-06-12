@@ -1,5 +1,4 @@
 #include "Systems/RenderSystem.h"
-#include "View/Renderer.h"
 #include "raylib.h"
 
 namespace Systems {
@@ -21,7 +20,7 @@ void RenderSystem::SetWorldBounds(Rectangle bounds) {
     m_quadtree.SetBounds(bounds);
 }
 
-void RenderSystem::RenderFrame(const Camera2D& camera, std::vector<Entity*>& entities) {
+void RenderSystem::CullEntities(const Camera2D& camera, const std::vector<Entity*>& entities) {
     m_totalCount = entities.size();
 
     m_quadtree.Clear();
@@ -36,12 +35,6 @@ void RenderSystem::RenderFrame(const Camera2D& camera, std::vector<Entity*>& ent
     m_visible.clear();
     m_quadtree.Query(viewRect, m_visible);
     m_visibleCount = m_visible.size();
-
-    View::Renderer& r = View::Renderer::GetInstance();
-    BeginMode2D(camera);
-    r.BeginFrame();
-    r.EndFrameAndFlush();
-    EndMode2D();
 }
 
 } // namespace Systems

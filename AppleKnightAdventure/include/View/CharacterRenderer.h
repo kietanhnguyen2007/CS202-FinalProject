@@ -25,6 +25,8 @@ public:
     static CharacterRenderer& GetInstance();
 
     // Returns true on success, false if atlas fails to load
+    // NOTE: entity pointer is stored raw. Caller MUST Unregister(entityId)
+    //       before the Entity is destroyed to avoid dangling pointer access.
     bool Register(const Entity* entity,
                   const std::string& atlasPath,
                   const std::string& defaultClip = "idle");

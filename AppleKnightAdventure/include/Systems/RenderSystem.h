@@ -13,7 +13,8 @@ public:
 
     void SetWorldBounds(Rectangle bounds);
 
-    void RenderFrame(const Camera2D& camera, std::vector<Entity*>& entities);
+    void CullEntities(const Camera2D& camera, const std::vector<Entity*>& entities);
+    const std::vector<Entity*>& GetVisible() const { return m_visible; }
 
     size_t GetVisibleCount() const { return m_visibleCount; }
     size_t GetTotalCount() const { return m_totalCount; }
