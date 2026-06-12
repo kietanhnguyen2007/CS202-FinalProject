@@ -27,6 +27,7 @@
 | `GameMode` | `SinglePlayer, MultiplayerHost, MultiplayerClient` | GameState mode |
 | `BossPhase` | `Phase1, Phase2, Phase3, Enraged` | Boss behavior phase |
 | `WorldLayer` | `Light, Shadow` | DualWorld and DualWorldPlayer layer |
+| `Character::State` | `Idle, Walk, Jump, Fall, Attack, Hurt, Dead, Skill` | Character::GetState() — View reads this for animation clip selection. Auto-set by Player::Update() or Enemey::Update() |
 
 ---
 
@@ -141,6 +142,7 @@ Extends Entity. Base for all living things (Player, Enemy, Boss, Pet).
 | `m_direction` | Direction | None | Facing direction |
 | `m_attackCooldown` | float | ATTACK_COOLDOWN | Seconds between attacks |
 | `m_attackTimer` | float | 0 | Counts up from 0 to cooldown |
+| `m_state` | `State` | `State::Idle` | Current character state. Auto-set by Player::Update(); synced from EnemyState in Enemy::Update() |
 
 ### Health
 ```
@@ -167,6 +169,21 @@ Attack() → void                       ← virtual. Sets attackTimer = cooldown
 ResetAttackTimer()
 GetAttackBoundingBox() → Rectangle    ← forward extension in facing direction. Used by CollisionSystem.
 ```
+
+### Character State
+```
+GetState() → State                    ← returns current State (Idle/Walk/Jump/Fall/Attack/Hurt/Dead/Skill)
+SetState(State)                       ← manually override. Called by Enemy::Update() to sync from EnemyState
+```
+
+State enum definition (inside `Character` class in `Character.h`):
+```cpp
+enum class State {
+    Idle, Walk, Jump, Fall,
+    Attack, Hurt, Dead, Skill
+};
+```
+Usage: `Character::State::Walk`, `player.GetState() == Character::State::Jump`.
 
 ---
 
@@ -196,6 +213,22 @@ GetSkillPoints() / SetSkillPoints(int) / AddSkillPoints(int)
 GetName() / SetName(const string&)
 ```
 
+### State auto-inference (in Player::Update())
+Player::Update() sets `m_state` every frame **after** Character::Update():
+
+| Priority | Condition | State set |
+|----------|-----------|-----------|
+| 1 | `!IsAlive()` | `State::Dead` |
+| 2 | `m_attackTimer > 0.0f` | `State::Attack` |
+| 3 | `m_velocity.y < 0.0f` | `State::Jump` |
+| 4 | `m_velocity.y > 0.0f` | `State::Fall` |
+| 5 | `m_velocity.x != 0.0f \|\| m_velocity.y != 0.0f` | `State::Walk` |
+| 6 | (none of the above) | `State::Idle` |
+
+Movement on X and Y axes are **independent** — a jumping character can move sideways while in `State::Jump`.
+
+View reads `GetState()` to select the correct animation clip. Use `CharacterRenderer::SetInferFunction()` with a function that maps `Character::State` → `ACTION_*`. See §View team needed update for ready-to-use code.
+
 ---
 
 ## Enemy (`include/Model/Enemy.h`)
@@ -217,6 +250,17 @@ Patrol(float deltaTime)                ← sin-wave patrol around spawn
 Chase(Vector2 playerPos, float dt)     ← moves toward player
 TakeDamage(int)                        ← reduces health, sets state=Hurt if alive
 ```
+
+### Character::State sync (in Enemy::Update())
+Enemy::Update() syncs Character::State from its EnemyState every frame:
+
+| EnemyState | Character::State |
+|------------|-----------------|
+| `Idle` / `Patrol` | `State::Idle` |
+| `Chase` | `State::Walk` |
+| `Attack` | `State::Attack` |
+| `Hurt` | `State::Hurt` |
+| `Dead` | `State::Dead` |
 
 ---
 

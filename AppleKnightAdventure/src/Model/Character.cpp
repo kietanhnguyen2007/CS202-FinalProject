@@ -9,6 +9,7 @@ Character::Character()
     , m_direction(Direction::None)
     , m_attackCooldown(ATTACK_COOLDOWN)
     , m_attackTimer(0.0f)
+    , m_state(State::Idle)
 {
 }
 
@@ -20,6 +21,7 @@ Character::Character(EntityType type)
     , m_direction(Direction::None)
     , m_attackCooldown(ATTACK_COOLDOWN)
     , m_attackTimer(0.0f)
+    , m_state(State::Idle)
 {
 }
 
@@ -31,6 +33,7 @@ Character::Character(Vector2 position, Vector2 size, EntityType type)
     , m_direction(Direction::None)
     , m_attackCooldown(ATTACK_COOLDOWN)
     , m_attackTimer(0.0f)
+    , m_state(State::Idle)
 {
 }
 
@@ -68,6 +71,10 @@ Direction Character::GetDirection() const { return m_direction; }
 void Character::SetDirection(Direction direction) {
     m_direction = direction;
 }
+
+Character::State Character::GetState() const { return m_state; }
+
+void Character::SetState(State state) { m_state = state; }
 
 void Character::Move(Vector2 dir, float deltaTime) {
     m_velocity.x = dir.x * m_speed;
