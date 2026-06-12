@@ -32,7 +32,9 @@ void EntityRenderer::Clear() {
 
 void EntityRenderer::RenderAll() {
     for (const auto& [id, data] : m_entities) {
+        // data may contain entity pointer and texture/src information
         const Entity* entity = data.entity;
+        if (!data.visible) continue;
         if (!entity || !entity->IsActive() || !data.texture) continue;
 
         View::Renderer::GetInstance().SubmitSprite(
@@ -54,6 +56,19 @@ Texture2D* EntityRenderer::GetTexture(uint32_t entityId) const {
     auto it = m_entities.find(entityId);
     if (it == m_entities.end()) return nullptr;
     return it->second.texture;
+}
+
+void EntityRenderer::UpdateSpriteRect(uint32_t entityId, const Rectangle& src) {
+    auto it = m_entities.find(entityId);
+    if (it == m_entities.end()) return;
+    it->second.src = src;
+}
+
+void EntityRenderer::SetEntityVisible(uint32_t entityId, bool visible) {
+    auto it = m_entities.find(entityId);
+    if (it == m_entities.end()) return;
+    it->second.entity = it->second.entity; // no-op to silence unused warning
+    it->second.visible = visible;
 }
 
 } // namespace View
