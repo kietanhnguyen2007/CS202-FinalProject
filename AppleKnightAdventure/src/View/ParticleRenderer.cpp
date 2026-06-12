@@ -22,6 +22,22 @@ static Texture2D CreateSoftCircleTexture() {
 
 namespace View {
 
+// Simple ephemeral debris implementation (view-side particles)
+struct SimpleParticle { Vector2 pos; Vector2 vel; Color color; float life; };
+static std::vector<SimpleParticle> s_debris;
+
+static void UpdateAndRenderDebris(Renderer& r, const Camera2D& cam, float dt) {
+    if (s_debris.empty()) return;
+    for (auto it = s_debris.begin(); it != s_debris.end();) {
+        it->life -= dt;
+        it->pos.x += it->vel.x * dt;
+        it->pos.y += it->vel.y * dt;
+        Vector2 screen = GetWorldToScreen2D(it->pos, cam);
+        r.DrawRectangle({screen.x, screen.y}, {4,4}, it->color, Layer::Foreground, 0.0f);
+        if (it->life <= 0.0f) it = s_debris.erase(it); else ++it;
+    }
+}
+
 ParticleRenderer& ParticleRenderer::GetInstance() {
     static ParticleRenderer instance;
     return instance;
@@ -36,7 +52,7 @@ ParticleRenderer::~ParticleRenderer() {
     Shutdown();
 }
 
-void ParticleRenderer::RenderAll(const std::vector<Particle*>& particles) {
+void ParticleRenderer::RenderAll(const std::vector<Particle*>& particles, const Camera2D& camera, float dt) {
     if (!m_initialized) return;
 
     Rectangle src = {0, 0, static_cast<float>(m_softCircle.width),
@@ -54,6 +70,9 @@ void ParticleRenderer::RenderAll(const std::vector<Particle*>& particles) {
             {src.width * 0.5f, src.height * 0.5f},
             p->color, Layer::Foreground, 0.0f, false, 0);
     }
+
+    // update and render debris
+    UpdateAndRenderDebris(Renderer::GetInstance(), camera, dt);
 }
 
 void ParticleRenderer::Shutdown() {
@@ -62,6 +81,20 @@ void ParticleRenderer::Shutdown() {
         m_softCircle = {};
     }
     m_initialized = false;
+}
+
+void ParticleRenderer::EmitBurst(Vector2 pos, int count) {
+    if (!m_initialized) return;
+    for (int i = 0; i < count; ++i) {
+        float ang = ((float)i / (float)count) * 2.0f * 3.14159f;
+        float spd = 50.0f + (float)(rand() % 80);
+        SimpleParticle p;
+        p.pos = pos;
+        p.vel = { cosf(ang) * spd, sinf(ang) * spd };
+        p.color = (Color){200,180,160,255};
+        p.life = 0.8f + ((rand() % 100) / 200.0f);
+        s_debris.push_back(p);
+    }
 }
 
 } // namespace View

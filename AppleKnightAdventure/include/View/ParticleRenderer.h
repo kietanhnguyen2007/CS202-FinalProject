@@ -12,7 +12,9 @@ class ParticleRenderer {
 public:
     static ParticleRenderer& GetInstance();
 
-    void RenderAll(const std::vector<Particle*>& particles);
+    void RenderAll(const std::vector<Particle*>& particles, const Camera2D& camera, float dt);
+    // Simple view-side helper to spawn a short burst of debris at position
+    void EmitBurst(Vector2 pos, int count = 8);
     void Shutdown();
 
 private:
