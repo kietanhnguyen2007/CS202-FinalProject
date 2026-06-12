@@ -15,11 +15,13 @@
 | 9 | `src/View/InventoryView.cpp` | Guard `PlaySound` sau khi check `IsAudioInitialized()` |
 | 10 | `src/View/EntityRenderer.cpp` | Thêm `assert(rawId >= 0)` cho entity ID; xoá comment outdated; xoá no-op line |
 | 11 | `src/View/CharacterRenderer.cpp` | Thêm `assert(rawId >= 0)` cho entity ID |
+| 12 | `src/View/UIStateManager.cpp` | Sửa lỗi thiếu hiệu ứng làm tối nền (dim overlay) cho menu/modal đầu tiên |
 | — | `third_party/nlohmann/json.hpp` | **Mới**: header-only JSON library v3.12.0 |
 
 ## What was changed and why
 
 - **UIStateManager**: `IsLayerVisible(Menu)` luôn trả về `true` do `|| true` làm menu đè lên gameplay
+- **UIStateManager**: Vòng lặp vẽ modal layer trước đây không gọi `DrawDimOverlay` trước khi vẽ modal layer đầu tiên (như Menu, Inventory), dẫn đến lỗi giao diện các màn hình này không làm tối được nền (HUD/Gameplay). Đã sửa bằng cách luôn gọi `DrawDimOverlay` trước `RenderLayer(layer)`.
 - **HUDView/ParticleRenderer**: Thiếu include chuẩn C++ gây lỗi biên dịch trên toolchain strict
 - **EnemyStatusRenderer**: Status icon dùng `Layer::UI` + world coords → icon không bám entity khi camera di chuyển. Đổi sang `Layer::Foreground` + `GetWorldToScreen2D` cho text fallback
 - **TextureAtlas**: `nlohmann/json.hpp` là external dependency không có trong repo. Thêm vào `third_party/` để build được
@@ -30,4 +32,4 @@
 
 ## Current status
 
-All 10 View bugs đã được sửa. Cần cập nhật CMakeLists.txt để thêm `-I third_party/` vào include paths trước khi build.
+Đã kiểm tra lại mã nguồn thư mục View và sửa thêm lỗi logic của UIStateManager (không làm mờ nền khi mở UI Modal). Cần cập nhật CMakeLists.txt để thêm `-I third_party/` vào include paths trước khi build.

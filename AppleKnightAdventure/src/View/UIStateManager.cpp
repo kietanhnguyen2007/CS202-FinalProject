@@ -101,17 +101,11 @@ void UIStateManager::RenderAll() {
         UILayer layer = m_stack[i];
         if (!IsLayerVisible(layer)) continue;
 
-        // Dim the layers underneath before rendering the top layer
-        if (i == m_stack.size() - 1 && m_stack.size() > 1) {
-            // This is the top layer — draw dim overlay under it
-        }
+        // Draw dim overlay before rendering each modal layer
+        // to dim the background or any modals underneath it
+        DrawDimOverlay();
 
         RenderLayer(layer);
-
-        // Draw dim overlay on top of this layer if it's not the top
-        if (i != m_stack.size() - 1) {
-            DrawDimOverlay();
-        }
     }
 }
 
