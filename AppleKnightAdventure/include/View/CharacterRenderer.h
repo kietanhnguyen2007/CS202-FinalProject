@@ -47,6 +47,8 @@ public:
 
     // Direct animator access for manual control
     Animations::Animator* GetAnimator(uint32_t entityId);
+    // Force play an action (Attack/Hurt/Skill) for precise sync from controller
+    void PlayAction(uint32_t entityId, int action);
 
 private:
     CharacterRenderer() = default;
@@ -63,6 +65,7 @@ private:
     std::unordered_map<uint32_t, Animations::Animator> m_animators;
     std::unordered_map<uint32_t, const Entity*> m_entities;
     std::unordered_map<std::string, std::shared_ptr<Animations::TextureAtlas>> m_atlasCache;
+    std::unordered_map<uint32_t, std::shared_ptr<Animations::TextureAtlas>> m_entityAtlas;
     std::unordered_map<EntityType, ActionConfig> m_actionConfigs;
     std::unordered_map<uint32_t, int> m_lastActions;
 };
