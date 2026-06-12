@@ -22,15 +22,18 @@ public:
     void Shutdown();
 
     void Show(const LevelResultSnapshot& snap);
+    void ShowGameOver(const LevelResultSnapshot& snap);
     void Dismiss();
     void Update(float dt);
     void Render();
     bool IsVisible() const { return m_visible; }
+    bool IsGameOver() const { return m_visible && m_gameOver; }
 
 private:
     ResultView() = default;
     LevelResultSnapshot m_snap;
     bool m_visible = false;
+    bool m_gameOver = false;
     float m_anim = 0.0f;
 };
 

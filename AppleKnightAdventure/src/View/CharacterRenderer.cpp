@@ -88,6 +88,7 @@ void CharacterRenderer::Clear() {
     m_atlasCache.clear();
     m_actionConfigs.clear();
     m_lastActions.clear();
+    m_bossPhases.clear();
 }
 
 void CharacterRenderer::SetActionClipMap(EntityType type,
@@ -180,6 +181,11 @@ void CharacterRenderer::RenderAll() {
             }
         }
 
+        // Boss phase visual overlay (drawn after the character sprite)
+        if (entity->GetType() == EntityType::Boss) {
+            RenderBossPhaseOverlay(id, entity);
+        }
+
         View::Renderer::GetInstance().SubmitSprite(
             animator.GetTexture(),
             animator.GetCurrentSrcRect(),
@@ -199,6 +205,56 @@ Animations::Animator* CharacterRenderer::GetAnimator(uint32_t entityId) {
     auto it = m_animators.find(entityId);
     if (it == m_animators.end()) return nullptr;
     return &it->second;
+}
+
+void CharacterRenderer::SetBossPhase(uint32_t entityId, BossPhase phase) {
+    m_bossPhases[entityId] = phase;
+}
+
+void CharacterRenderer::ClearBossPhase(uint32_t entityId) {
+    m_bossPhases.erase(entityId);
+}
+
+void CharacterRenderer::RenderBossPhaseOverlay(uint32_t entityId, const Entity* entity) {
+    auto phaseIt = m_bossPhases.find(entityId);
+    if (phaseIt == m_bossPhases.end()) return;
+    if (phaseIt->second == BossPhase::Phase1) return; // No overlay for base phase
+
+    auto atlasIt = m_entityAtlas.find(entityId);
+    if (atlasIt == m_entityAtlas.end()) return;
+    auto atlas = atlasIt->second;
+    if (!atlas) return;
+
+    std::string glowFrame;
+    Color glowColor = WHITE;
+    switch (phaseIt->second) {
+        case BossPhase::Phase2:
+            glowFrame = "boss/phase2_glow";
+            glowColor = (Color){255,180,80,180};
+            break;
+        case BossPhase::Phase3:
+            glowFrame = "boss/phase3_glow";
+            glowColor = (Color){255,80,80,200};
+            break;
+        case BossPhase::Enraged:
+            glowFrame = "boss/enraged_glow";
+            glowColor = (Color){255,40,40,220};
+            break;
+        default: return;
+    }
+
+    if (atlas->HasFrame(glowFrame)) {
+        Rectangle src = atlas->GetFrameRect(glowFrame);
+        Texture2D* tex = atlas->GetTexture();
+        float sc = entity->GetScale();
+        // Enraged boss gets slightly larger
+        if (phaseIt->second == BossPhase::Enraged) sc *= 1.3f;
+        View::Renderer::GetInstance().SubmitSprite(
+            tex, src, entity->GetPosition(),
+            {sc, sc}, 0.0f,
+            {src.width * 0.5f, src.height * 0.5f},
+            glowColor, View::Layer::Foreground, -0.02f, false, entityId);
+    }
 }
 
 void CharacterRenderer::PlayAction(uint32_t entityId, int action) {

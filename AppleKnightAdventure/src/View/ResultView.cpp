@@ -18,11 +18,19 @@ bool ResultView::LoadResources(const std::string& atlasJsonPath) {
 }
 
 void ResultView::Shutdown() {}
-void ResultView::Dismiss() { m_visible = false; m_anim = 0.0f; }
+void ResultView::Dismiss() { m_visible = false; m_gameOver = false; m_anim = 0.0f; }
 
 void ResultView::Show(const LevelResultSnapshot& snap) {
     m_snap = snap;
     m_visible = true;
+    m_gameOver = false;
+    m_anim = 0.0f;
+}
+
+void ResultView::ShowGameOver(const LevelResultSnapshot& snap) {
+    m_snap = snap;
+    m_visible = true;
+    m_gameOver = true;
     m_anim = 0.0f;
 }
 
@@ -39,7 +47,21 @@ void ResultView::Render() {
     int h = r.GetWindowHeight();
 
     Vector2 center = { w*0.5f, h*0.4f };
-    // backdrop
+
+    if (m_gameOver) {
+        // Game Over screen — darker, red-toned
+        r.DrawRectangle({center.x - 220, center.y - 140}, {440, 280}, {40,10,10,220}, Layer::UI, 0.0f);
+        r.DrawText("GAME OVER", {center.x - 100, center.y - 80}, 40, RED);
+        char buf[128];
+        snprintf(buf, sizeof(buf), "Score: %d", m_snap.score);
+        r.DrawText(buf, {center.x - 180, center.y - 20}, 20, WHITE);
+        snprintf(buf, sizeof(buf), "Kills: %d", m_snap.enemiesKilled);
+        r.DrawText(buf, {center.x - 180, center.y + 10}, 20, WHITE);
+        r.DrawText("Press ENTER to retry", {center.x - 130, center.y + 60}, 18, GRAY);
+        return;
+    }
+
+    // Win screen
     r.DrawRectangle({center.x - 220, center.y - 140}, {440, 280}, {20,20,20,200}, Layer::UI, 0.0f);
 
     // Stars

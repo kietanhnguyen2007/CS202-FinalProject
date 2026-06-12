@@ -3,6 +3,7 @@
 #include "View/UIHelpers.h"
 #include "Model/Inventory.h"
 #include "Model/Item.h"
+#include "Systems/SoundManager.h"
 #include <cstdio>
 
 using namespace View;
@@ -26,8 +27,15 @@ void InventoryView::Shutdown() {
     m_loaded = false;
 }
 
-void InventoryView::Open() { m_open = true; }
-void InventoryView::Close() { m_open = false; }
+void InventoryView::Open() {
+    m_open = true;
+    SoundManager::GetInstance().PlaySound("ui_inventory_open");
+}
+
+void InventoryView::Close() {
+    m_open = false;
+    SoundManager::GetInstance().PlaySound("ui_inventory_close");
+}
 bool InventoryView::IsOpen() const { return m_open; }
 
 void InventoryView::Update(float dt) {

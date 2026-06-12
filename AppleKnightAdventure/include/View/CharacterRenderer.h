@@ -4,6 +4,7 @@
 #include "View/TextureAtlas.h"
 #include "View/Renderer.h"
 #include "Model/Entity.h"
+#include "Utils/Types.h"
 #include <unordered_map>
 #include <string>
 #include <memory>
@@ -50,12 +51,19 @@ public:
     // Force play an action (Attack/Hurt/Skill) for precise sync from controller
     void PlayAction(uint32_t entityId, int action);
 
+    // Boss phase visual override
+    void SetBossPhase(uint32_t entityId, BossPhase phase);
+    void ClearBossPhase(uint32_t entityId);
+
 private:
     CharacterRenderer() = default;
     ~CharacterRenderer() = default;
 
     // Default inference: idle if velocity near zero, walk otherwise
     static int DefaultInferAction(const Entity* entity);
+
+    // Draw phase-specific overlay for boss entities
+    void RenderBossPhaseOverlay(uint32_t entityId, const Entity* entity);
 
     struct ActionConfig {
         std::unordered_map<int, std::string> clipMap;
@@ -68,6 +76,9 @@ private:
     std::unordered_map<uint32_t, std::shared_ptr<Animations::TextureAtlas>> m_entityAtlas;
     std::unordered_map<EntityType, ActionConfig> m_actionConfigs;
     std::unordered_map<uint32_t, int> m_lastActions;
+
+    // Boss phase visual overrides
+    std::unordered_map<uint32_t, BossPhase> m_bossPhases;
 };
 
 } // namespace View
