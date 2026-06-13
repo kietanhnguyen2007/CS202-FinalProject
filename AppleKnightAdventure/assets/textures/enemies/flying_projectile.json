@@ -1,0 +1,13 @@
+{
+    "frames":  {
+                   "default":  {
+                                   "frame":  {
+                                                 "y":  0,
+                                                 "w":  384,
+                                                 "h":  48,
+                                                 "x":  0
+                                             }
+                               }
+               },
+    "image":  "flying_projectile.png"
+}

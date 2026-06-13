@@ -1,0 +1,13 @@
+{
+    "frames":  {
+                   "default":  {
+                                   "frame":  {
+                                                 "y":  0,
+                                                 "w":  30,
+                                                 "h":  30,
+                                                 "x":  0
+                                             }
+                               }
+               },
+    "image":  "potion.png"
+}

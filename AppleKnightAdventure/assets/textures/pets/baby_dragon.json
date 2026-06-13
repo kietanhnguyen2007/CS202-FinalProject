@@ -1,0 +1,24 @@
+{
+    "clips":  {
+                  "idle":  {
+                               "loop":  true,
+                               "frames":  [
+                                              "default"
+                                          ],
+                               "durations":  [
+                                                 0.1
+                                             ]
+                           }
+              },
+    "frames":  {
+                   "default":  {
+                                   "frame":  {
+                                                 "y":  0,
+                                                 "w":  96,
+                                                 "h":  96,
+                                                 "x":  0
+                                             }
+                               }
+               },
+    "image":  "baby_dragon.png"
+}

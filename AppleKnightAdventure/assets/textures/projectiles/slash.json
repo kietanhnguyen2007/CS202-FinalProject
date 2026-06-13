@@ -1,0 +1,44 @@
+{
+    "clips":  {
+                  "slash":  {
+                                "loop":  false,
+                                "frames":  [
+                                               "frame_0",
+                                               "frame_1",
+                                               "frame_2"
+                                           ],
+                                "durations":  [
+                                                  0.06,
+                                                  0.06,
+                                                  0.06
+                                              ]
+                            }
+              },
+    "frames":  {
+                   "frame_2":  {
+                                   "frame":  {
+                                                 "y":  0,
+                                                 "w":  16,
+                                                 "h":  16,
+                                                 "x":  32
+                                             }
+                               },
+                   "frame_0":  {
+                                   "frame":  {
+                                                 "y":  0,
+                                                 "w":  16,
+                                                 "h":  16,
+                                                 "x":  0
+                                             }
+                               },
+                   "frame_1":  {
+                                   "frame":  {
+                                                 "y":  0,
+                                                 "w":  16,
+                                                 "h":  16,
+                                                 "x":  16
+                                             }
+                               }
+               },
+    "image":  "slash.png"
+}

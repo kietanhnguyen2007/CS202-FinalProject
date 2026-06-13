@@ -1,0 +1,54 @@
+{
+    "clips":  {
+                  "fly":  {
+                              "loop":  true,
+                              "frames":  [
+                                             "frame_0",
+                                             "frame_1",
+                                             "frame_2",
+                                             "frame_3"
+                                         ],
+                              "durations":  [
+                                                0.12,
+                                                0.12,
+                                                0.12,
+                                                0.12
+                                            ]
+                          }
+              },
+    "frames":  {
+                   "frame_2":  {
+                                   "frame":  {
+                                                 "y":  0,
+                                                 "w":  16,
+                                                 "h":  16,
+                                                 "x":  32
+                                             }
+                               },
+                   "frame_0":  {
+                                   "frame":  {
+                                                 "y":  0,
+                                                 "w":  16,
+                                                 "h":  16,
+                                                 "x":  0
+                                             }
+                               },
+                   "frame_1":  {
+                                   "frame":  {
+                                                 "y":  0,
+                                                 "w":  16,
+                                                 "h":  16,
+                                                 "x":  16
+                                             }
+                               },
+                   "frame_3":  {
+                                   "frame":  {
+                                                 "y":  0,
+                                                 "w":  16,
+                                                 "h":  16,
+                                                 "x":  48
+                                             }
+                               }
+               },
+    "image":  "flying_spritesheet.png"
+}

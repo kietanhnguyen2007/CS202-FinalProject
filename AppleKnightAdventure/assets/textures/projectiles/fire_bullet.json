@@ -1,0 +1,13 @@
+{
+    "frames":  {
+                   "default":  {
+                                   "frame":  {
+                                                 "y":  0,
+                                                 "w":  640,
+                                                 "h":  400,
+                                                 "x":  0
+                                             }
+                               }
+               },
+    "image":  "fire_bullet.png"
+}

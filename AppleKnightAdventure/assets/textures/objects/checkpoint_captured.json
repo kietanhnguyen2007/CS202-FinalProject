@@ -1,0 +1,54 @@
+{
+    "clips":  {
+                  "idle":  {
+                               "loop":  true,
+                               "frames":  [
+                                              "frame_0",
+                                              "frame_1",
+                                              "frame_2",
+                                              "frame_3"
+                                          ],
+                               "durations":  [
+                                                 0.15,
+                                                 0.15,
+                                                 0.15,
+                                                 0.15
+                                             ]
+                           }
+              },
+    "frames":  {
+                   "frame_2":  {
+                                   "frame":  {
+                                                 "y":  0,
+                                                 "w":  32,
+                                                 "h":  32,
+                                                 "x":  64
+                                             }
+                               },
+                   "frame_0":  {
+                                   "frame":  {
+                                                 "y":  0,
+                                                 "w":  32,
+                                                 "h":  32,
+                                                 "x":  0
+                                             }
+                               },
+                   "frame_1":  {
+                                   "frame":  {
+                                                 "y":  0,
+                                                 "w":  32,
+                                                 "h":  32,
+                                                 "x":  32
+                                             }
+                               },
+                   "frame_3":  {
+                                   "frame":  {
+                                                 "y":  0,
+                                                 "w":  32,
+                                                 "h":  32,
+                                                 "x":  96
+                                             }
+                               }
+               },
+    "image":  "checkpoint_captured.png"
+}

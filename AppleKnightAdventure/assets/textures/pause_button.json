@@ -1,0 +1,16 @@
+{
+    "clips":  {
+
+              },
+    "frames":  {
+                   "default":  {
+                                   "frame":  {
+                                                 "y":  0,
+                                                 "w":  16,
+                                                 "h":  16,
+                                                 "x":  0
+                                             }
+                               }
+               },
+    "image":  "pause_button.png"
+}

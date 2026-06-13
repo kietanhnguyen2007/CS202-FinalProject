@@ -1,0 +1,13 @@
+{
+    "frames":  {
+                   "default":  {
+                                   "frame":  {
+                                                 "y":  0,
+                                                 "w":  736,
+                                                 "h":  102,
+                                                 "x":  0
+                                             }
+                               }
+               },
+    "image":  "melee_sword.png"
+}

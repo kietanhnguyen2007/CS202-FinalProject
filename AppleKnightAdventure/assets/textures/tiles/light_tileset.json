@@ -1,0 +1,13 @@
+{
+    "frames":  {
+                   "default":  {
+                                   "frame":  {
+                                                 "y":  0,
+                                                 "w":  256,
+                                                 "h":  256,
+                                                 "x":  0
+                                             }
+                               }
+               },
+    "image":  "light_tileset.png"
+}
