@@ -31,7 +31,7 @@ void SkillBarView::InitIcons() {
         auto atlas = Animations::TextureAtlas::LoadFromJSON(jsonPath);
         if (!atlas) return;
         atlas->LoadTexture();
-        m_skillIcons[idx] = {atlas, Animations::Animator{}, false, ""};
+        m_skillIcons[idx] = {std::move(atlas), Animations::Animator{}, false, ""};
     };
 
     auto loadAnimated = [&](int idx, const std::string& jsonPath, const std::string& clipName) {
@@ -39,7 +39,7 @@ void SkillBarView::InitIcons() {
         if (!atlas) return;
         atlas->LoadTexture();
         SkillIcon icon;
-        icon.atlas = atlas;
+        icon.atlas = std::move(atlas);
         icon.animated = true;
         icon.clipName = clipName;
         icon.anim.SetTexture(atlas->GetTexture());

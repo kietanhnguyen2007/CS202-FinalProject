@@ -180,7 +180,7 @@ void GameView::RenderBackground(const Camera2D& cam) {
         // Tile horizontally to fill screen
         float wrapped = fmod(offsetX, tw);
         for (float x = -wrapped; x < (float)screenW; x += tw) {
-            r.SubmitSprite(&layer.tex, {0, 0, tw, th}, {x, 0},
+            r.SubmitSprite(const_cast<Texture2D*>(&layer.tex), {0, 0, tw, th}, {x, 0},
                            {scaleX, scaleY}, 0.0f, {0, 0},
                            WHITE, Layer::Background, -2.0f, false, 0);
         }
