@@ -15,10 +15,15 @@ bool ResultView::Init() {
 
 bool ResultView::LoadResources(const std::string& atlasJsonPath) {
     (void)atlasJsonPath;
+    m_uiAtlas = Animations::TextureAtlas::LoadFromJSON("assets/textures/ui_atlas.json");
+    if (m_uiAtlas) m_uiAtlas->LoadTexture();
     return true;
 }
 
-void ResultView::Shutdown() {}
+void ResultView::Shutdown() {
+    m_uiAtlas.reset();
+}
+
 void ResultView::Dismiss() { m_visible = false; m_gameOver = false; m_anim = 0.0f; }
 
 void ResultView::Show(const LevelResultSnapshot& snap) {
@@ -48,10 +53,26 @@ void ResultView::Render() {
     int h = r.GetWindowHeight();
 
     Vector2 center = { w*0.5f, h*0.4f };
+    const float panelW = 440.0f;
+    const float panelH = 280.0f;
+
+    // Determine tint/color based on game over vs win
+    Color panelColor = m_gameOver ? (Color){40, 10, 10, 220} : (Color){20, 20, 20, 200};
+
+    // Draw panel background using health_bar sprite if available
+    if (m_uiAtlas && m_uiAtlas->HasFrame("health_bar")) {
+        Rectangle src = m_uiAtlas->GetFrameRect("health_bar");
+        Texture2D* tex = m_uiAtlas->GetTexture();
+        // Stretch to fill panel
+        r.SubmitSprite(tex, src, {center.x - panelW * 0.5f, center.y - panelH * 0.5f},
+                       {panelW / src.width, panelH / src.height},
+                       0.0f, {0, 0}, panelColor, Layer::UI, 0.0f, false, 0);
+    } else {
+        r.DrawRectangle({center.x - panelW * 0.5f, center.y - panelH * 0.5f},
+                        {panelW, panelH}, panelColor, Layer::UI, 0.0f);
+    }
 
     if (m_gameOver) {
-        // Game Over screen — darker, red-toned
-        r.DrawRectangle({center.x - 220, center.y - 140}, {440, 280}, {40,10,10,220}, Layer::UI, 0.0f);
         r.DrawText("GAME OVER", {center.x - 100, center.y - 80}, 40, RED);
         char buf[128];
         snprintf(buf, sizeof(buf), "Score: %d", m_snap.score);
@@ -62,14 +83,12 @@ void ResultView::Render() {
         return;
     }
 
-    // Win screen
-    r.DrawRectangle({center.x - 220, center.y - 140}, {440, 280}, {20,20,20,200}, Layer::UI, 0.0f);
-
     // Stars
     for (int i = 0; i < 3; ++i) {
         float x = center.x - 90 + i * 90;
         const char* star = (i < m_snap.stars) ? "*" : "o";
-        char buf[8]; snprintf(buf, sizeof(buf), "%s", star);
+        char buf[8];
+        snprintf(buf, sizeof(buf), "%s", star);
         r.DrawText(buf, {x, center.y - 60}, 48, GOLD);
     }
 

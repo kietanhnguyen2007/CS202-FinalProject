@@ -1,7 +1,9 @@
 #pragma once
 
 #include "raylib.h"
+#include "View/TextureAtlas.h"
 #include <string>
+#include <memory>
 
 namespace View {
 
@@ -35,6 +37,7 @@ private:
     bool m_visible = false;
     bool m_gameOver = false;
     float m_anim = 0.0f;
+    std::shared_ptr<Animations::TextureAtlas> m_uiAtlas;
 };
 
 } // namespace View

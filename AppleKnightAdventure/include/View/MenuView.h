@@ -1,8 +1,10 @@
 #pragma once
 
 #include "raylib.h"
+#include "View/TextureAtlas.h"
 #include <vector>
 #include <string>
+#include <memory>
 
 namespace View {
 
@@ -26,7 +28,6 @@ public:
     void SetVisible(bool v) { m_visible = v; }
     MenuMode GetMode() const { return m_mode; }
 
-    // Sub-mode activators
     void ShowMainMenu();
     void ShowPauseOverlay();
     void ShowErrorDialog(const std::string& message);
@@ -46,18 +47,18 @@ private:
 
     MenuMode m_mode = MenuMode::Main;
 
-    // Shared menu items per mode
     std::vector<std::string> m_mainItems = { "Start", "Options", "Quit" };
     std::vector<std::string> m_pauseItems = { "Resume", "Quit to Menu" };
 
-    // Error dialog
     std::string m_errorMsg;
     std::vector<std::string> m_errorItems = { "OK" };
 
-    // Connection status
     std::string m_connectionIp;
     bool m_connected = false;
     std::vector<std::string> m_connectionItems = { "Back" };
+
+    std::shared_ptr<Animations::TextureAtlas> m_menuBtnAtlas;
+    std::shared_ptr<Animations::TextureAtlas> m_pauseBtnAtlas;
 };
 
 } // namespace View

@@ -66,6 +66,23 @@ bool GameView::Init() {
     // Load enemy status atlas
     View::EnemyStatusRenderer::GetInstance().LoadResources("assets/textures/enemies/status_atlas.json");
 
+    // Preload item atlases (for InventoryView / HUDView)
+    cr.PreloadAtlas("assets/textures/items/apple.json");
+    cr.PreloadAtlas("assets/textures/items/coin.json");
+    cr.PreloadAtlas("assets/textures/items/potion.json");
+    cr.PreloadAtlas("assets/textures/items/key.json");
+    cr.PreloadAtlas("assets/textures/items/key_silver.json");
+    cr.PreloadAtlas("assets/textures/items/bag_coins.json");
+    cr.PreloadAtlas("assets/textures/items/equipment.json");
+    cr.PreloadAtlas("assets/textures/items/potion_red.json");
+
+    // Preload projectile atlases (for SkillBarView / ParticleRenderer)
+    cr.PreloadAtlas("assets/textures/projectiles/arrow.json");
+    cr.PreloadAtlas("assets/textures/projectiles/fire_bullet.json");
+    cr.PreloadAtlas("assets/textures/projectiles/slash.json");
+    cr.PreloadAtlas("assets/textures/projectiles/hit.json");
+    cr.PreloadAtlas("assets/textures/projectiles/explosion.json");
+
     return true;
 }
 

@@ -22,13 +22,68 @@ bool SkillBarView::Init() {
     return true;
 }
 
+void SkillBarView::InitIcons() {
+    // Fireball → projectiles/fire_bullet (static frame)
+    auto fbAtlas = Animations::TextureAtlas::LoadFromJSON("assets/textures/projectiles/fire_bullet.json");
+    if (fbAtlas) {
+        fbAtlas->LoadTexture();
+        m_skillIcons.emplace_back(SkillIcon{fbAtlas, Animations::Animator{}, false, ""});
+    }
+
+    // Heal → items/potion (static frame)
+    auto healAtlas = Animations::TextureAtlas::LoadFromJSON("assets/textures/items/potion.json");
+    if (healAtlas) {
+        healAtlas->LoadTexture();
+        m_skillIcons.emplace_back(SkillIcon{healAtlas, Animations::Animator{}, false, ""});
+    }
+
+    // Dash → projectiles/slash (animated clip "slash")
+    auto dashAtlas = Animations::TextureAtlas::LoadFromJSON("assets/textures/projectiles/slash.json");
+    if (dashAtlas) {
+        dashAtlas->LoadTexture();
+        SkillIcon icon;
+        icon.atlas = dashAtlas;
+        icon.animated = true;
+        icon.clipName = "slash";
+        icon.anim.SetTexture(dashAtlas->GetTexture());
+        if (dashAtlas->HasClip("slash")) {
+            icon.anim.AddClip(dashAtlas->GetClip("slash"));
+            icon.anim.Play("slash");
+        }
+        m_skillIcons.push_back(std::move(icon));
+    }
+
+    // Shield → projectiles/hit (animated clip "hit")
+    auto shieldAtlas = Animations::TextureAtlas::LoadFromJSON("assets/textures/projectiles/hit.json");
+    if (shieldAtlas) {
+        shieldAtlas->LoadTexture();
+        SkillIcon icon;
+        icon.atlas = shieldAtlas;
+        icon.animated = true;
+        icon.clipName = "hit";
+        icon.anim.SetTexture(shieldAtlas->GetTexture());
+        if (shieldAtlas->HasClip("hit")) {
+            icon.anim.AddClip(shieldAtlas->GetClip("hit"));
+            icon.anim.Play("hit");
+        }
+        m_skillIcons.push_back(std::move(icon));
+    }
+}
+
 bool SkillBarView::LoadResources(const std::string& atlasJsonPath) {
     (void)atlasJsonPath;
+    m_skillIcons.clear();
+    InitIcons();
     m_loaded = true;
     return true;
 }
 
 void SkillBarView::Shutdown() {
+    for (auto& si : m_skillIcons) {
+        si.anim.Stop();
+        si.atlas.reset();
+    }
+    m_skillIcons.clear();
     m_loaded = false;
     DetachObservable();
 }
@@ -44,7 +99,6 @@ std::string SkillBarView::SkillLabel(SkillType t) {
 }
 
 void SkillBarView::Update(float dt, const Player* player) {
-    // Update cooldown timers
     for (auto& s : m_skills) {
         if (s.currentTimer > 0.0f) {
             s.currentTimer -= dt;
@@ -52,10 +106,12 @@ void SkillBarView::Update(float dt, const Player* player) {
         }
     }
 
-    if (!m_open || !m_loaded) return;
-    if (player) {
-        // Show skill points if needed
+    for (auto& si : m_skillIcons) {
+        si.anim.Update(dt);
     }
+
+    if (!m_open || !m_loaded) return;
+    (void)player;
 }
 
 void SkillBarView::Render() {
@@ -78,25 +134,44 @@ void SkillBarView::Render() {
         bool selected = (i == m_selection);
         bool ready = skill.IsReady();
 
-        // Slot background
-        Color bg = selected ? (Color){80,80,100,220} : (Color){40,40,50,200};
+        Color bg = selected ? (Color){80, 80, 100, 220} : (Color){40, 40, 50, 200};
         r.DrawRectangle({x, y}, {slotW, slotH}, bg, Layer::UI, 0.0f);
 
+        // Draw skill icon
+        if (i < (int)m_skillIcons.size()) {
+            const auto& icon = m_skillIcons[i];
+            if (icon.atlas && icon.atlas->GetTexture() && icon.atlas->GetTexture()->id != 0) {
+                Rectangle src{};
+                if (icon.animated && icon.anim.IsPlaying()) {
+                    src = icon.anim.GetCurrentSrcRect();
+                } else if (icon.atlas->HasFrame("default")) {
+                    src = icon.atlas->GetFrameRect("default");
+                }
+                if (src.width > 0 && src.height > 0) {
+                    float iconSize = slotW - 12;
+                    Color tint = ready ? WHITE : (Color){100, 100, 100, 200};
+                    r.SubmitSprite(icon.atlas->GetTexture(), src,
+                                   {x + 6, y + 6},
+                                   {iconSize / src.width, iconSize / src.height},
+                                   0.0f, {0, 0}, tint, Layer::UI, 0.0f, false, 0);
+                }
+            }
+        }
+
         // Skill label
-        r.DrawText(SkillLabel(skill.type).c_str(), {x + 6, y + 6}, 12, WHITE);
+        r.DrawText(SkillLabel(skill.type).c_str(), {x + 4, y + slotH - 14}, 10, WHITE);
 
         // Cooldown overlay
         if (!ready) {
             float frac = skill.currentTimer / skill.cooldown;
             float overlayH = slotH * frac;
             r.DrawRectangle({x, y + slotH - overlayH}, {slotW, overlayH},
-                            {0,0,0,160}, Layer::UI, 0.0f);
+                            {0, 0, 0, 160}, Layer::UI, 0.0f);
             char buf[16];
             snprintf(buf, sizeof(buf), "%.1f", skill.currentTimer);
-            r.DrawText(buf, {x + slotW*0.25f, y + slotH*0.35f}, 14, ORANGE);
+            r.DrawText(buf, {x + slotW * 0.25f, y + slotH * 0.35f}, 14, ORANGE);
         }
 
-        // Selection highlight border
         if (selected) {
             r.DrawRectangle({x, y}, {slotW, 2}, YELLOW, Layer::UI, 0.0f);
         }
@@ -124,7 +199,6 @@ void SkillBarView::AttachObservable(ObservableList<SkillSlotData>* observable) {
         m_skills.clear();
     };
 
-    // Sync initial state
     m_skills.clear();
     for (size_t i = 0; i < observable->Size(); ++i) {
         m_skills.push_back((*observable)[i]);

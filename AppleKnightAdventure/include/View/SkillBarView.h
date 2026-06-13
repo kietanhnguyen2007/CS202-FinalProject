@@ -1,10 +1,13 @@
 #pragma once
 
 #include "raylib.h"
+#include "View/TextureAtlas.h"
+#include "View/Animator.h"
 #include "Utils/Types.h"
 #include "Systems/ObservableList.h"
 #include <vector>
 #include <string>
+#include <memory>
 #include <functional>
 
 class Player;
@@ -19,6 +22,13 @@ struct SkillSlotData {
     bool operator==(const SkillSlotData& o) const {
         return type == o.type && cooldown == o.cooldown && currentTimer == o.currentTimer;
     }
+};
+
+struct SkillIcon {
+    std::shared_ptr<Animations::TextureAtlas> atlas;
+    Animations::Animator anim;
+    bool animated = false;
+    std::string clipName;
 };
 
 class SkillBarView {
@@ -38,7 +48,6 @@ public:
 
     void SetSelection(int index);
 
-    // Bind to an ObservableList<SkillSlotData> for auto-update
     void AttachObservable(ObservableList<SkillSlotData>* observable);
     void DetachObservable();
 
@@ -47,13 +56,14 @@ private:
     ~SkillBarView() = default;
 
     static std::string SkillLabel(SkillType t);
+    void InitIcons();
 
     bool m_open = true;
     int m_selection = -1;
     bool m_loaded = false;
 
-    // Local cache of skill data (from observable or manual set)
     std::vector<SkillSlotData> m_skills;
+    std::vector<SkillIcon> m_skillIcons;
 
     ObservableList<SkillSlotData>* m_attachedObservable = nullptr;
     std::function<void()> m_onDataChanged;
