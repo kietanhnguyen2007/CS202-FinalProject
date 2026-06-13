@@ -1,6 +1,6 @@
 {
     "clips":  {
-                  "idle":  {
+                  "run":  {
                                "loop":  true,
                                "frames":  [
                                               "frame_0",

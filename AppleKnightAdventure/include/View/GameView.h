@@ -33,8 +33,17 @@ public:
     void LoadTileset(int tileType, const std::string& texturePath, int cols);
     void RenderTilemap(const DualWorld* world);
 
+    // Background parallax
+    void LoadBackgrounds();
+    void SetActiveBackground(int index);
+    void RenderBackground(const Camera2D& cam);
+
     // Camera shake
     void Shake(float intensity, float duration);
+
+    // Static textures
+    Texture2D* GetBossAttackTex() { return &m_bossAttackTex; }
+    Texture2D* GetMagicTex() { return &m_magicTex; }
 
 private:
     GameView() = default;
@@ -57,6 +66,19 @@ private:
     // Camera shake
     float m_shakeTimer = 0.0f;
     float m_shakeIntensity = 0.0f;
+
+    // Background parallax
+    struct BGLayerInfo {
+        Texture2D tex{};
+        float parallaxSpeed = 1.0f;
+    };
+    std::vector<std::vector<BGLayerInfo>> m_backgrounds;
+    int m_activeBgIndex = 0;
+    float m_bgScrollOffset = 0.0f;
+
+    // Static textures
+    Texture2D m_bossAttackTex{};
+    Texture2D m_magicTex{};
 };
 
 } // namespace View

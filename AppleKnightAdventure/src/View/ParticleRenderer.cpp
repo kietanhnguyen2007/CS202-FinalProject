@@ -2,6 +2,9 @@
 #include "Systems/ParticleSystem.h"
 #include <cmath>
 #include <cstdlib>
+#include "View/EntityRenderer.h"
+#include "View/GameView.h"
+#include "Model/Projectile.h"
 
 static Texture2D CreateSoftCircleTexture() {
     const int size = 16;
@@ -53,6 +56,7 @@ ParticleRenderer::~ParticleRenderer() {
     Shutdown();
 }
 
+
 void ParticleRenderer::RenderAll(const std::vector<Particle*>& particles, const Camera2D& camera, float dt) {
     if (!m_initialized) return;
 
@@ -70,6 +74,33 @@ void ParticleRenderer::RenderAll(const std::vector<Particle*>& particles, const 
             {scaleX, scaleY}, 0.0f,
             {src.width * 0.5f, src.height * 0.5f},
             p->color, Layer::Foreground, 0.0f, false, 0);
+    }
+
+    // Iterate through all active projectiles (queried via EntityRenderer's registry)
+    for (const auto& [id, renderData] : EntityRenderer::GetInstance().GetEntities()) {
+        const Entity* entity = renderData.entity;
+        if (!entity || !entity->IsActive()) continue;
+
+        if (entity->GetType() == EntityType::Projectile) {
+            const Projectile* proj = static_cast<const Projectile*>(entity);
+            Texture2D* tex = nullptr;
+
+            // Draw the static texture boss_attack.png or magic.png using the texture cached in GameView
+            if (proj->GetProjectileType() == ProjectileType::BossAttack) {
+                tex = GameView::GetInstance().GetBossAttackTex();
+            } else if (proj->GetProjectileType() == ProjectileType::Magic) {
+                tex = GameView::GetInstance().GetMagicTex();
+            }
+
+            if (tex && tex->id != 0) {
+                Rectangle pSrc = {0, 0, (float)tex->width, (float)tex->height};
+                Renderer::GetInstance().SubmitSprite(
+                    tex, pSrc, proj->GetPosition(),
+                    {proj->GetScale(), proj->GetScale()}, proj->GetRotation(),
+                    {pSrc.width * 0.5f, pSrc.height * 0.5f},
+                    WHITE, Layer::World, 0.0f, false, proj->GetId());
+            }
+        }
     }
 
     // update and render debris

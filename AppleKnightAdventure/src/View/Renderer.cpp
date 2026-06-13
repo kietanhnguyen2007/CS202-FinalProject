@@ -279,92 +279,18 @@ void Renderer::EndFrameAndFlush() {
             return lb.commands[a].m_z < lb.commands[b].m_z;
         });
 
-        size_t i = 0;
-        while (i < lb.count) {
-            Texture2D* tex = lb.commands[lb.indexOrder[i]].m_texture;
-            size_t j = i;
-            while (j < lb.count && lb.commands[lb.indexOrder[j]].m_texture == tex) ++j;
-            size_t runSize = j - i;
+        for (size_t i = 0; i < lb.count; ++i) {
+            RenderCommand& cmd = lb.commands[lb.indexOrder[i]];
+            if (!cmd.m_texture) continue;
 
-            size_t processed = 0;
-            while (processed < runSize) {
-                size_t batchCount = runSize - processed;
-                if (batchCount > s_maxQuads) batchCount = s_maxQuads;
+            Rectangle src = cmd.m_src;
+            if (cmd.m_flipX) src.width = -src.width; // Flip horizontally
 
-                size_t vertBase = 0;
-                size_t colorIdx = 0;
-                for (size_t b = 0; b < batchCount; ++b) {
-                    RenderCommand& cmd = lb.commands[lb.indexOrder[i + processed + b]];
-                    Rectangle src = cmd.m_src;
-                    float w = src.width * cmd.m_scaleX;
-                    float h = src.height * cmd.m_scaleY;
+            Rectangle dest = { cmd.m_x, cmd.m_y, std::abs(src.width) * cmd.m_scaleX, std::abs(src.height) * cmd.m_scaleY };
+            Vector2 origin = { cmd.m_originX, cmd.m_originY };
 
-                    float u0 = src.x / (float)cmd.m_texture->width;
-                    float v0 = src.y / (float)cmd.m_texture->height;
-                    float u1 = (src.x + src.width) / (float)cmd.m_texture->width;
-                    float v1 = (src.y + src.height) / (float)cmd.m_texture->height;
-                    if (cmd.m_flipX) std::swap(u0, u1);
-
-                    float lx[4] = { -cmd.m_originX, -cmd.m_originX + w, -cmd.m_originX + w, -cmd.m_originX };
-                    float ly[4] = { -cmd.m_originY, -cmd.m_originY, -cmd.m_originY + h, -cmd.m_originY + h };
-
-                    if (cmd.m_rotation != 0.0f) {
-                        float ang = cmd.m_rotation * DEG2RAD;
-                        float ca = cosf(ang), sa = sinf(ang);
-                        float cx = cmd.m_x, cy = cmd.m_y;
-                        for (int v = 0; v < 4; ++v) {
-                            float rx = lx[v], ry = ly[v];
-                            lx[v] = cx + rx * ca - ry * sa;
-                            ly[v] = cy + rx * sa + ry * ca;
-                        }
-                    } else {
-                        for (int v = 0; v < 4; ++v) {
-                            lx[v] += cmd.m_x;
-                            ly[v] += cmd.m_y;
-                        }
-                    }
-
-                    for (int v = 0; v < 4; ++v) {
-                        s_vertices[vertBase + v*3 + 0] = lx[v];
-                        s_vertices[vertBase + v*3 + 1] = ly[v];
-                        s_vertices[vertBase + v*3 + 2] = cmd.m_z;
-                    }
-
-                    float u[4] = {u0, u1, u1, u0};
-                    float v[4] = {v0, v0, v1, v1};
-                    for (int vi = 0; vi < 4; ++vi) {
-                        s_texcoords[(vertBase/3)*2 + vi*2 + 0] = u[vi];
-                        s_texcoords[(vertBase/3)*2 + vi*2 + 1] = v[vi];
-                    }
-
-                    for (int v = 0; v < 4; ++v) {
-                        s_colors[colorIdx + v*4 + 0] = cmd.m_tint.r;
-                        s_colors[colorIdx + v*4 + 1] = cmd.m_tint.g;
-                        s_colors[colorIdx + v*4 + 2] = cmd.m_tint.b;
-                        s_colors[colorIdx + v*4 + 3] = cmd.m_tint.a;
-                    }
-
-                    vertBase += 12;
-                    colorIdx += 16;
-                }
-
-                int vertsCount = (int)(batchCount * 4);
-                int indicesCount = (int)(batchCount * 6);
-                UpdateMeshBuffer(s_mesh, 0, s_vertices, sizeof(float) * 3 * vertsCount, 0);
-                UpdateMeshBuffer(s_mesh, 1, s_texcoords, sizeof(float) * 2 * vertsCount, 0);
-                UpdateMeshBuffer(s_mesh, 3, s_colors, sizeof(unsigned char) * 4 * vertsCount, 0);
-                UpdateMeshBuffer(s_mesh, 6, s_indices, sizeof(unsigned short) * indicesCount, 0);
-
-                s_mesh.vertexCount = vertsCount;
-                s_mesh.triangleCount = (int)batchCount * 2;
-
-                SetMaterialTexture(&s_material, MATERIAL_MAP_DIFFUSE, *tex);
-                DrawMesh(s_mesh, s_material, MatrixIdentity());
-                m_drawCalls++;
-
-                processed += batchCount;
-            }
-            i = j;
+            ::DrawTexturePro(*cmd.m_texture, src, dest, origin, cmd.m_rotation, cmd.m_tint);
+            m_drawCalls++;
         }
     }
 }

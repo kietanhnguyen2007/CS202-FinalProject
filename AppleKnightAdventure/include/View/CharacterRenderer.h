@@ -35,6 +35,8 @@ public:
     bool Register(const Entity* entity,
                   const std::string& atlasPath,
                   const std::string& defaultClip = "idle");
+    // Merge additional clips from another atlas into an already registered entity
+    bool MergeAtlas(uint32_t entityId, const std::string& atlasPath);
     void Unregister(uint32_t entityId);
     void Clear();
 

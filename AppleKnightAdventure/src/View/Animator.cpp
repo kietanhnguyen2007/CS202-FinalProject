@@ -174,7 +174,21 @@ Rectangle Animator::GetCurrentSrcRect() const {
 
 Vector2 Animator::GetCurrentOrigin() const {
     if (!m_current || m_current->frames.empty()) return {0,0};
-    return m_current->frames[m_frameIndex].origin;
+    const auto& frame = m_current->frames[m_frameIndex];
+
+    // If it has originalSize, it was trimmed (TexturePacker style)
+    if (frame.originalSize.x > 0 && frame.originalSize.y > 0) {
+        float pivotX = (frame.originalSize.x * 0.5f) - frame.spriteSourceSize.x;
+        float pivotY = (frame.originalSize.y * 0.5f) - frame.spriteSourceSize.y;
+
+        if (m_flipX) {
+            pivotX = frame.src.width - pivotX;
+        }
+        return { pivotX, pivotY };
+    }
+
+    // Fallback to center of the src rect if no trim metadata
+    return { frame.src.width * 0.5f, frame.src.height * 0.5f };
 }
 
 bool Animator::GetFlipX() const { return m_flipX; }
