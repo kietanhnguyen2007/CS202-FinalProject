@@ -1,0 +1,44 @@
+{
+    "clips":  {
+                  "hit":  {
+                              "loop":  false,
+                              "frames":  [
+                                             "frame_0",
+                                             "frame_1",
+                                             "frame_2"
+                                         ],
+                              "durations":  [
+                                                0.08,
+                                                0.08,
+                                                0.08
+                                            ]
+                          }
+              },
+    "frames":  {
+                   "frame_2":  {
+                                   "frame":  {
+                                                 "y":  0,
+                                                 "w":  80,
+                                                 "h":  64,
+                                                 "x":  160
+                                             }
+                               },
+                   "frame_0":  {
+                                   "frame":  {
+                                                 "y":  0,
+                                                 "w":  80,
+                                                 "h":  64,
+                                                 "x":  0
+                                             }
+                               },
+                   "frame_1":  {
+                                   "frame":  {
+                                                 "y":  0,
+                                                 "w":  80,
+                                                 "h":  64,
+                                                 "x":  80
+                                             }
+                               }
+               },
+    "image":  "boss_hit.png"
+}

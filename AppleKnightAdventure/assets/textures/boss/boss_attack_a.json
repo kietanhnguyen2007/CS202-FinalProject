@@ -1,0 +1,13 @@
+{
+    "frames":  {
+                   "default":  {
+                                   "frame":  {
+                                                 "y":  0,
+                                                 "w":  768,
+                                                 "h":  48,
+                                                 "x":  0
+                                             }
+                               }
+               },
+    "image":  "boss_attack_a.png"
+}
