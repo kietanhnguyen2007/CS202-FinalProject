@@ -23,51 +23,37 @@ bool SkillBarView::Init() {
 }
 
 void SkillBarView::InitIcons() {
-    // Fireball → projectiles/fire_bullet (static frame)
-    auto fbAtlas = Animations::TextureAtlas::LoadFromJSON("assets/textures/projectiles/fire_bullet.json");
-    if (fbAtlas) {
-        fbAtlas->LoadTexture();
-        m_skillIcons.emplace_back(SkillIcon{fbAtlas, Animations::Animator{}, false, ""});
-    }
+    m_skillIcons.clear();
+    // Reserve exactly 4 slots matching m_skills order
+    m_skillIcons.resize(4);
 
-    // Heal → items/potion (static frame)
-    auto healAtlas = Animations::TextureAtlas::LoadFromJSON("assets/textures/items/potion.json");
-    if (healAtlas) {
-        healAtlas->LoadTexture();
-        m_skillIcons.emplace_back(SkillIcon{healAtlas, Animations::Animator{}, false, ""});
-    }
+    auto loadStatic = [&](int idx, const std::string& jsonPath) {
+        auto atlas = Animations::TextureAtlas::LoadFromJSON(jsonPath);
+        if (!atlas) return;
+        atlas->LoadTexture();
+        m_skillIcons[idx] = {atlas, Animations::Animator{}, false, ""};
+    };
 
-    // Dash → projectiles/slash (animated clip "slash")
-    auto dashAtlas = Animations::TextureAtlas::LoadFromJSON("assets/textures/projectiles/slash.json");
-    if (dashAtlas) {
-        dashAtlas->LoadTexture();
+    auto loadAnimated = [&](int idx, const std::string& jsonPath, const std::string& clipName) {
+        auto atlas = Animations::TextureAtlas::LoadFromJSON(jsonPath);
+        if (!atlas) return;
+        atlas->LoadTexture();
         SkillIcon icon;
-        icon.atlas = dashAtlas;
+        icon.atlas = atlas;
         icon.animated = true;
-        icon.clipName = "slash";
-        icon.anim.SetTexture(dashAtlas->GetTexture());
-        if (dashAtlas->HasClip("slash")) {
-            icon.anim.AddClip(dashAtlas->GetClip("slash"));
-            icon.anim.Play("slash");
+        icon.clipName = clipName;
+        icon.anim.SetTexture(atlas->GetTexture());
+        if (atlas->HasClip(clipName)) {
+            icon.anim.AddClip(atlas->GetClip(clipName));
+            icon.anim.Play(clipName);
         }
-        m_skillIcons.push_back(std::move(icon));
-    }
+        m_skillIcons[idx] = std::move(icon);
+    };
 
-    // Shield → projectiles/hit (animated clip "hit")
-    auto shieldAtlas = Animations::TextureAtlas::LoadFromJSON("assets/textures/projectiles/hit.json");
-    if (shieldAtlas) {
-        shieldAtlas->LoadTexture();
-        SkillIcon icon;
-        icon.atlas = shieldAtlas;
-        icon.animated = true;
-        icon.clipName = "hit";
-        icon.anim.SetTexture(shieldAtlas->GetTexture());
-        if (shieldAtlas->HasClip("hit")) {
-            icon.anim.AddClip(shieldAtlas->GetClip("hit"));
-            icon.anim.Play("hit");
-        }
-        m_skillIcons.push_back(std::move(icon));
-    }
+    loadStatic(0, "assets/textures/projectiles/fire_bullet.json");     // Fireball
+    loadStatic(1, "assets/textures/items/potion.json");                // Heal
+    loadAnimated(2, "assets/textures/projectiles/slash.json", "slash"); // Dash
+    loadAnimated(3, "assets/textures/projectiles/hit.json", "hit");     // Shield
 }
 
 bool SkillBarView::LoadResources(const std::string& atlasJsonPath) {

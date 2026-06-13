@@ -18,18 +18,6 @@ bool InventoryView::Init() {
     return true;
 }
 
-std::string InventoryView::AtlasPathForItem(const std::string& itemName) const {
-    if (itemName == "Apple")      return "assets/textures/items/apple.json";
-    if (itemName == "Coin")       return "assets/textures/items/coin.json";
-    if (itemName == "Potion")     return "assets/textures/items/potion.json";
-    if (itemName == "Key")        return "assets/textures/items/key.json";
-    if (itemName == "KeySilver")  return "assets/textures/items/key_silver.json";
-    if (itemName == "BagCoins")   return "assets/textures/items/bag_coins.json";
-    if (itemName == "Equipment")  return "assets/textures/items/equipment.json";
-    if (itemName == "PotionRed")  return "assets/textures/items/potion_red.json";
-    return "";
-}
-
 void InventoryView::LoadItemAtlases() {
     auto loadOne = [&](const std::string& itemName, const std::string& jsonPath,
                        bool animated, const std::string& clipName) {

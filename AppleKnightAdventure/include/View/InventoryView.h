@@ -51,7 +51,6 @@ private:
     InventoryView() = default;
 
     void LoadItemAtlases();
-    std::string AtlasPathForItem(const std::string& itemName) const;
 
     bool m_open = false;
     int m_selection = -1;
