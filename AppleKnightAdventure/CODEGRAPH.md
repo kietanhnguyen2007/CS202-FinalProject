@@ -289,15 +289,40 @@ ExecutePhaseBehavior(float dt)         ← virtual. Override for phase attack pa
 ---
 
 ## Pet (`include/Model/Pet.h`)
-Extends Character. Auto-follows player.
+Extends Character. Auto-follows player with type-specific combat AI.
 
+### Constructors
 ```
+Pet()                              → default PetType::Skull, ownerId=-1
 Pet(Vector2 pos, PetType type, int ownerId)
-GetPetType()
+```
+
+### Core API
+```
+GetPetType() → PetType
 GetOwnerId() / SetOwnerId(int)
 GetFollowDistance() / SetFollowDistance(float)
-FollowPlayer(Vector2 playerPos, float dt)  ← moves toward player if distance > followDistance
-UpdateAI(Vector2 playerPos, float dt)      ← calls FollowPlayer()
+FollowPlayer(Vector2 playerPos, float dt)   ← moves toward owner if distance > followDistance
+UpdateAI(Vector2 playerPos, float dt)       ← calls FollowPlayer() + ExecuteSpecialAbility()
+```
+
+### PetType Special Abilities
+
+| PetType | Damage | Ability | Mechanic |
+|---------|--------|---------|----------|
+| **Skull** | 8 | Bắn đạn xuyên thấu | Periodically fires a piercing `Magic` projectile toward nearest enemy; passes through walls/targets |
+| **Ghost** | 6 | Hồi máu định kỳ | Heals owner by `healAmount` every `healInterval` seconds; passive +20% HP regen |
+| **BabyDragon** | 12 | Phun lửa AOE ngắn | Cone AoE breath attack; applies `StatusEffect::Burn` (Fire damage over time) |
+| **Fairy** | 4 | Lượm đồ tự động | Sucks nearby `Item` entities within `vacuumRange` toward owner; auto-collects on contact |
+
+### Special Ability Methods
+```
+GetAbilityCooldown() / GetAbilityTimer() / SetAbilityTimer(float)
+ExecuteSpecialAbility(float dt)             ← called by UpdateAI(), dispatches per PetType
+    Skull →     SpawnProjectile(Vector2 dir)              ← creates piercing Magic projectile
+    Ghost →     HealOwner(int amount)                     ← restores owner HP
+    BabyDragon → AoEBreath(Vector2 dir, float range)      ← applies Fire dmg + Burn in cone
+    Fairy →     VacuumItems(float range)                  ← pulls Item entities toward owner
 ```
 
 ---
