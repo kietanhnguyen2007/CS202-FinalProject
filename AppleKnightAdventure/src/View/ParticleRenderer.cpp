@@ -1,6 +1,7 @@
 #include "View/ParticleRenderer.h"
 #include "Systems/ParticleSystem.h"
 #include <cmath>
+#include <cstdlib>
 
 static Texture2D CreateSoftCircleTexture() {
     const int size = 16;

@@ -25,7 +25,8 @@ void MenuView::Shutdown() { m_loaded = false; }
 void MenuView::Update(float dt, int selectedIndex) {
     (void)dt;
     if (selectedIndex != m_selected) {
-        SoundManager::GetInstance().PlaySound("ui_hover");
+        auto& sm = SoundManager::GetInstance();
+        if (sm.IsAudioInitialized()) sm.PlaySound("ui_hover");
     }
     m_selected = selectedIndex;
 }

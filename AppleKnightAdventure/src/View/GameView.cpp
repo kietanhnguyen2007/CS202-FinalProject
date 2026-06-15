@@ -30,6 +30,8 @@ bool GameView::Init() {
 }
 
 void GameView::LoadShadowShader() {
+    if (m_shaderLoaded) return; // Tránh rò rỉ GPU VRAM nếu Init() vô tình được gọi nhiều lần
+
     const char* vsPath = "assets/shaders/shadow.vs";
     const char* fsPath = "assets/shaders/shadow.fs";
     m_shadowShader = LoadShader(vsPath, fsPath);
@@ -156,6 +158,7 @@ void GameView::Render(const Camera2D& camera, const std::vector<Particle*>& part
 
 void GameView::Shutdown() {
     View::CharacterRenderer::GetInstance().Clear();
+    View::EntityRenderer::GetInstance().Clear();
     View::ParticleRenderer::GetInstance().Shutdown();
 
     // Unload tilesets

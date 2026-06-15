@@ -44,8 +44,7 @@ bool UIStateManager::IsLayerVisible(UILayer layer) const {
         case UILayer::HUD:           return true; // always visible (dimmed when under modal)
         case UILayer::SkillBar:      return SkillBarView::GetInstance().IsOpen();
         case UILayer::InteractPrompt: return InteractPrompt::GetInstance().IsVisible();
-        case UILayer::Menu:          return MenuView::GetInstance().GetMode() != MenuMode::Main
-                                            || true; // menu visible at main menu too
+        case UILayer::Menu:          return true; // MenuView tự quản lý visibility qua m_visible + m_mode
         case UILayer::Inventory:     return InventoryView::GetInstance().IsOpen();
         case UILayer::Result:        return ResultView::GetInstance().IsVisible();
     }
@@ -102,17 +101,11 @@ void UIStateManager::RenderAll() {
         UILayer layer = m_stack[i];
         if (!IsLayerVisible(layer)) continue;
 
-        // Dim the layers underneath before rendering the top layer
-        if (i == m_stack.size() - 1 && m_stack.size() > 1) {
-            // This is the top layer — draw dim overlay under it
-        }
+        // Draw dim overlay before rendering each modal layer
+        // to dim the background or any modals underneath it
+        DrawDimOverlay();
 
         RenderLayer(layer);
-
-        // Draw dim overlay on top of this layer if it's not the top
-        if (i != m_stack.size() - 1) {
-            DrawDimOverlay();
-        }
     }
 }
 

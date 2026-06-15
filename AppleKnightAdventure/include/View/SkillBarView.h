@@ -16,6 +16,9 @@ struct SkillSlotData {
     float cooldown = 0.0f;
     float currentTimer = 0.0f;
     bool IsReady() const { return currentTimer <= 0.0f; }
+    bool operator==(const SkillSlotData& o) const {
+        return type == o.type && cooldown == o.cooldown && currentTimer == o.currentTimer;
+    }
 };
 
 class SkillBarView {

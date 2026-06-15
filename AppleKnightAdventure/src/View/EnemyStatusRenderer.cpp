@@ -46,30 +46,33 @@ void EnemyStatusRenderer::Render(const Camera2D& camera) {
         if (m_atlas && flags.burn && m_atlas->HasFrame("status/burn")) {
             Rectangle src = m_atlas->GetFrameRect("status/burn");
             Texture2D* tex = m_atlas->GetTexture();
-            r.SubmitSprite(tex, src, {pos.x + offsetX, pos.y - 24}, {iconSize/src.width, iconSize/src.height}, 0.0f, {0,0}, WHITE, Layer::UI, 0.0f, false, id);
+            r.SubmitSprite(tex, src, {pos.x + offsetX, pos.y - 24}, {iconSize/src.width, iconSize/src.height}, 0.0f, {0,0}, WHITE, Layer::Foreground, 0.0f, false, id);
             offsetX += iconSize + 2.0f;
         } else if (flags.burn) {
-            r.DrawText("B", {pos.x + offsetX, pos.y - 24}, 14, ORANGE);
+            Vector2 sp = GetWorldToScreen2D({pos.x + offsetX, pos.y - 24}, camera);
+            r.DrawText("B", sp, 14, ORANGE);
             offsetX += 12.0f;
         }
 
         if (m_atlas && flags.wet && m_atlas->HasFrame("status/wet")) {
             Rectangle src = m_atlas->GetFrameRect("status/wet");
             Texture2D* tex = m_atlas->GetTexture();
-            r.SubmitSprite(tex, src, {pos.x + offsetX, pos.y - 24}, {iconSize/src.width, iconSize/src.height}, 0.0f, {0,0}, WHITE, Layer::UI, 0.0f, false, id);
+            r.SubmitSprite(tex, src, {pos.x + offsetX, pos.y - 24}, {iconSize/src.width, iconSize/src.height}, 0.0f, {0,0}, WHITE, Layer::Foreground, 0.0f, false, id);
             offsetX += iconSize + 2.0f;
         } else if (flags.wet) {
-            r.DrawText("W", {pos.x + offsetX, pos.y - 24}, 14, SKYBLUE);
+            Vector2 sp = GetWorldToScreen2D({pos.x + offsetX, pos.y - 24}, camera);
+            r.DrawText("W", sp, 14, SKYBLUE);
             offsetX += 12.0f;
         }
 
         if (m_atlas && flags.shocked && m_atlas->HasFrame("status/shocked")) {
             Rectangle src = m_atlas->GetFrameRect("status/shocked");
             Texture2D* tex = m_atlas->GetTexture();
-            r.SubmitSprite(tex, src, {pos.x + offsetX, pos.y - 24}, {iconSize/src.width, iconSize/src.height}, 0.0f, {0,0}, WHITE, Layer::UI, 0.0f, false, id);
+            r.SubmitSprite(tex, src, {pos.x + offsetX, pos.y - 24}, {iconSize/src.width, iconSize/src.height}, 0.0f, {0,0}, WHITE, Layer::Foreground, 0.0f, false, id);
             offsetX += iconSize + 2.0f;
         } else if (flags.shocked) {
-            r.DrawText("S", {pos.x + offsetX, pos.y - 24}, 14, YELLOW);
+            Vector2 sp = GetWorldToScreen2D({pos.x + offsetX, pos.y - 24}, camera);
+            r.DrawText("S", sp, 14, YELLOW);
             offsetX += 12.0f;
         }
     }

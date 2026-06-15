@@ -26,6 +26,7 @@ bool InventoryView::LoadResources(const std::string& atlasJsonPath) {
 
 void InventoryView::Shutdown() {
     m_loaded = false;
+    DetachObservable();
 }
 
 void InventoryView::Open() {

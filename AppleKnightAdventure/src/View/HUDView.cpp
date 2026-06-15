@@ -3,6 +3,7 @@
 #include "View/UIHelpers.h"
 #include "Utils/Constants.h"
 #include <string>
+#include <cstdio>
 
 namespace View {
 

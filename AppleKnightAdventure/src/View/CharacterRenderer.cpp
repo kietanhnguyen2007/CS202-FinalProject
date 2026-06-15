@@ -2,6 +2,7 @@
 #include "View/ElementalFX.h"
 #include <iostream>
 #include <cmath>
+#include <cassert>
 
 namespace View {
 
@@ -33,7 +34,9 @@ bool CharacterRenderer::Register(const Entity* entity,
         std::cerr << "[CharacterRenderer] Register: null entity\n";
         return false;
     }
-    uint32_t id = static_cast<uint32_t>(entity->GetId());
+    int rawId = entity->GetId();
+    assert(rawId >= 0);
+    uint32_t id = static_cast<uint32_t>(rawId);
 
     // Check for double-register (warn and skip if same entity already registered)
     if (m_entities.find(id) != m_entities.end()) {
@@ -96,7 +99,6 @@ void CharacterRenderer::Unregister(uint32_t entityId) {
     // Fire callback before removing (so callback can read entity data if needed)
     auto cbIt = m_removeCallbacks.find(entityId);
     if (cbIt != m_removeCallbacks.end()) {
-        cbIt->second(entityId);
         auto cb = std::move(cbIt->second);
         m_removeCallbacks.erase(cbIt);
         cb(entityId);
@@ -178,8 +180,8 @@ void CharacterRenderer::UpdateAll(float dt) {
                 auto prevIt = m_lastActions.find(id);
                 int prevAction = (prevIt != m_lastActions.end()) ? prevIt->second : -1;
 
-                // Switch clip if action changed or animator stopped
-                if (action != prevAction || !animator.IsPlaying()) {
+                // Switch clip if action changed or animator stopped (ngoại trừ chết để tránh loop hoạt ảnh xác chết)
+                if (action != prevAction || (!animator.IsPlaying() && action != ACTION_DEAD)) {
                     animator.Play(clipIt->second);
                     m_lastActions[id] = action;
                 }
@@ -207,9 +209,13 @@ void CharacterRenderer::RenderAll() {
                 // map tint to frame name
                 std::string frameName;
                 // derive frame name by scanning ElementalFX mapping (simple map)
-                if (tint.r > 240 && tint.g < 200) frameName = "aura/fire";
-                else if (tint.b > 200) frameName = "aura/water";
-                else if (tint.r > 240 && tint.g > 240) frameName = "aura/thunder";
+                if (tint.r == 255 && tint.g == 255 && tint.b == 255) {
+                    // Không có hiệu ứng nguyên tố
+                } else {
+                    if (tint.r > 240 && tint.g < 200) frameName = "aura/fire";
+                    else if (tint.b > 200 && tint.r < 150) frameName = "aura/water";
+                    else if (tint.r > 240 && tint.g > 240) frameName = "aura/thunder";
+                }
 
                 if (!frameName.empty() && atlas->HasFrame(frameName)) {
                     Rectangle src = atlas->GetFrameRect(frameName);
@@ -287,11 +293,16 @@ void CharacterRenderer::RenderBossPhaseOverlay(uint32_t entityId, const Entity* 
         float sc = entity->GetScale();
         // Enraged boss gets slightly larger
         if (phaseIt->second == BossPhase::Enraged) sc *= 1.3f;
+        
+        // Lấy thông tin flipX từ animator để overlay lật mặt trùng với Boss
+        auto animIt = m_animators.find(entityId);
+        bool isFlipped = (animIt != m_animators.end()) ? animIt->second.GetFlipX() : false;
+
         View::Renderer::GetInstance().SubmitSprite(
             tex, src, entity->GetPosition(),
             {sc, sc}, 0.0f,
             {src.width * 0.5f, src.height * 0.5f},
-            glowColor, View::Layer::Foreground, -0.02f, false, entityId);
+            glowColor, View::Layer::Foreground, -0.02f, isFlipped, entityId);
     }
 }
 
