@@ -1,0 +1,44 @@
+{
+    "clips": {
+        "attack_1": {
+            "loop": false,
+            "frames": [
+                "attack_1_0",
+                "attack_1_1",
+                "attack_1_2"
+            ],
+            "durations": [
+                0.15,
+                0.15,
+                0.15
+            ]
+        }
+    },
+    "frames": {
+        "attack_1_0": {
+            "frame": {
+                "y": 0,
+                "w": 162,
+                "h": 174,
+                "x": 0
+            }
+        },
+        "attack_1_1": {
+            "frame": {
+                "y": 0,
+                "w": 162,
+                "h": 174,
+                "x": 162
+            }
+        },
+        "attack_1_2": {
+            "frame": {
+                "y": 0,
+                "w": 162,
+                "h": 174,
+                "x": 324
+            }
+        }
+    },
+    "image": "attack_1.png"
+}

@@ -1,0 +1,49 @@
+﻿{
+    "clips": {
+        "healing": {
+            "loop": false,
+            "frames": [
+                "frame_0",
+                "frame_1",
+                "frame_2",
+                "frame_3",
+                "frame_4",
+                "frame_5",
+                "frame_6"
+            ],
+            "durations": [
+                0.1,
+                0.1,
+                0.1,
+                0.1,
+                0.1,
+                0.1,
+                0.1
+            ]
+        }
+    },
+    "frames": {
+        "frame_0": {
+            "frame": { "x": 0, "y": 0, "w": 315, "h": 315 }
+        },
+        "frame_1": {
+            "frame": { "x": 315, "y": 0, "w": 260, "h": 257 }
+        },
+        "frame_2": {
+            "frame": { "x": 575, "y": 0, "w": 221, "h": 216 }
+        },
+        "frame_3": {
+            "frame": { "x": 796, "y": 0, "w": 332, "h": 340 }
+        },
+        "frame_4": {
+            "frame": { "x": 1128, "y": 0, "w": 409, "h": 411 }
+        },
+        "frame_5": {
+            "frame": { "x": 1537, "y": 0, "w": 252, "h": 250 }
+        },
+        "frame_6": {
+            "frame": { "x": 1789, "y": 0, "w": 175, "h": 223 }
+        }
+    },
+    "image": "healing.png"
+}

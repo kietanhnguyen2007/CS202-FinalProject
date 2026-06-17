@@ -1,0 +1,49 @@
+﻿{
+    "clips": {
+        "attack": {
+            "loop": false,
+            "frames": [
+                "frame_0",
+                "frame_1",
+                "frame_2",
+                "frame_3",
+                "frame_4",
+                "frame_5",
+                "frame_6"
+            ],
+            "durations": [
+                0.1,
+                0.1,
+                0.1,
+                0.1,
+                0.1,
+                0.1,
+                0.1
+            ]
+        }
+    },
+    "frames": {
+        "frame_0": {
+            "frame": { "x": 0, "y": 0, "w": 102, "h": 70 }
+        },
+        "frame_1": {
+            "frame": { "x": 102, "y": 0, "w": 144, "h": 99 }
+        },
+        "frame_2": {
+            "frame": { "x": 246, "y": 0, "w": 226, "h": 158 }
+        },
+        "frame_3": {
+            "frame": { "x": 472, "y": 0, "w": 314, "h": 244 }
+        },
+        "frame_4": {
+            "frame": { "x": 786, "y": 0, "w": 314, "h": 258 }
+        },
+        "frame_5": {
+            "frame": { "x": 1100, "y": 0, "w": 274, "h": 201 }
+        },
+        "frame_6": {
+            "frame": { "x": 1374, "y": 0, "w": 256, "h": 189 }
+        }
+    },
+    "image": "attack.png"
+}
