@@ -85,6 +85,7 @@ void ResultView::Render() {
     Texture2D* texHeader = res.GetHeader();
     Texture2D* texSlot = res.GetSlot();
     Texture2D* texBtn = res.GetButton();
+    Texture2D* texStar = res.GetStarIcon();
     float slotFrameW = res.GetSlotFrameWidth();
     float btnFrameW = res.GetButtonFrameWidth();
 
@@ -142,33 +143,32 @@ void ResultView::Render() {
         for (int i = 0; i < 3; ++i) {
             float sx = starStartX + static_cast<float>(i) * (starSize + starSpacing);
 
-            if (i < m_snap.stars) {
-                // Filled star: frame 1 (orange/highlighted)
-                if (texSlot && texSlot->id > 0 && slotFrameW > 0) {
-                    Rectangle src = {
-                        slotFrameW, 0.0f, // frame 1
-                        slotFrameW, static_cast<float>(texSlot->height)
-                    };
-                    float scaleX = starSize / slotFrameW;
-                    float scaleY = starSize / static_cast<float>(texSlot->height);
-                    r.SubmitSprite(texSlot, src, {sx, starY},
-                                   {scaleX, scaleY}, 0.0f, {0, 0}, GOLD, Layer::UI, 3.0f, false, 0);
-                } else {
-                    r.DrawText("*", {sx, starY}, static_cast<int>(starSize), GOLD);
-                }
+            if (texStar && texStar->id > 0) {
+                Color tint = (i < m_snap.stars) ? WHITE : DARKGRAY;
+                Rectangle src = { 0.0f, 0.0f, (float)texStar->width, (float)texStar->height };
+                float scaleX = starSize / (float)texStar->width;
+                float scaleY = starSize / (float)texStar->height;
+                r.SubmitSprite(texStar, src, {sx, starY},
+                               {scaleX, scaleY}, 0.0f, {0, 0}, tint, Layer::UI, 3.0f, false, 0);
             } else {
-                // Empty star: frame 0
-                if (texSlot && texSlot->id > 0 && slotFrameW > 0) {
-                    Rectangle src = {
-                        0.0f, 0.0f, // frame 0
-                        slotFrameW, static_cast<float>(texSlot->height)
-                    };
-                    float scaleX = starSize / slotFrameW;
-                    float scaleY = starSize / static_cast<float>(texSlot->height);
-                    r.SubmitSprite(texSlot, src, {sx, starY},
-                                   {scaleX, scaleY}, 0.0f, {0, 0}, GRAY, Layer::UI, 3.0f, false, 0);
+                if (i < m_snap.stars) {
+                    if (texSlot && texSlot->id > 0 && slotFrameW > 0) {
+                        Rectangle src = { slotFrameW, 0.0f, slotFrameW, static_cast<float>(texSlot->height) };
+                        float scaleX = starSize / slotFrameW;
+                        float scaleY = starSize / static_cast<float>(texSlot->height);
+                        r.SubmitSprite(texSlot, src, {sx, starY}, {scaleX, scaleY}, 0.0f, {0, 0}, GOLD, Layer::UI, 3.0f, false, 0);
+                    } else {
+                        r.DrawText("*", {sx, starY}, static_cast<int>(starSize), GOLD);
+                    }
                 } else {
-                    r.DrawText("o", {sx, starY}, static_cast<int>(starSize), GRAY);
+                    if (texSlot && texSlot->id > 0 && slotFrameW > 0) {
+                        Rectangle src = { 0.0f, 0.0f, slotFrameW, static_cast<float>(texSlot->height) };
+                        float scaleX = starSize / slotFrameW;
+                        float scaleY = starSize / static_cast<float>(texSlot->height);
+                        r.SubmitSprite(texSlot, src, {sx, starY}, {scaleX, scaleY}, 0.0f, {0, 0}, GRAY, Layer::UI, 3.0f, false, 0);
+                    } else {
+                        r.DrawText("o", {sx, starY}, static_cast<int>(starSize), GRAY);
+                    }
                 }
             }
         }

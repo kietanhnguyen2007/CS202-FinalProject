@@ -18,6 +18,11 @@ public:
     Texture2D* GetCloseBtn() { return &m_texCloseBtn; }
     Texture2D* GetHeader() { return &m_texHeader; }
 
+    Texture2D* GetStarIcon() { return &m_texStar; }
+    Texture2D* GetFireIcon() { return &m_texFire; }
+    Texture2D* GetWaterIcon() { return &m_texWater; }
+    Texture2D* GetLightningIcon() { return &m_texLightning; }
+
     // Helpers to get frame widths for horizontal sprite sheets
     float GetSlotFrameWidth() const { return m_slotFrameW; }
     float GetButtonFrameWidth() const { return m_buttonFrameW; }
@@ -32,6 +37,11 @@ private:
     Texture2D m_texButton{};
     Texture2D m_texCloseBtn{};
     Texture2D m_texHeader{};
+
+    Texture2D m_texStar{};
+    Texture2D m_texFire{};
+    Texture2D m_texWater{};
+    Texture2D m_texLightning{};
 
     float m_slotFrameW = 0.0f;
     float m_buttonFrameW = 0.0f;

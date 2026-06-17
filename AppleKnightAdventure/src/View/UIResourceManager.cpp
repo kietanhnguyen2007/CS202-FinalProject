@@ -16,6 +16,11 @@ bool UIResourceManager::Init() {
     m_texCloseBtn = ::LoadTexture("assets/ui/darkDwellers/20251125closeButton1-Sheet.png");
     m_texHeader   = ::LoadTexture("assets/ui/darkDwellers/20251117darkDwellersHeaderC.png");
 
+    m_texStar      = ::LoadTexture("assets/ui/icons/star.png");
+    m_texFire      = ::LoadTexture("assets/ui/icons/fire.png");
+    m_texWater     = ::LoadTexture("assets/ui/icons/water.png");
+    m_texLightning = ::LoadTexture("assets/ui/icons/lightning.png");
+
     // Calculate per-frame widths from horizontal sprite sheets
     if (m_texSlot.id != 0) {
         m_slotFrameW = m_texSlot.width / 5.0f;   // 5 frames in the sheet
@@ -36,6 +41,11 @@ void UIResourceManager::Shutdown() {
     if (m_texButton.id != 0)   ::UnloadTexture(m_texButton);
     if (m_texCloseBtn.id != 0) ::UnloadTexture(m_texCloseBtn);
     if (m_texHeader.id != 0)   ::UnloadTexture(m_texHeader);
+
+    if (m_texStar.id != 0) { ::UnloadTexture(m_texStar); m_texStar = {}; }
+    if (m_texFire.id != 0) { ::UnloadTexture(m_texFire); m_texFire = {}; }
+    if (m_texWater.id != 0) { ::UnloadTexture(m_texWater); m_texWater = {}; }
+    if (m_texLightning.id != 0) { ::UnloadTexture(m_texLightning); m_texLightning = {}; }
 
     m_texPanelBg  = {};
     m_texSlot     = {};
