@@ -96,7 +96,7 @@ bool CharacterRenderer::Register(const Entity* entity,
     return true;
 }
 
-bool CharacterRenderer::MergeAtlas(uint32_t entityId, const std::string& atlasPath) {
+bool CharacterRenderer::MergeAtlas(uint32_t entityId, const std::string& atlasPath, const std::string& clipAlias) {
     auto entityIt = m_entities.find(entityId);
     if (entityIt == m_entities.end()) return false;
 
@@ -109,7 +109,15 @@ bool CharacterRenderer::MergeAtlas(uint32_t entityId, const std::string& atlasPa
     auto& animator = m_animators[entityId];
     for (const auto& clipName : atlasIt->second->GetClipNames()) {
         auto clip = atlasIt->second->GetClip(clipName);
-        if (clip) animator.AddClip(clip);
+        if (clip) {
+            if (!clipAlias.empty()) {
+                auto cloned = std::make_shared<Animations::AnimationClip>(*clip);
+                cloned->name = clipAlias;
+                animator.AddClip(cloned);
+            } else {
+                animator.AddClip(clip);
+            }
+        }
     }
 
     return true;
@@ -209,12 +217,13 @@ void CharacterRenderer::UpdateAll(float dt) {
             // Clip fallback chains for assets that use different naming
             if (!animator.HasClip(clipName)) {
                 static const std::unordered_map<std::string, std::vector<std::string>> fallback = {
-                    {"walk", {"run"}},
-                    {"jump", {"jump_fall"}},
-                    {"fall", {"jump_fall"}},
-                    {"hurt", {"hit", "idle"}},
-                    {"dead", {"death"}},
-                    {"skill", {"attack"}}
+                    {"idle",   {"fly", "default"}},
+                    {"walk",   {"run", "fly", "idle"}},
+                    {"jump",   {"jump_fall", "idle"}},
+                    {"fall",   {"jump_fall", "idle"}},
+                    {"hurt",   {"hit", "idle"}},
+                    {"dead",   {"death", "idle"}},
+                    {"skill",  {"attack", "idle"}}
                 };
                 auto it = fallback.find(clipName);
                 if (it != fallback.end()) {
@@ -229,7 +238,7 @@ void CharacterRenderer::UpdateAll(float dt) {
 
             // Switch clip if action changed or animator stopped (except when dead)
             if (currentAction != prevAction || (!animator.IsPlaying() && state != Character::State::Dead)) {
-                animator.Play(clipName);
+                animator.Play(clipName, 1.0f, true);
                 m_lastActions[id] = currentAction;
             }
         }
@@ -279,7 +288,7 @@ void CharacterRenderer::RenderAll() {
 
         // Draw the character to the screen using Renderer::GetInstance().SubmitSprite()
         View::Renderer::GetInstance().SubmitSprite(
-            animator.GetTexture(),
+            animator.GetCurrentTexture(),
             animator.GetCurrentSrcRect(),
             entity->GetPosition(),
             {entity->GetScale(), entity->GetScale()},
@@ -305,6 +314,36 @@ void CharacterRenderer::SetBossPhase(uint32_t entityId, BossPhase phase) {
 
 void CharacterRenderer::ClearBossPhase(uint32_t entityId) {
     m_bossPhases.erase(entityId);
+}
+
+static const char* PhaseAtlasPath(BossPhase phase) {
+    switch (phase) {
+        case BossPhase::Phase1:   return "assets/textures/boss/phase1.json";
+        case BossPhase::Phase2:   return "assets/textures/boss/phase2.json";
+        case BossPhase::Phase3:   return "assets/textures/boss/phase3.json";
+        case BossPhase::Enraged:  return "assets/textures/boss/enraged.json";
+        default:                  return "assets/textures/boss/phase1.json";
+    }
+}
+
+bool CharacterRenderer::SwitchPhase(uint32_t entityId, BossPhase phase) {
+    auto it = m_animators.find(entityId);
+    if (it == m_animators.end()) return false;
+
+    const char* atlasPath = PhaseAtlasPath(phase);
+
+    auto atlasIt = m_atlasCache.find(atlasPath);
+    if (atlasIt == m_atlasCache.end()) {
+        if (!PreloadAtlas(atlasPath)) return false;
+        atlasIt = m_atlasCache.find(atlasPath);
+    }
+
+    auto& animator = it->second;
+    animator.LoadClipsFromAtlas(*atlasIt->second);
+
+    m_entityAtlas[entityId] = atlasIt->second;
+    m_bossPhases[entityId] = phase;
+    return true;
 }
 
 void CharacterRenderer::RenderBossPhaseOverlay(uint32_t entityId, const Entity* entity) {

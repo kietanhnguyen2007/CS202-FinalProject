@@ -1,9 +1,7 @@
 #pragma once
 
 #include "raylib.h"
-#include "View/TextureAtlas.h"
 #include <string>
-#include <memory>
 
 namespace View {
 
@@ -37,7 +35,19 @@ private:
     bool m_visible = false;
     bool m_gameOver = false;
     float m_anim = 0.0f;
-    std::shared_ptr<Animations::TextureAtlas> m_uiAtlas;
+
+    // Dark Dwellers textures
+    Texture2D m_texPanel{};       // 9-slice panel background
+    Texture2D m_texHeaderWin{};   // victory decorative header
+    Texture2D m_texHeaderLose{};  // game over decorative header
+    Texture2D m_texStarFilled{};  // star filled sprite sheet (5 frames)
+    Texture2D m_texStarEmpty{};   // star empty sprite sheet (5 frames)
+    Texture2D m_texBtn{};         // button sprite sheet (4 frames)
+
+    // Cached frame widths for sprite sheets
+    int m_starFilledFrameW = 0;
+    int m_starEmptyFrameW = 0;
+    int m_btnFrameW = 0;
 };
 
 } // namespace View

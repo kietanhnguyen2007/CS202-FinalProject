@@ -58,19 +58,30 @@ void ParticleRenderer::InitProjectileAtlases() {
         if (animated) {
             pa.anim.SetTexture(pa.atlas->GetTexture());
             if (pa.atlas->HasClip(clipName)) {
-                pa.anim.AddClip(pa.atlas->GetClip(clipName));
+                auto clip = pa.atlas->GetClip(clipName);
+                if (clip) clip->loop = true;
+                pa.anim.AddClip(clip);
                 pa.anim.Play(clipName);
             }
         }
         m_projectileAnims.emplace(projType, std::move(pa));
     };
 
-    // BossAttack → explosion atlas (animated)
+    // BossAttack → attack_b atlas
     loadAnim(static_cast<int>(ProjectileType::BossAttack),
-             "assets/textures/projectiles/explosion.json", true, "explode");
-    // Magic → arrow atlas (static frame)
+             "assets/textures/boss/boss_attack_b.json", true, "attack_b");
+    // Arrow → arrow atlas (animated, 4 frames)
+    loadAnim(static_cast<int>(ProjectileType::Arrow),
+             "assets/textures/projectiles/arrow.json", true, "default");
+    // Magic → fire bullet atlas (animated, 4 frames)
     loadAnim(static_cast<int>(ProjectileType::Magic),
-             "assets/textures/projectiles/arrow.json", false, "");
+             "assets/textures/projectiles/fire_bullet.json", true, "default");
+    // RangedBomb → animated bomb
+    loadAnim(static_cast<int>(ProjectileType::RangedBomb),
+             "assets/textures/enemies/ranged_bomb.json", true, "attack");
+    // FlyingProjectile → animated beam
+    loadAnim(static_cast<int>(ProjectileType::FlyingProjectile),
+             "assets/textures/enemies/flying_projectile.json", true, "shoot");
 }
 
 ParticleRenderer::ParticleRenderer() {
@@ -131,22 +142,6 @@ void ParticleRenderer::RenderAll(const std::vector<Particle*>& particles, const 
                     } else {
                         pSrc = {0, 0, (float)tex->width, (float)tex->height};
                     }
-                    Renderer::GetInstance().SubmitSprite(
-                        tex, pSrc, proj->GetPosition(),
-                        {proj->GetScale(), proj->GetScale()}, proj->GetRotation(),
-                        {pSrc.width * 0.5f, pSrc.height * 0.5f},
-                        WHITE, Layer::World, 0.0f, false, proj->GetId());
-                }
-            } else {
-                // Fallback to static textures from GameView
-                Texture2D* tex = nullptr;
-                if (proj->GetProjectileType() == ProjectileType::BossAttack) {
-                    tex = GameView::GetInstance().GetBossAttackTex();
-                } else if (proj->GetProjectileType() == ProjectileType::Magic) {
-                    tex = GameView::GetInstance().GetMagicTex();
-                }
-                if (tex && tex->id != 0) {
-                    Rectangle pSrc = {0, 0, (float)tex->width, (float)tex->height};
                     Renderer::GetInstance().SubmitSprite(
                         tex, pSrc, proj->GetPosition(),
                         {proj->GetScale(), proj->GetScale()}, proj->GetRotation(),

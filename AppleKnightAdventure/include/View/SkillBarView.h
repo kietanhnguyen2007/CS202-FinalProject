@@ -15,7 +15,7 @@ class Player;
 namespace View {
 
 struct SkillSlotData {
-    SkillType type = SkillType::Fireball;
+    SkillType type = SkillType::UltimateFighter;
     float cooldown = 0.0f;
     float currentTimer = 0.0f;
     bool IsReady() const { return currentTimer <= 0.0f; }

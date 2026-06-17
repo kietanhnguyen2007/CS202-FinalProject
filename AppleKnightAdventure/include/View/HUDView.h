@@ -28,7 +28,15 @@ private:
     const Player* m_player = nullptr;
     bool m_loaded = false;
 
-    std::shared_ptr<Animations::TextureAtlas> m_uiAtlas;
+    // Dark Dwellers HUD textures
+    Texture2D m_texBarBg{};         // HP bar background frame
+    Texture2D m_texBarFill{};       // HP bar red/orange fill
+    Texture2D m_texStatusSlot{};    // Buff/debuff slot sprite sheet (5 frames)
+    Texture2D m_texPortrait{};      // Portrait frame decoration
+
+    int m_statusSlotFrameW = 0;     // Width of a single frame in the status slot sheet
+
+    // Coin icon animation (kept from original)
     std::shared_ptr<Animations::TextureAtlas> m_coinAtlas;
     Animations::Animator m_coinAnim;
 };

@@ -35,8 +35,10 @@ public:
     bool Register(const Entity* entity,
                   const std::string& atlasPath,
                   const std::string& defaultClip = "idle");
-    // Merge additional clips from another atlas into an already registered entity
-    bool MergeAtlas(uint32_t entityId, const std::string& atlasPath);
+    
+    // Merge additional clips into an already registered entity's animator
+    bool MergeAtlas(uint32_t entityId, const std::string& atlasPath, const std::string& clipAlias = "");
+
     void Unregister(uint32_t entityId);
     void Clear();
 
@@ -59,6 +61,11 @@ public:
     // Boss phase visual override
     void SetBossPhase(uint32_t entityId, BossPhase phase);
     void ClearBossPhase(uint32_t entityId);
+
+    // Switch a boss entity to a new phase, replacing all animation clips
+    // with those from the corresponding phase atlas.
+    // Returns true on success, false if entity not found or atlas missing.
+    bool SwitchPhase(uint32_t entityId, BossPhase phase);
 
     // Memory safety:
     // Check if entityId is currently registered

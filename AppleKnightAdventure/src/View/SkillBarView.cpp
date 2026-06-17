@@ -14,25 +14,17 @@ SkillBarView& SkillBarView::GetInstance() {
 bool SkillBarView::Init() {
     m_loaded = true;
     m_skills = {
-        { SkillType::Fireball, 2.0f, 0.0f },
-        { SkillType::Heal,     5.0f, 0.0f },
-        { SkillType::Dash,     1.5f, 0.0f },
-        { SkillType::Shield,   4.0f, 0.0f },
+        { SkillType::UltimateFighter,      10.0f, 0.0f },
+        { SkillType::UltimateKnight,       12.0f, 6.0f },
+        { SkillType::UltimateNinja,         8.0f, 0.0f },
+        { SkillType::UltimateMagicCaster,  15.0f, 0.0f },
     };
     return true;
 }
 
 void SkillBarView::InitIcons() {
     m_skillIcons.clear();
-    // Reserve exactly 4 slots matching m_skills order
     m_skillIcons.resize(4);
-
-    auto loadStatic = [&](int idx, const std::string& jsonPath) {
-        auto atlas = Animations::TextureAtlas::LoadFromJSON(jsonPath);
-        if (!atlas) return;
-        atlas->LoadTexture();
-        m_skillIcons[idx] = {std::move(atlas), Animations::Animator{}, false, ""};
-    };
 
     auto loadAnimated = [&](int idx, const std::string& jsonPath, const std::string& clipName) {
         auto atlas = Animations::TextureAtlas::LoadFromJSON(jsonPath);
@@ -42,18 +34,18 @@ void SkillBarView::InitIcons() {
         icon.atlas = std::move(atlas);
         icon.animated = true;
         icon.clipName = clipName;
-        icon.anim.SetTexture(atlas->GetTexture());
-        if (atlas->HasClip(clipName)) {
-            icon.anim.AddClip(atlas->GetClip(clipName));
+        icon.anim.SetTexture(icon.atlas->GetTexture());
+        if (icon.atlas->HasClip(clipName)) {
+            icon.anim.AddClip(icon.atlas->GetClip(clipName));
             icon.anim.Play(clipName);
         }
         m_skillIcons[idx] = std::move(icon);
     };
 
-    loadStatic(0, "assets/textures/projectiles/fire_bullet.json");     // Fireball
-    loadStatic(1, "assets/textures/items/potion.json");                // Heal
-    loadAnimated(2, "assets/textures/projectiles/slash.json", "slash"); // Dash
-    loadAnimated(3, "assets/textures/projectiles/hit.json", "hit");     // Shield
+    loadAnimated(0, "assets/textures/player/fighter/ultimate_skill.json", "ultimate_skill");
+    loadAnimated(1, "assets/textures/player/knight/ultimate_skill.json", "ultimate_skill");
+    loadAnimated(2, "assets/textures/player/ninja/ultimate_skill.json", "ultimate_skill");
+    loadAnimated(3, "assets/textures/player/magic_caster/ultimate_skill.json", "ultimate_skill");
 }
 
 bool SkillBarView::LoadResources(const std::string& atlasJsonPath) {
@@ -76,10 +68,10 @@ void SkillBarView::Shutdown() {
 
 std::string SkillBarView::SkillLabel(SkillType t) {
     switch (t) {
-        case SkillType::Fireball: return "Fireball";
-        case SkillType::Heal:     return "Heal";
-        case SkillType::Dash:     return "Dash";
-        case SkillType::Shield:   return "Shield";
+        case SkillType::UltimateFighter:      return "Fighter";
+        case SkillType::UltimateKnight:       return "Knight";
+        case SkillType::UltimateNinja:        return "Ninja";
+        case SkillType::UltimateMagicCaster:  return "Caster";
     }
     return "?";
 }

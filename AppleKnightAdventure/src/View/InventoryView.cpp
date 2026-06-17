@@ -39,9 +39,7 @@ void InventoryView::LoadItemAtlases() {
 
     loadOne("Apple",     "assets/textures/items/apple.json",       false, "");
     loadOne("Coin",      "assets/textures/items/coin.json",        true,  "spin");
-    loadOne("Potion",    "assets/textures/items/potion.json",      false, "");
     loadOne("Key",       "assets/textures/items/key.json",         false, "");
-    loadOne("KeySilver", "assets/textures/items/key_silver.json",  false, "");
     loadOne("BagCoins",  "assets/textures/items/bag_coins.json",   false, "");
     loadOne("Equipment", "assets/textures/items/equipment.json",   false, "");
     loadOne("PotionRed", "assets/textures/items/potion_red.json",  false, "");
@@ -51,6 +49,20 @@ bool InventoryView::LoadResources(const std::string& atlasJsonPath) {
     (void)atlasJsonPath;
     m_itemIcons.clear();
     LoadItemAtlases();
+
+    // Load Dark Dwellers UI textures
+    m_texPanelBg  = ::LoadTexture("assets/ui/darkDwellers/20251029darkDwellers9SlicesC.png");
+    m_texSlot     = ::LoadTexture("assets/ui/darkDwellers/20251124emptyFrameA1-Sheet.png");
+    m_texCloseBtn = ::LoadTexture("assets/ui/darkDwellers/20251125closeButton1-Sheet.png");
+
+    // Calculate per-frame widths from horizontal sprite sheets
+    if (m_texSlot.id != 0) {
+        m_slotFrameW = m_texSlot.width / 5;   // 5 frames in the sheet
+    }
+    if (m_texCloseBtn.id != 0) {
+        m_closeBtnFrameW = m_texCloseBtn.width / 4; // 4 frames in the sheet
+    }
+
     m_loaded = true;
     return true;
 }
@@ -61,6 +73,17 @@ void InventoryView::Shutdown() {
         kv.second.atlas.reset();
     }
     m_itemIcons.clear();
+
+    // Unload Dark Dwellers textures
+    if (m_texPanelBg.id != 0)  ::UnloadTexture(m_texPanelBg);
+    if (m_texSlot.id != 0)     ::UnloadTexture(m_texSlot);
+    if (m_texCloseBtn.id != 0) ::UnloadTexture(m_texCloseBtn);
+    m_texPanelBg  = {};
+    m_texSlot     = {};
+    m_texCloseBtn = {};
+    m_slotFrameW     = 0;
+    m_closeBtnFrameW = 0;
+
     m_loaded = false;
     DetachObservable();
 }
@@ -84,33 +107,132 @@ void InventoryView::Update(float dt) {
     }
 }
 
+// ---------------------------------------------------------------------------
+// DrawSlot  — draws one inventory slot using the Dark Dwellers sprite sheet
+// ---------------------------------------------------------------------------
+void InventoryView::DrawSlot(float x, float y, float size, bool highlighted) {
+    if (m_texSlot.id == 0 || m_slotFrameW == 0) return;
+    Renderer& r = Renderer::GetInstance();
+
+    int frame = highlighted ? 1 : 0;
+    float frameW = (float)m_slotFrameW;
+    float frameH = (float)m_texSlot.height;
+
+    Rectangle src = {
+        frame * frameW,
+        0.0f,
+        frameW,
+        frameH
+    };
+
+    float scaleX = size / frameW;
+    float scaleY = size / frameH;
+
+    r.SubmitSprite(&m_texSlot, src,
+                   {x, y},
+                   {scaleX, scaleY},
+                   0.0f, {0, 0}, WHITE,
+                   Layer::UI, 0.1f, false, 0);
+}
+
+// ---------------------------------------------------------------------------
+// Render
+// ---------------------------------------------------------------------------
 void InventoryView::Render() {
     if (!m_open || !m_loaded) return;
     Renderer& r = Renderer::GetInstance();
     int w = r.GetWindowWidth();
     int h = r.GetWindowHeight();
 
-    Vector2 center = { w*0.5f, h*0.5f };
-    r.DrawRectangle({center.x - 240, center.y - 180}, {480, 360}, {30, 30, 30, 220}, Layer::UI, 0.0f);
+    // ---- Panel dimensions (37.5% × 50% of screen, centered) ----
+    float panelW = w * 0.375f;
+    float panelH = h * 0.50f;
+    float panelX = (w - panelW) * 0.5f;
+    float panelY = (h - panelH) * 0.5f;
 
+    // Draw panel background texture stretched to panel size
+    if (m_texPanelBg.id != 0) {
+        Rectangle panelSrc = { 0.0f, 0.0f, (float)m_texPanelBg.width, (float)m_texPanelBg.height };
+        float bgScaleX = panelW / (float)m_texPanelBg.width;
+        float bgScaleY = panelH / (float)m_texPanelBg.height;
+        r.SubmitSprite(&m_texPanelBg, panelSrc,
+                       {panelX, panelY},
+                       {bgScaleX, bgScaleY},
+                       0.0f, {0, 0}, WHITE,
+                       Layer::UI, 0.0f, false, 0);
+    } else {
+        // Fallback: solid rectangle if texture failed to load
+        r.DrawRectangle({panelX, panelY}, {panelW, panelH},
+                        {30, 30, 30, 220}, Layer::UI, 0.0f);
+    }
+
+    // ---- Close button (top-right corner of panel) ----
+    if (m_texCloseBtn.id != 0 && m_closeBtnFrameW > 0) {
+        float closeBtnSize = panelW * 0.06f;
+        float closeBtnX = panelX + panelW - closeBtnSize - panelW * 0.03f;
+        float closeBtnY = panelY + panelH * 0.03f;
+
+        float cbFrameW = (float)m_closeBtnFrameW;
+        float cbFrameH = (float)m_texCloseBtn.height;
+        // Frame 0 = normal state
+        Rectangle cbSrc = { 0.0f, 0.0f, cbFrameW, cbFrameH };
+        float cbScaleX = closeBtnSize / cbFrameW;
+        float cbScaleY = closeBtnSize / cbFrameH;
+
+        r.SubmitSprite(&m_texCloseBtn, cbSrc,
+                       {closeBtnX, closeBtnY},
+                       {cbScaleX, cbScaleY},
+                       0.0f, {0, 0}, WHITE,
+                       Layer::UI, 0.2f, false, 0);
+    }
+
+    // ---- Title "INVENTORY" ----
+    float titleFontSize = panelH * 0.07f;
+    float titleX = panelX + panelW * 0.05f;
+    float titleY = panelY + panelH * 0.04f;
+    r.DrawText("INVENTORY", {titleX, titleY}, (int)titleFontSize, WHITE);
+
+    // ---- Grid: 6 cols × 4 rows ----
     const int cols = 6;
     const int rows = 4;
-    const float slotW = 64.0f;
-    const float slotH = 64.0f;
-    const float startX = center.x - (cols * slotW) / 2.0f + 8.0f;
-    const float startY = center.y - (rows * slotH) / 2.0f + 20.0f;
-    const float iconSize = 32.0f;
+
+    // Slot area: inset from panel edges
+    float gridPadX  = panelW * 0.06f;
+    float gridTopY  = panelY + panelH * 0.16f;   // below title
+    float gridBotY  = panelY + panelH * 0.95f;   // near bottom
+    float gridLeftX = panelX + gridPadX;
+    float gridW     = panelW - gridPadX * 2.0f;
+    float gridH     = gridBotY - gridTopY;
+
+    float slotSize  = gridW / (float)cols;        // width drives size (square slots)
+    if (slotSize * rows > gridH) {
+        slotSize = gridH / (float)rows;           // clamp if vertical space is tight
+    }
+
+    // Center the grid horizontally within panel
+    float totalGridW = slotSize * cols;
+    float startX = gridLeftX + (gridW - totalGridW) * 0.5f;
+
+    // Center the grid vertically within available space
+    float totalGridH = slotSize * rows;
+    float startY = gridTopY + (gridH - totalGridH) * 0.5f;
+
+    float iconPadding = slotSize * 0.15f;   // padding inside slot for the item icon
+    float iconSize    = slotSize - iconPadding * 2.0f;
 
     int idx = 0;
-    for (int y = 0; y < rows; ++y) {
-        for (int x = 0; x < cols; ++x) {
-            float sx = startX + x * slotW;
-            float sy = startY + y * slotH;
-            r.DrawRectangle({sx, sy}, {slotW - 8, slotH - 8}, {60, 60, 60, 200}, Layer::UI, 0.0f);
+    for (int row = 0; row < rows; ++row) {
+        for (int col = 0; col < cols; ++col) {
+            float sx = startX + col * slotSize;
+            float sy = startY + row * slotSize;
 
+            bool highlighted = (idx == m_selection);
+            DrawSlot(sx, sy, slotSize, highlighted);
+
+            // Draw item icon if this slot has an item
             if (idx < (int)m_items.size()) {
                 auto& p = m_items[idx];
-                // Draw item icon
+
                 auto iconIt = m_itemIcons.find(p.first);
                 if (iconIt != m_itemIcons.end()) {
                     const auto& icon = iconIt->second;
@@ -122,24 +244,26 @@ void InventoryView::Render() {
                             src = icon.atlas->GetFrameRect("default");
                         }
                         if (src.width > 0 && src.height > 0) {
-                            float ix = sx + (slotW - 8 - iconSize) * 0.5f;
-                            float iy = sy + 4;
+                            float ix = sx + iconPadding;
+                            float iy = sy + iconPadding * 0.6f;  // slightly above center
                             r.SubmitSprite(icon.atlas->GetTexture(), src,
                                            {ix, iy},
                                            {iconSize / src.width, iconSize / src.height},
-                                           0.0f, {0, 0}, WHITE, Layer::UI, 0.0f, false, 0);
+                                           0.0f, {0, 0}, WHITE,
+                                           Layer::UI, 0.3f, false, 0);
                         }
                     }
                 }
-                // Draw item count
+
+                // Item count text "xN" in bottom-left of slot
                 char b[16];
                 snprintf(b, sizeof(b), "x%d", p.second);
-                r.DrawText(b, {sx + 8, sy + slotH - 20}, 12, YELLOW);
+                float countFontSize = slotSize * 0.22f;
+                float countX = sx + slotSize * 0.08f;
+                float countY = sy + slotSize * 0.72f;
+                r.DrawText(b, {countX, countY}, (int)countFontSize, YELLOW);
             }
 
-            if (idx == m_selection) {
-                r.DrawRectangle({sx, sy}, {slotW - 8, slotH - 8}, {255, 255, 255, 48}, Layer::UI, 0.0f);
-            }
             ++idx;
         }
     }
