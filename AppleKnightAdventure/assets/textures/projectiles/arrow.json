@@ -1,12 +1,45 @@
-{
+﻿{
+    "clips":  {
+                  "default":  {
+                                  "loop":  true,
+                                  "frames":  [
+                                                 "arrow_0",
+                                                 "arrow_1",
+                                                 "arrow_2",
+                                                 "arrow_3"
+                                             ],
+                                  "durations":  [
+                                                    0.1,
+                                                    0.1,
+                                                    0.1,
+                                                    0.1
+                                                ]
+                              }
+              },
     "frames":  {
-                   "default":  {
-                                   "frame":  {
-                                                 "y":  0,
-                                                 "w":  256,
-                                                 "h":  256,
-                                                 "x":  0
-                                             }
+                   "arrow_0":  {
+                                   "y":  0,
+                                   "w":  16,
+                                   "h":  32,
+                                   "x":  0
+                               },
+                   "arrow_1":  {
+                                   "y":  0,
+                                   "w":  16,
+                                   "h":  32,
+                                   "x":  16
+                               },
+                   "arrow_2":  {
+                                   "y":  0,
+                                   "w":  16,
+                                   "h":  32,
+                                   "x":  32
+                               },
+                   "arrow_3":  {
+                                   "y":  0,
+                                   "w":  16,
+                                   "h":  32,
+                                   "x":  48
                                }
                },
     "image":  "arrow.png"

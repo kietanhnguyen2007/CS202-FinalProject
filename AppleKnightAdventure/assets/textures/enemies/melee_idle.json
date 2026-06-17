@@ -1,74 +1,54 @@
 {
     "clips":  {
-                  "idle":  {
-                               "loop":  true,
-                               "frames":  [
-                                              "frame_0",
-                                              "frame_1",
-                                              "frame_2",
-                                              "frame_3",
-                                              "frame_4",
-                                              "frame_5"
-                                          ],
-                               "durations":  [
-                                                 0.15,
-                                                 0.15,
-                                                 0.15,
-                                                 0.15,
-                                                 0.15,
-                                                 0.15
-                                             ]
-                           }
-              },
-    "frames":  {
-                   "frame_0":  {
-                                   "frame":  {
-                                                 "y":  0,
-                                                 "w":  16,
-                                                 "h":  16,
-                                                 "x":  0
-                                             }
-                               },
-                   "frame_4":  {
-                                   "frame":  {
-                                                 "y":  0,
-                                                 "w":  16,
-                                                 "h":  16,
-                                                 "x":  64
-                                             }
-                               },
-                   "frame_1":  {
-                                   "frame":  {
-                                                 "y":  0,
-                                                 "w":  16,
-                                                 "h":  16,
-                                                 "x":  16
-                                             }
-                               },
-                   "frame_2":  {
-                                   "frame":  {
-                                                 "y":  0,
-                                                 "w":  16,
-                                                 "h":  16,
-                                                 "x":  32
-                                             }
-                               },
-                   "frame_3":  {
-                                   "frame":  {
-                                                 "y":  0,
-                                                 "w":  16,
-                                                 "h":  16,
-                                                 "x":  48
-                                             }
-                               },
-                   "frame_5":  {
-                                   "frame":  {
-                                                 "y":  0,
-                                                 "w":  16,
-                                                 "h":  16,
-                                                 "x":  80
-                                             }
-                               }
+                   "idle":  {
+                                "loop":  true,
+                                "frames":  [
+                                               "frame_0",
+                                               "frame_1",
+                                               "frame_2",
+                                               "frame_3"
+                                           ],
+                                "durations":  [
+                                                  0.15,
+                                                  0.15,
+                                                  0.15,
+                                                  0.15
+                                              ]
+                            }
                },
-    "image":  "melee_idle.png"
+     "frames":  {
+                    "frame_0":  {
+                                    "frame":  {
+                                                  "y":  0,
+                                                  "w":  150,
+                                                  "h":  150,
+                                                  "x":  0
+                                              }
+                                },
+                    "frame_1":  {
+                                    "frame":  {
+                                                  "y":  0,
+                                                  "w":  150,
+                                                  "h":  150,
+                                                  "x":  150
+                                              }
+                                },
+                    "frame_2":  {
+                                    "frame":  {
+                                                  "y":  0,
+                                                  "w":  150,
+                                                  "h":  150,
+                                                  "x":  300
+                                              }
+                                },
+                    "frame_3":  {
+                                    "frame":  {
+                                                  "y":  0,
+                                                  "w":  150,
+                                                  "h":  150,
+                                                  "x":  450
+                                              }
+                                }
+                },
+     "image":  "melee_idle.png"
 }
