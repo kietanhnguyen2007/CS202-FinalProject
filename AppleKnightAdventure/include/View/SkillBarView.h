@@ -65,6 +65,11 @@ private:
     std::vector<SkillSlotData> m_skills;
     std::vector<SkillIcon> m_skillIcons;
 
+    Texture2D m_texSlot{};
+    Texture2D m_texCursor{};
+    Texture2D m_texBar{};
+    int m_slotFrameW = 0;
+
     ObservableList<SkillSlotData>* m_attachedObservable = nullptr;
     std::function<void()> m_onDataChanged;
 };

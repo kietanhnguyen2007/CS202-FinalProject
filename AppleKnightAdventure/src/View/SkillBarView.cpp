@@ -52,6 +52,15 @@ bool SkillBarView::LoadResources(const std::string& atlasJsonPath) {
     (void)atlasJsonPath;
     m_skillIcons.clear();
     InitIcons();
+    
+    m_texSlot   = ::LoadTexture("assets/ui/darkDwellers/20251124emptyFrameA1-Sheet.png");
+    m_texCursor = ::LoadTexture("assets/ui/darkDwellers/20251118darkDwellersCursourA1-Sheet.png");
+    m_texBar    = ::LoadTexture("assets/ui/darkDwellers/20251118darkDwellersBarE.png");
+
+    if (m_texSlot.id != 0) {
+        m_slotFrameW = m_texSlot.width / 5;
+    }
+
     m_loaded = true;
     return true;
 }
@@ -62,6 +71,15 @@ void SkillBarView::Shutdown() {
         si.atlas.reset();
     }
     m_skillIcons.clear();
+
+    if (m_texSlot.id != 0) ::UnloadTexture(m_texSlot);
+    if (m_texCursor.id != 0) ::UnloadTexture(m_texCursor);
+    if (m_texBar.id != 0) ::UnloadTexture(m_texBar);
+    m_texSlot = {};
+    m_texCursor = {};
+    m_texBar = {};
+    m_slotFrameW = 0;
+
     m_loaded = false;
     DetachObservable();
 }
@@ -112,8 +130,16 @@ void SkillBarView::Render() {
         bool selected = (i == m_selection);
         bool ready = skill.IsReady();
 
-        Color bg = selected ? (Color){80, 80, 100, 220} : (Color){40, 40, 50, 200};
-        r.DrawRectangle({x, y}, {slotW, slotH}, bg, Layer::UI, 0.0f);
+        if (m_texSlot.id != 0 && m_slotFrameW > 0) {
+            int frame = selected ? 1 : 0;
+            Rectangle src = { (float)(frame * m_slotFrameW), 0.0f, (float)m_slotFrameW, (float)m_texSlot.height };
+            float scaleX = slotW / (float)m_slotFrameW;
+            float scaleY = slotH / (float)m_texSlot.height;
+            r.SubmitSprite(&m_texSlot, src, {x, y}, {scaleX, scaleY}, 0.0f, {0,0}, WHITE, Layer::UI, 0.0f, false, 0);
+        } else {
+            Color bg = selected ? (Color){80, 80, 100, 220} : (Color){40, 40, 50, 200};
+            r.DrawRectangle({x, y}, {slotW, slotH}, bg, Layer::UI, 0.0f);
+        }
 
         // Draw skill icon
         if (i < (int)m_skillIcons.size()) {
@@ -143,15 +169,29 @@ void SkillBarView::Render() {
         if (!ready) {
             float frac = skill.currentTimer / skill.cooldown;
             float overlayH = slotH * frac;
-            r.DrawRectangle({x, y + slotH - overlayH}, {slotW, overlayH},
-                            {0, 0, 0, 160}, Layer::UI, 0.0f);
+            if (m_texBar.id != 0) {
+                Rectangle src = { 0.0f, 0.0f, (float)m_texBar.width, (float)m_texBar.height * frac };
+                float scaleX = slotW / (float)m_texBar.width;
+                float scaleY = slotH / (float)m_texBar.height;
+                r.SubmitSprite(&m_texBar, src, {x, y + slotH - overlayH}, {scaleX, scaleY}, 0.0f, {0,0}, (Color){50,50,50,220}, Layer::UI, 0.5f, false, 0);
+            } else {
+                r.DrawRectangle({x, y + slotH - overlayH}, {slotW, overlayH}, {0, 0, 0, 160}, Layer::UI, 0.5f);
+            }
             char buf[16];
             snprintf(buf, sizeof(buf), "%.1f", skill.currentTimer);
             r.DrawText(buf, {x + slotW * 0.25f, y + slotH * 0.35f}, 14, ORANGE);
         }
 
         if (selected) {
-            r.DrawRectangle({x, y}, {slotW, 2}, YELLOW, Layer::UI, 0.0f);
+            if (m_texCursor.id != 0) {
+                int cFrameW = m_texCursor.width / 4; 
+                Rectangle cSrc = { 0.0f, 0.0f, (float)cFrameW, (float)m_texCursor.height };
+                float cScaleX = slotW / (float)cFrameW;
+                float cScaleY = slotH / (float)m_texCursor.height;
+                r.SubmitSprite(&m_texCursor, cSrc, {x, y}, {cScaleX, cScaleY}, 0.0f, {0,0}, WHITE, Layer::UI, 0.6f, false, 0);
+            } else {
+                r.DrawRectangle({x, y}, {slotW, 2}, YELLOW, Layer::UI, 0.6f);
+            }
         }
     }
 }

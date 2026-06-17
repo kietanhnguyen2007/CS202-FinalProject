@@ -23,6 +23,9 @@ bool HUDView::LoadResources(const std::string& atlasJsonPath) {
     // ---- Dark Dwellers HUD textures ----
     m_texBarBg     = ::LoadTexture("assets/ui/darkDwellers/20251118darkDwellersBarD.png");
     m_texBarFill   = ::LoadTexture("assets/ui/darkDwellers/20251118darkDwellersBarC.png");
+    m_texBarFillMP = ::LoadTexture("assets/ui/darkDwellers/20251118darkDwellersBarA.png");
+    m_texBarFillSP = ::LoadTexture("assets/ui/darkDwellers/20251118darkDwellersBarF.png");
+    m_texBarFillUlt= ::LoadTexture("assets/ui/darkDwellers/20251118darkDwellersBarJ.png");
     m_texStatusSlot = ::LoadTexture("assets/ui/darkDwellers/20251124emptyFrameB1-Sheet.png");
     m_texPortrait  = ::LoadTexture("assets/ui/darkDwellers/20251125portraitFrameA.png");
 
@@ -50,11 +53,17 @@ void HUDView::Shutdown() {
     // Unload Dark Dwellers textures
     ::UnloadTexture(m_texBarBg);
     ::UnloadTexture(m_texBarFill);
+    ::UnloadTexture(m_texBarFillMP);
+    ::UnloadTexture(m_texBarFillSP);
+    ::UnloadTexture(m_texBarFillUlt);
     ::UnloadTexture(m_texStatusSlot);
     ::UnloadTexture(m_texPortrait);
 
     m_texBarBg    = {};
     m_texBarFill  = {};
+    m_texBarFillMP= {};
+    m_texBarFillSP= {};
+    m_texBarFillUlt={};
     m_texStatusSlot = {};
     m_texPortrait = {};
     m_statusSlotFrameW = 0;
@@ -112,60 +121,57 @@ void HUDView::Render() {
     }
 
     // ======================================================================
-    // 2. HP Bar Background — to the right of the portrait
+    // 2. Bars (HP, MP, SP, Ultimate) — to the right of the portrait
     // ======================================================================
-    // Positioned right after portrait with a small gap (~1% screen width)
-    // Size: ~18% screen width, ~2.5% screen height
     float barGap = w * 0.01f;
-    float barW   = w * 0.18f;
-    float barH   = h * 0.025f;
-    // Vertically center the bar relative to the portrait
-    float barY = portraitPos.y + (portraitH - barH) * 0.5f;
-    Vector2 barPos = { portraitPos.x + portraitW + barGap, barY };
+    float barW   = w * 0.16f;
+    float barH   = h * 0.018f;
+    float barSpacing = barH + h * 0.002f;
+    
+    // Align top of bars with top of portrait
+    float startX = portraitPos.x + portraitW + barGap;
+    float startY = portraitPos.y; 
 
-    if (m_texBarBg.id > 0) {
-        Rectangle bgSrc = {
-            0.0f, 0.0f,
-            (float)m_texBarBg.width,
-            (float)m_texBarBg.height
-        };
-        float scaleX = barW / (float)m_texBarBg.width;
-        float scaleY = barH / (float)m_texBarBg.height;
-        r.SubmitSprite(&m_texBarBg, bgSrc, barPos,
-                       {scaleX, scaleY}, 0.0f, {0, 0},
-                       WHITE, Layer::UI, 0.0f, false, 0);
-    }
-
-    // ======================================================================
-    // 3. HP Bar Fill — clipped by health fraction, drawn on top of BG
-    // ======================================================================
-    if (m_texBarFill.id > 0 && frac > 0.0f) {
-        Rectangle fillSrc = {
-            0.0f, 0.0f,
-            (float)m_texBarFill.width * frac,
-            (float)m_texBarFill.height
-        };
-        float scaleX = barW / (float)m_texBarFill.width;
-        float scaleY = barH / (float)m_texBarFill.height;
-        r.SubmitSprite(&m_texBarFill, fillSrc, barPos,
-                       {scaleX, scaleY}, 0.0f, {0, 0},
-                       WHITE, Layer::UI, 0.5f, false, 0);
-    }
-
-    // ======================================================================
-    // 4. HP Text — on top of the bar
-    // ======================================================================
-    {
-        char buf[64];
-        snprintf(buf, sizeof(buf), "HP: %d/%d", hp, maxHp);
-        // Font size scales with screen height (~2% of height, minimum 10)
-        int fontSize = (int)(h * 0.02f);
+    auto drawBar = [&](Texture2D& fillTex, Vector2 pos, float barFrac, const char* text) {
+        if (m_texBarBg.id > 0) {
+            Rectangle bgSrc = { 0.0f, 0.0f, (float)m_texBarBg.width, (float)m_texBarBg.height };
+            float scaleX = barW / (float)m_texBarBg.width;
+            float scaleY = barH / (float)m_texBarBg.height;
+            r.SubmitSprite(&m_texBarBg, bgSrc, pos, {scaleX, scaleY}, 0.0f, {0, 0}, WHITE, Layer::UI, 0.0f, false, 0);
+        }
+        if (fillTex.id > 0 && barFrac > 0.0f) {
+            Rectangle fillSrc = { 0.0f, 0.0f, (float)fillTex.width * barFrac, (float)fillTex.height };
+            float scaleX = barW / (float)fillTex.width;
+            float scaleY = barH / (float)fillTex.height;
+            r.SubmitSprite(&fillTex, fillSrc, pos, {scaleX, scaleY}, 0.0f, {0, 0}, WHITE, Layer::UI, 0.5f, false, 0);
+        }
+        int fontSize = (int)(h * 0.015f);
         if (fontSize < 10) fontSize = 10;
-        // Center text vertically within the bar, slight horizontal padding
-        float textX = barPos.x + barW * 0.05f;
-        float textY = barPos.y + (barH - fontSize) * 0.5f;
-        r.DrawText(buf, {textX, textY}, fontSize, WHITE);
-    }
+        float textX = pos.x + barW * 0.05f;
+        float textY = pos.y + (barH - fontSize) * 0.5f;
+        r.DrawText(text, {textX, textY}, fontSize, WHITE);
+    };
+
+    char buf[64];
+
+    // 1. HP
+    snprintf(buf, sizeof(buf), "HP: %d/%d", hp, maxHp);
+    drawBar(m_texBarFill, {startX, startY}, frac, buf);
+
+    // 2. MP (Mock)
+    int mockMp = 50, mockMaxMp = 100;
+    snprintf(buf, sizeof(buf), "MP: %d/%d", mockMp, mockMaxMp);
+    drawBar(m_texBarFillMP, {startX, startY + barSpacing}, (float)mockMp/mockMaxMp, buf);
+
+    // 3. SP (Mock)
+    int mockSp = 75, mockMaxSp = 100;
+    snprintf(buf, sizeof(buf), "SP: %d/%d", mockSp, mockMaxSp);
+    drawBar(m_texBarFillSP, {startX, startY + barSpacing * 2.0f}, (float)mockSp/mockMaxSp, buf);
+
+    // 4. Ultimate (Mock)
+    float mockUlt = 20.0f, mockMaxUlt = 100.0f;
+    snprintf(buf, sizeof(buf), "ULT: %d%%", (int)(mockUlt/mockMaxUlt * 100));
+    drawBar(m_texBarFillUlt, {startX, startY + barSpacing * 3.0f}, mockUlt/mockMaxUlt, buf);
 
     // ======================================================================
     // 5. Coin Icon — right side of screen
@@ -212,9 +218,9 @@ void HUDView::Render() {
         float scaleX = slotSize / (float)m_statusSlotFrameW;
         float scaleY = slotSize / (float)frameH;
 
-        // Position: below the HP bar with a small gap
-        float slotY = barPos.y + barH + h * 0.008f;
-        float slotStartX = barPos.x;
+        // Position: below the bars with a small gap
+        float slotY = startY + barSpacing * 4.0f + h * 0.008f;
+        float slotStartX = startX;
         float slotSpacing = w * 0.035f; // ~3.5% apart center-to-center
 
         for (int i = 0; i < 4; ++i) {

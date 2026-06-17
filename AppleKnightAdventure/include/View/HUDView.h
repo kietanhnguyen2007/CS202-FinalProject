@@ -29,8 +29,11 @@ private:
     bool m_loaded = false;
 
     // Dark Dwellers HUD textures
-    Texture2D m_texBarBg{};         // HP bar background frame
-    Texture2D m_texBarFill{};       // HP bar red/orange fill
+    Texture2D m_texBarBg{};         // Bar background frame
+    Texture2D m_texBarFill{};       // HP bar fill
+    Texture2D m_texBarFillMP{};     // MP bar fill
+    Texture2D m_texBarFillSP{};     // SP bar fill
+    Texture2D m_texBarFillUlt{};    // Ultimate bar fill
     Texture2D m_texStatusSlot{};    // Buff/debuff slot sprite sheet (5 frames)
     Texture2D m_texPortrait{};      // Portrait frame decoration
 

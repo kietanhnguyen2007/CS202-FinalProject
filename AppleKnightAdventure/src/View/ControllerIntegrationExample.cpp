@@ -5,6 +5,8 @@
 #include "View/EnemyStatusRenderer.h"
 #include "View/ElementalFX.h"
 #include "View/EntityRenderer.h"
+#include "View/SkillBarView.h"
+#include "View/InteractPrompt.h"
 
 // Example pseudocode showing how a controller should call view APIs
 // This file is for documentation / developer reference and is not used at runtime.
@@ -21,6 +23,11 @@ void ExampleIntegration() {
 
     InventoryView::GetInstance().Init();
     InventoryView::GetInstance().LoadResources("assets/ui/ui_atlas.json");
+    
+    SkillBarView::GetInstance().Init();
+    SkillBarView::GetInstance().LoadResources("");
+
+    InteractPrompt::GetInstance().LoadResources("");
 
     // Per-frame (controller/game loop): update + render
     // HUDView::Update(dt, playerPtr);
