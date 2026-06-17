@@ -25,7 +25,6 @@ private:
     bool m_visible = false;
     std::string m_text;
 
-    Texture2D m_texPanel{};
     Texture2D m_texIcon{};
     int m_iconFrameW = 0;
 };

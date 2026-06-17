@@ -6,6 +6,7 @@
 #include "View/ElementalFX.h"
 #include "View/EntityRenderer.h"
 #include "View/SkillBarView.h"
+#include "View/UIResourceManager.h"
 #include "View/InteractPrompt.h"
 
 // Example pseudocode showing how a controller should call view APIs
@@ -15,6 +16,8 @@ void ExampleIntegration() {
     using namespace View;
 
     // After raylib InitWindow()
+    UIResourceManager::GetInstance().Init();
+
     MenuView::GetInstance().Init();
     MenuView::GetInstance().LoadResources("assets/ui/ui_atlas.json");
 

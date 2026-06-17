@@ -267,6 +267,79 @@ bool Renderer::SubmitSprite(Texture2D* texture,
     }
 }
 
+void Renderer::SubmitNPatch(Texture2D* texture, NPatchInfo nPatchInfo, const Rectangle& dest,
+                            Color tint, Layer layer, float z) {
+    if (!texture) return;
+
+    float srcX = nPatchInfo.source.x;
+    float srcY = nPatchInfo.source.y;
+    float srcW = nPatchInfo.source.width;
+    float srcH = nPatchInfo.source.height;
+
+    float left = (float)nPatchInfo.left;
+    float top = (float)nPatchInfo.top;
+    float right = (float)nPatchInfo.right;
+    float bottom = (float)nPatchInfo.bottom;
+
+    float destX = dest.x;
+    float destY = dest.y;
+    float destW = dest.width;
+    float destH = dest.height;
+
+    // Prevent negative center size by scaling borders down if needed
+    if (destW < left + right) {
+        float scale = destW / (left + right);
+        left *= scale;
+        right *= scale;
+    }
+    if (destH < top + bottom) {
+        float scale = destH / (top + bottom);
+        top *= scale;
+        bottom *= scale;
+    }
+
+    // Sub-rectangles source
+    Rectangle srcRects[9] = {
+        { srcX, srcY, left, top }, // Top-Left
+        { srcX + left, srcY, srcW - left - right, top }, // Top-Center
+        { srcX + srcW - right, srcY, right, top }, // Top-Right
+        
+        { srcX, srcY + top, left, srcH - top - bottom }, // Mid-Left
+        { srcX + left, srcY + top, srcW - left - right, srcH - top - bottom }, // Mid-Center
+        { srcX + srcW - right, srcY + top, right, srcH - top - bottom }, // Mid-Right
+        
+        { srcX, srcY + srcH - bottom, left, bottom }, // Bot-Left
+        { srcX + left, srcY + srcH - bottom, srcW - left - right, bottom }, // Bot-Center
+        { srcX + srcW - right, srcY + srcH - bottom, right, bottom } // Bot-Right
+    };
+
+    // Sub-rectangles dest
+    Rectangle destRects[9] = {
+        { destX, destY, left, top }, // Top-Left
+        { destX + left, destY, destW - left - right, top }, // Top-Center
+        { destX + destW - right, destY, right, top }, // Top-Right
+        
+        { destX, destY + top, left, destH - top - bottom }, // Mid-Left
+        { destX + left, destY + top, destW - left - right, destH - top - bottom }, // Mid-Center
+        { destX + destW - right, destY + top, right, destH - top - bottom }, // Mid-Right
+        
+        { destX, destY + destH - bottom, left, bottom }, // Bot-Left
+        { destX + left, destY + destH - bottom, destW - left - right, bottom }, // Bot-Center
+        { destX + destW - right, destY + destH - bottom, right, bottom } // Bot-Right
+    };
+
+    for (int i = 0; i < 9; ++i) {
+        if (srcRects[i].width <= 0.0f || srcRects[i].height <= 0.0f) continue;
+        if (destRects[i].width <= 0.0f || destRects[i].height <= 0.0f) continue;
+        
+        float scaleX = destRects[i].width / srcRects[i].width;
+        float scaleY = destRects[i].height / srcRects[i].height;
+        
+        SubmitSprite(texture, srcRects[i], {destRects[i].x, destRects[i].y}, 
+                     {scaleX, scaleY}, 0.0f, {0,0}, tint, layer, z, false, 0);
+    }
+}
+
 void Renderer::EndFrameAndFlush() {
     if (!m_initialized) return;
     m_drawCalls = 0;

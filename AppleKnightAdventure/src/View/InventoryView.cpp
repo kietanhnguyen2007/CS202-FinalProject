@@ -1,6 +1,7 @@
 #include "View/InventoryView.h"
 #include "View/Renderer.h"
 #include "View/UIHelpers.h"
+#include "View/UIResourceManager.h"
 #include "Model/Inventory.h"
 #include "Model/Item.h"
 #include "Systems/SoundManager.h"
@@ -50,19 +51,6 @@ bool InventoryView::LoadResources(const std::string& atlasJsonPath) {
     m_itemIcons.clear();
     LoadItemAtlases();
 
-    // Load Dark Dwellers UI textures
-    m_texPanelBg  = ::LoadTexture("assets/ui/darkDwellers/20251029darkDwellers9SlicesC.png");
-    m_texSlot     = ::LoadTexture("assets/ui/darkDwellers/20251124emptyFrameA1-Sheet.png");
-    m_texCloseBtn = ::LoadTexture("assets/ui/darkDwellers/20251125closeButton1-Sheet.png");
-
-    // Calculate per-frame widths from horizontal sprite sheets
-    if (m_texSlot.id != 0) {
-        m_slotFrameW = m_texSlot.width / 5;   // 5 frames in the sheet
-    }
-    if (m_texCloseBtn.id != 0) {
-        m_closeBtnFrameW = m_texCloseBtn.width / 4; // 4 frames in the sheet
-    }
-
     m_loaded = true;
     return true;
 }
@@ -73,16 +61,6 @@ void InventoryView::Shutdown() {
         kv.second.atlas.reset();
     }
     m_itemIcons.clear();
-
-    // Unload Dark Dwellers textures
-    if (m_texPanelBg.id != 0)  ::UnloadTexture(m_texPanelBg);
-    if (m_texSlot.id != 0)     ::UnloadTexture(m_texSlot);
-    if (m_texCloseBtn.id != 0) ::UnloadTexture(m_texCloseBtn);
-    m_texPanelBg  = {};
-    m_texSlot     = {};
-    m_texCloseBtn = {};
-    m_slotFrameW     = 0;
-    m_closeBtnFrameW = 0;
 
     m_loaded = false;
     DetachObservable();
@@ -111,24 +89,27 @@ void InventoryView::Update(float dt) {
 // DrawSlot  — draws one inventory slot using the Dark Dwellers sprite sheet
 // ---------------------------------------------------------------------------
 void InventoryView::DrawSlot(float x, float y, float size, bool highlighted) {
-    if (m_texSlot.id == 0 || m_slotFrameW == 0) return;
+    auto& res = UIResourceManager::GetInstance();
+    Texture2D* texSlot = res.GetSlot();
+    float slotFrameW = res.GetSlotFrameWidth();
+
+    if (!texSlot || texSlot->id == 0 || slotFrameW <= 0) return;
     Renderer& r = Renderer::GetInstance();
 
     int frame = highlighted ? 1 : 0;
-    float frameW = (float)m_slotFrameW;
-    float frameH = (float)m_texSlot.height;
+    float frameH = (float)texSlot->height;
 
     Rectangle src = {
-        frame * frameW,
+        frame * slotFrameW,
         0.0f,
-        frameW,
+        slotFrameW,
         frameH
     };
 
-    float scaleX = size / frameW;
+    float scaleX = size / slotFrameW;
     float scaleY = size / frameH;
 
-    r.SubmitSprite(&m_texSlot, src,
+    r.SubmitSprite(texSlot, src,
                    {x, y},
                    {scaleX, scaleY},
                    0.0f, {0, 0}, WHITE,
@@ -144,22 +125,29 @@ void InventoryView::Render() {
     int w = r.GetWindowWidth();
     int h = r.GetWindowHeight();
 
+    auto& res = UIResourceManager::GetInstance();
+    Texture2D* texPanelBg = res.GetPanelBg();
+    Texture2D* texCloseBtn = res.GetCloseBtn();
+    float cbFrameW = res.GetCloseBtnFrameWidth();
+
     // ---- Panel dimensions (37.5% × 50% of screen, centered) ----
     float panelW = w * 0.375f;
     float panelH = h * 0.50f;
     float panelX = (w - panelW) * 0.5f;
     float panelY = (h - panelH) * 0.5f;
 
-    // Draw panel background texture stretched to panel size
-    if (m_texPanelBg.id != 0) {
-        Rectangle panelSrc = { 0.0f, 0.0f, (float)m_texPanelBg.width, (float)m_texPanelBg.height };
-        float bgScaleX = panelW / (float)m_texPanelBg.width;
-        float bgScaleY = panelH / (float)m_texPanelBg.height;
-        r.SubmitSprite(&m_texPanelBg, panelSrc,
-                       {panelX, panelY},
-                       {bgScaleX, bgScaleY},
-                       0.0f, {0, 0}, WHITE,
-                       Layer::UI, 0.0f, false, 0);
+    // Draw panel background texture using 9-slice
+    if (texPanelBg && texPanelBg->id != 0) {
+        int corner = texPanelBg->width / 3;
+        NPatchInfo npi;
+        npi.source = {0.0f, 0.0f, (float)texPanelBg->width, (float)texPanelBg->height};
+        npi.left = corner;
+        npi.top = corner;
+        npi.right = corner;
+        npi.bottom = corner;
+        npi.layout = 0; // NPATCH_NINE_PATCH
+
+        r.SubmitNPatch(texPanelBg, npi, {panelX, panelY, panelW, panelH}, WHITE, Layer::UI, 0.0f);
     } else {
         // Fallback: solid rectangle if texture failed to load
         r.DrawRectangle({panelX, panelY}, {panelW, panelH},
@@ -167,19 +155,18 @@ void InventoryView::Render() {
     }
 
     // ---- Close button (top-right corner of panel) ----
-    if (m_texCloseBtn.id != 0 && m_closeBtnFrameW > 0) {
+    if (texCloseBtn && texCloseBtn->id != 0 && cbFrameW > 0) {
         float closeBtnSize = panelW * 0.06f;
         float closeBtnX = panelX + panelW - closeBtnSize - panelW * 0.03f;
         float closeBtnY = panelY + panelH * 0.03f;
 
-        float cbFrameW = (float)m_closeBtnFrameW;
-        float cbFrameH = (float)m_texCloseBtn.height;
+        float cbFrameH = (float)texCloseBtn->height;
         // Frame 0 = normal state
         Rectangle cbSrc = { 0.0f, 0.0f, cbFrameW, cbFrameH };
         float cbScaleX = closeBtnSize / cbFrameW;
         float cbScaleY = closeBtnSize / cbFrameH;
 
-        r.SubmitSprite(&m_texCloseBtn, cbSrc,
+        r.SubmitSprite(texCloseBtn, cbSrc,
                        {closeBtnX, closeBtnY},
                        {cbScaleX, cbScaleY},
                        0.0f, {0, 0}, WHITE,

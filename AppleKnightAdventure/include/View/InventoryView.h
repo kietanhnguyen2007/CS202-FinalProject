@@ -64,12 +64,6 @@ private:
 
     std::unordered_map<std::string, ItemIconInfo> m_itemIcons;
 
-    // Dark Dwellers UI textures
-    Texture2D m_texPanelBg{};
-    Texture2D m_texSlot{};
-    Texture2D m_texCloseBtn{};
-    int m_slotFrameW = 0;
-    int m_closeBtnFrameW = 0;
 };
 
 } // namespace View

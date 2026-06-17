@@ -1,5 +1,6 @@
 #include "View/InteractPrompt.h"
 #include "View/Renderer.h"
+#include "View/UIResourceManager.h"
 
 namespace View {
 
@@ -10,7 +11,6 @@ InteractPrompt& InteractPrompt::GetInstance() {
 
 bool InteractPrompt::LoadResources(const std::string& atlasJsonPath) {
     (void)atlasJsonPath;
-    m_texPanel = ::LoadTexture("assets/ui/darkDwellers/20251029darkDwellers9SlicesB.png");
     m_texIcon = ::LoadTexture("assets/ui/darkDwellers/20251125helpButton1-Sheet.png");
     if (m_texIcon.id != 0) {
         m_iconFrameW = m_texIcon.width / 4;
@@ -19,9 +19,7 @@ bool InteractPrompt::LoadResources(const std::string& atlasJsonPath) {
 }
 
 void InteractPrompt::Shutdown() {
-    ::UnloadTexture(m_texPanel);
     ::UnloadTexture(m_texIcon);
-    m_texPanel = {};
     m_texIcon = {};
     m_iconFrameW = 0;
 }
@@ -49,11 +47,14 @@ void InteractPrompt::Render() {
     Vector2 size = { 320.0f, 40.0f };
     Vector2 pos = { w * 0.5f - size.x * 0.5f, h * 0.85f };
 
-    if (m_texPanel.id != 0) {
-        Rectangle src = { 0.0f, 0.0f, (float)m_texPanel.width, (float)m_texPanel.height };
-        float scaleX = size.x / (float)m_texPanel.width;
-        float scaleY = size.y / (float)m_texPanel.height;
-        r.SubmitSprite(&m_texPanel, src, pos, {scaleX, scaleY}, 0.0f, {0,0}, WHITE, Layer::UI, 0.0f, false, 0);
+    Texture2D* texPanel = UIResourceManager::GetInstance().GetPanelBg();
+    if (texPanel && texPanel->id != 0) {
+        int corner = texPanel->width / 3;
+        NPatchInfo npi;
+        npi.source = {0.0f, 0.0f, (float)texPanel->width, (float)texPanel->height};
+        npi.left = corner; npi.top = corner; npi.right = corner; npi.bottom = corner;
+        npi.layout = 0; // NPATCH_NINE_PATCH
+        r.SubmitNPatch(texPanel, npi, {pos.x, pos.y, size.x, size.y}, WHITE, Layer::UI, 0.0f);
     } else {
         r.DrawRectangle(pos, size, { 0, 0, 0, 180 }, Layer::UI, 0.0f);
     }

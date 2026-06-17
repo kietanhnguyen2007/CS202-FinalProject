@@ -1,6 +1,7 @@
 #include "View/MenuView.h"
 #include "View/Renderer.h"
 #include "View/UIHelpers.h"
+#include "View/UIResourceManager.h"
 #include "Systems/SoundManager.h"
 
 using namespace View;
@@ -26,24 +27,6 @@ bool MenuView::Init() {
 // ---------------------------------------------------------------------------
 bool MenuView::LoadResources(const std::string& atlasJsonPath) {
     (void)atlasJsonPath;
-
-    m_texBtn    = ::LoadTexture("assets/ui/darkDwellers/20251029darkDwellersButtonB1-Sheet.png");
-    m_texPanel  = ::LoadTexture("assets/ui/darkDwellers/20251029darkDwellers9SlicesC.png");
-    m_texHeader = ::LoadTexture("assets/ui/darkDwellers/20251117darkDwellersHeaderA.png");
-    m_texClose  = ::LoadTexture("assets/ui/darkDwellers/20251125closeButton1-Sheet.png");
-
-    // Button sheet: 4 equal frames arranged horizontally
-    if (m_texBtn.id != 0) {
-        m_btnFrameW = m_texBtn.width / 4;
-        m_btnFrameH = m_texBtn.height;
-    }
-
-    // Close button sheet: 4 equal frames arranged horizontally
-    if (m_texClose.id != 0) {
-        m_closeFrameW = m_texClose.width / 4;
-        m_closeFrameH = m_texClose.height;
-    }
-
     m_loaded = true;
     return true;
 }
@@ -52,14 +35,6 @@ bool MenuView::LoadResources(const std::string& atlasJsonPath) {
 // Shutdown — unload all textures
 // ---------------------------------------------------------------------------
 void MenuView::Shutdown() {
-    if (m_texBtn.id != 0)    { ::UnloadTexture(m_texBtn);    m_texBtn = {};    }
-    if (m_texPanel.id != 0)  { ::UnloadTexture(m_texPanel);  m_texPanel = {};  }
-    if (m_texHeader.id != 0) { ::UnloadTexture(m_texHeader); m_texHeader = {}; }
-    if (m_texClose.id != 0)  { ::UnloadTexture(m_texClose);  m_texClose = {};  }
-    m_btnFrameW = 0;
-    m_btnFrameH = 0;
-    m_closeFrameW = 0;
-    m_closeFrameH = 0;
     m_loaded = false;
 }
 
@@ -126,16 +101,19 @@ void MenuView::Render() {
 void MenuView::DrawButton(const char* label, float x, float y,
                            float w, float h, bool selected) {
     Renderer& r = Renderer::GetInstance();
+    auto& res = UIResourceManager::GetInstance();
+    Texture2D* texBtn = res.GetButton();
+    float btnFrameW = res.GetButtonFrameWidth();
 
-    if (m_texBtn.id != 0 && m_btnFrameW > 0 && m_btnFrameH > 0) {
+    if (texBtn && texBtn->id != 0 && btnFrameW > 0) {
         int frame = selected ? 1 : 0; // 0=Normal, 1=Hover
         Rectangle src = {
-            (float)(frame * m_btnFrameW), 0.0f,
-            (float)m_btnFrameW, (float)m_btnFrameH
+            (float)(frame * btnFrameW), 0.0f,
+            btnFrameW, (float)texBtn->height
         };
-        float scaleX = w / (float)m_btnFrameW;
-        float scaleY = h / (float)m_btnFrameH;
-        r.SubmitSprite(&m_texBtn, src, {x, y}, {scaleX, scaleY},
+        float scaleX = w / btnFrameW;
+        float scaleY = h / (float)texBtn->height;
+        r.SubmitSprite(texBtn, src, {x, y}, {scaleX, scaleY},
                        0.0f, {0, 0}, WHITE, Layer::UI, 1.0f, false, 0);
     } else {
         // Fallback: solid rectangle
@@ -158,13 +136,19 @@ void MenuView::DrawButton(const char* label, float x, float y,
 // ---------------------------------------------------------------------------
 void MenuView::DrawPanel(float x, float y, float w, float h) {
     Renderer& r = Renderer::GetInstance();
+    Texture2D* texPanel = UIResourceManager::GetInstance().GetPanelBg();
 
-    if (m_texPanel.id != 0 && m_texPanel.width > 0 && m_texPanel.height > 0) {
-        Rectangle src = { 0.0f, 0.0f, (float)m_texPanel.width, (float)m_texPanel.height };
-        float scaleX = w / (float)m_texPanel.width;
-        float scaleY = h / (float)m_texPanel.height;
-        r.SubmitSprite(&m_texPanel, src, {x, y}, {scaleX, scaleY},
-                       0.0f, {0, 0}, WHITE, Layer::UI, 0.5f, false, 0);
+    if (texPanel && texPanel->id != 0) {
+        int corner = texPanel->width / 3;
+        NPatchInfo npi;
+        npi.source = {0.0f, 0.0f, (float)texPanel->width, (float)texPanel->height};
+        npi.left = corner;
+        npi.top = corner;
+        npi.right = corner;
+        npi.bottom = corner;
+        npi.layout = 0; // NPATCH_NINE_PATCH
+
+        r.SubmitNPatch(texPanel, npi, {x, y, w, h}, WHITE, Layer::UI, 0.5f);
     } else {
         // Fallback: dark semi-transparent box
         r.DrawRectangle({x, y}, {w, h}, {20, 15, 30, 220}, Layer::UI, 0.5f);
@@ -188,15 +172,16 @@ void MenuView::RenderMain() {
 
     // ---- Header decoration behind title at ~25% height ----
     float titleY = h * 0.25f;
-    if (m_texHeader.id != 0 && m_texHeader.width > 0 && m_texHeader.height > 0) {
+    Texture2D* texHeader = UIResourceManager::GetInstance().GetHeader();
+    if (texHeader && texHeader->id != 0) {
         float headerW = w * 0.35f;  // 35% of screen width
-        float headerH = headerW * ((float)m_texHeader.height / (float)m_texHeader.width);
+        float headerH = headerW * ((float)texHeader->height / (float)texHeader->width);
         float headerX = (w - headerW) * 0.5f;
         float headerY = titleY - headerH * 0.3f;
-        Rectangle hdrSrc = { 0.0f, 0.0f, (float)m_texHeader.width, (float)m_texHeader.height };
-        float hScaleX = headerW / (float)m_texHeader.width;
-        float hScaleY = headerH / (float)m_texHeader.height;
-        r.SubmitSprite(&m_texHeader, hdrSrc, {headerX, headerY}, {hScaleX, hScaleY},
+        Rectangle hdrSrc = { 0.0f, 0.0f, (float)texHeader->width, (float)texHeader->height };
+        float hScaleX = headerW / (float)texHeader->width;
+        float hScaleY = headerH / (float)texHeader->height;
+        r.SubmitSprite(texHeader, hdrSrc, {headerX, headerY}, {hScaleX, hScaleY},
                        0.0f, {0, 0}, WHITE, Layer::UI, 0.2f, false, 0);
     }
 
@@ -244,15 +229,16 @@ void MenuView::RenderPause() {
     DrawPanel(panelX, panelY, panelW, panelH);
 
     // ---- Header decoration at top of panel ----
-    if (m_texHeader.id != 0 && m_texHeader.width > 0 && m_texHeader.height > 0) {
+    Texture2D* texHeader = UIResourceManager::GetInstance().GetHeader();
+    if (texHeader && texHeader->id != 0) {
         float hdrW = panelW * 0.8f;
-        float hdrH = hdrW * ((float)m_texHeader.height / (float)m_texHeader.width);
+        float hdrH = hdrW * ((float)texHeader->height / (float)texHeader->width);
         float hdrX = panelX + (panelW - hdrW) * 0.5f;
         float hdrY = panelY + panelH * 0.04f;
-        Rectangle hdrSrc = { 0.0f, 0.0f, (float)m_texHeader.width, (float)m_texHeader.height };
-        float hsX = hdrW / (float)m_texHeader.width;
-        float hsY = hdrH / (float)m_texHeader.height;
-        r.SubmitSprite(&m_texHeader, hdrSrc, {hdrX, hdrY}, {hsX, hsY},
+        Rectangle hdrSrc = { 0.0f, 0.0f, (float)texHeader->width, (float)texHeader->height };
+        float hsX = hdrW / (float)texHeader->width;
+        float hsY = hdrH / (float)texHeader->height;
+        r.SubmitSprite(texHeader, hdrSrc, {hdrX, hdrY}, {hsX, hsY},
                        0.0f, {0, 0}, WHITE, Layer::UI, 0.8f, false, 0);
     }
 
@@ -300,14 +286,15 @@ void MenuView::RenderError() {
     DrawPanel(panelX, panelY, panelW, panelH);
 
     // ---- Header decoration ----
-    if (m_texHeader.id != 0 && m_texHeader.width > 0 && m_texHeader.height > 0) {
+    Texture2D* texHeader = UIResourceManager::GetInstance().GetHeader();
+    if (texHeader && texHeader->id != 0) {
         float hdrW = panelW * 0.7f;
-        float hdrH = hdrW * ((float)m_texHeader.height / (float)m_texHeader.width);
+        float hdrH = hdrW * ((float)texHeader->height / (float)texHeader->width);
         float hdrX = panelX + (panelW - hdrW) * 0.5f;
         float hdrY = panelY + panelH * 0.04f;
-        Rectangle hdrSrc = { 0.0f, 0.0f, (float)m_texHeader.width, (float)m_texHeader.height };
-        r.SubmitSprite(&m_texHeader, hdrSrc, {hdrX, hdrY},
-                       {hdrW / (float)m_texHeader.width, hdrH / (float)m_texHeader.height},
+        Rectangle hdrSrc = { 0.0f, 0.0f, (float)texHeader->width, (float)texHeader->height };
+        r.SubmitSprite(texHeader, hdrSrc, {hdrX, hdrY},
+                       {hdrW / (float)texHeader->width, hdrH / (float)texHeader->height},
                        0.0f, {0, 0}, WHITE, Layer::UI, 0.8f, false, 0);
     }
 
@@ -359,14 +346,15 @@ void MenuView::RenderConnection() {
     DrawPanel(panelX, panelY, panelW, panelH);
 
     // ---- Header decoration ----
-    if (m_texHeader.id != 0 && m_texHeader.width > 0 && m_texHeader.height > 0) {
+    Texture2D* texHeader = UIResourceManager::GetInstance().GetHeader();
+    if (texHeader && texHeader->id != 0) {
         float hdrW = panelW * 0.7f;
-        float hdrH = hdrW * ((float)m_texHeader.height / (float)m_texHeader.width);
+        float hdrH = hdrW * ((float)texHeader->height / (float)texHeader->width);
         float hdrX = panelX + (panelW - hdrW) * 0.5f;
         float hdrY = panelY + panelH * 0.04f;
-        Rectangle hdrSrc = { 0.0f, 0.0f, (float)m_texHeader.width, (float)m_texHeader.height };
-        r.SubmitSprite(&m_texHeader, hdrSrc, {hdrX, hdrY},
-                       {hdrW / (float)m_texHeader.width, hdrH / (float)m_texHeader.height},
+        Rectangle hdrSrc = { 0.0f, 0.0f, (float)texHeader->width, (float)texHeader->height };
+        r.SubmitSprite(texHeader, hdrSrc, {hdrX, hdrY},
+                       {hdrW / (float)texHeader->width, hdrH / (float)texHeader->height},
                        0.0f, {0, 0}, WHITE, Layer::UI, 0.8f, false, 0);
     }
 

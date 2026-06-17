@@ -1,6 +1,7 @@
 #include "View/SkillBarView.h"
 #include "View/Renderer.h"
 #include "View/UIHelpers.h"
+#include "View/UIResourceManager.h"
 #include "Model/Player.h"
 #include <cstdio>
 
@@ -53,13 +54,8 @@ bool SkillBarView::LoadResources(const std::string& atlasJsonPath) {
     m_skillIcons.clear();
     InitIcons();
     
-    m_texSlot   = ::LoadTexture("assets/ui/darkDwellers/20251124emptyFrameA1-Sheet.png");
     m_texCursor = ::LoadTexture("assets/ui/darkDwellers/20251118darkDwellersCursourA1-Sheet.png");
     m_texBar    = ::LoadTexture("assets/ui/darkDwellers/20251118darkDwellersBarE.png");
-
-    if (m_texSlot.id != 0) {
-        m_slotFrameW = m_texSlot.width / 5;
-    }
 
     m_loaded = true;
     return true;
@@ -72,13 +68,10 @@ void SkillBarView::Shutdown() {
     }
     m_skillIcons.clear();
 
-    if (m_texSlot.id != 0) ::UnloadTexture(m_texSlot);
     if (m_texCursor.id != 0) ::UnloadTexture(m_texCursor);
     if (m_texBar.id != 0) ::UnloadTexture(m_texBar);
-    m_texSlot = {};
     m_texCursor = {};
     m_texBar = {};
-    m_slotFrameW = 0;
 
     m_loaded = false;
     DetachObservable();
@@ -130,12 +123,16 @@ void SkillBarView::Render() {
         bool selected = (i == m_selection);
         bool ready = skill.IsReady();
 
-        if (m_texSlot.id != 0 && m_slotFrameW > 0) {
+        auto& res = UIResourceManager::GetInstance();
+        Texture2D* texSlot = res.GetSlot();
+        float slotFrameW = res.GetSlotFrameWidth();
+
+        if (texSlot && texSlot->id != 0 && slotFrameW > 0) {
             int frame = selected ? 1 : 0;
-            Rectangle src = { (float)(frame * m_slotFrameW), 0.0f, (float)m_slotFrameW, (float)m_texSlot.height };
-            float scaleX = slotW / (float)m_slotFrameW;
-            float scaleY = slotH / (float)m_texSlot.height;
-            r.SubmitSprite(&m_texSlot, src, {x, y}, {scaleX, scaleY}, 0.0f, {0,0}, WHITE, Layer::UI, 0.0f, false, 0);
+            Rectangle src = { (float)(frame * slotFrameW), 0.0f, slotFrameW, (float)texSlot->height };
+            float scaleX = slotW / slotFrameW;
+            float scaleY = slotH / (float)texSlot->height;
+            r.SubmitSprite(texSlot, src, {x, y}, {scaleX, scaleY}, 0.0f, {0,0}, WHITE, Layer::UI, 0.0f, false, 0);
         } else {
             Color bg = selected ? (Color){80, 80, 100, 220} : (Color){40, 40, 50, 200};
             r.DrawRectangle({x, y}, {slotW, slotH}, bg, Layer::UI, 0.0f);

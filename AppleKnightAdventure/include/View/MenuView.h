@@ -59,16 +59,6 @@ private:
     bool m_connected = false;
     std::vector<std::string> m_connectionItems = { "Back" };
 
-    // Dark Dwellers textures
-    Texture2D m_texBtn{};       // Button sprite sheet (4 frames: Normal, Hover, Pressed, Disabled)
-    Texture2D m_texPanel{};     // 9-slice panel background
-    Texture2D m_texHeader{};    // Decorative header bar
-    Texture2D m_texClose{};     // Close button sprite sheet (4 frames)
-
-    int m_btnFrameW = 0;       // Single button frame width
-    int m_btnFrameH = 0;       // Single button frame height
-    int m_closeFrameW = 0;     // Single close button frame width
-    int m_closeFrameH = 0;     // Single close button frame height
 };
 
 } // namespace View

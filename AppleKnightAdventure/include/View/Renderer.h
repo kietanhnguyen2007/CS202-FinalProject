@@ -27,6 +27,14 @@ public:
                       bool flipX = false,
                       uint32_t entityId = 0);
 
+    // Submits a 9-slice panel. Note: rotation and origin are ignored in this implementation.
+    void SubmitNPatch(Texture2D* texture,
+                      NPatchInfo nPatchInfo,
+                      const Rectangle& dest,
+                      Color tint = WHITE,
+                      Layer layer = Layer::UI,
+                      float z = 0.0f);
+
     void EndFrameAndFlush();
 
     void ResizeWindow(int width, int height);

@@ -10,6 +10,7 @@
 #include "View/MenuView.h"
 #include "View/InventoryView.h"
 #include "Model/DualWorld.h"
+#include "View/UIResourceManager.h"
 #include <cmath>
 #include <cstdlib>
 #include <cstdio>
@@ -27,6 +28,7 @@ bool GameView::Init() {
     }
     View::ParticleRenderer::GetInstance();
     LoadShadowShader();
+    View::UIResourceManager::GetInstance().Init();
 
     // Preload Character Atlases
     View::CharacterRenderer& cr = View::CharacterRenderer::GetInstance();
@@ -445,6 +447,8 @@ void GameView::Shutdown() {
         UnloadShader(m_shadowShader);
         m_shaderLoaded = false;
     }
+    
+    View::UIResourceManager::GetInstance().Shutdown();
 }
 
 } // namespace View

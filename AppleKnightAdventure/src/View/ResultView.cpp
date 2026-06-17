@@ -1,5 +1,6 @@
 #include "View/ResultView.h"
 #include "View/Renderer.h"
+#include "View/UIResourceManager.h"
 #include <cstdio>
 
 namespace View {
@@ -15,40 +16,10 @@ bool ResultView::Init() {
 
 bool ResultView::LoadResources(const std::string& atlasJsonPath) {
     (void)atlasJsonPath;
-
-    // Load Dark Dwellers textures
-    m_texPanel      = ::LoadTexture("assets/ui/darkDwellers/20251029darkDwellers9SlicesD.png");
-    m_texHeaderWin  = ::LoadTexture("assets/ui/darkDwellers/20251117darkDwellersHeaderA.png");
-    m_texHeaderLose = ::LoadTexture("assets/ui/darkDwellers/20251117darkDwellersHeaderB.png");
-    m_texStarFilled = ::LoadTexture("assets/ui/darkDwellers/20251124emptyFrameA1-Sheet.png");
-    m_texStarEmpty  = ::LoadTexture("assets/ui/darkDwellers/20251124emptyFrameC1-Sheet.png");
-    m_texBtn        = ::LoadTexture("assets/ui/darkDwellers/20251029darkDwellersButtonB1-Sheet.png");
-
-    // Cache frame widths for horizontal sprite sheets
-    // Star filled sheet: 5 frames
-    m_starFilledFrameW = (m_texStarFilled.width > 0) ? m_texStarFilled.width / 5 : 0;
-    // Star empty sheet: 5 frames
-    m_starEmptyFrameW  = (m_texStarEmpty.width > 0) ? m_texStarEmpty.width / 5 : 0;
-    // Button sheet: 4 frames (Normal / Hover / Pressed / Disabled)
-    m_btnFrameW        = (m_texBtn.width > 0) ? m_texBtn.width / 4 : 0;
-
     return true;
 }
 
 void ResultView::Shutdown() {
-    ::UnloadTexture(m_texPanel);
-    ::UnloadTexture(m_texHeaderWin);
-    ::UnloadTexture(m_texHeaderLose);
-    ::UnloadTexture(m_texStarFilled);
-    ::UnloadTexture(m_texStarEmpty);
-    ::UnloadTexture(m_texBtn);
-
-    m_texPanel      = {};
-    m_texHeaderWin  = {};
-    m_texHeaderLose = {};
-    m_texStarFilled = {};
-    m_texStarEmpty  = {};
-    m_texBtn        = {};
 }
 
 void ResultView::Dismiss() {
@@ -109,33 +80,42 @@ void ResultView::Render() {
     float panelX = centerX - panelW * 0.5f;
     float panelY = centerY - panelH * 0.5f + slideOffset;
 
+    auto& res = UIResourceManager::GetInstance();
+    Texture2D* texPanel = res.GetPanelBg();
+    Texture2D* texHeader = res.GetHeader();
+    Texture2D* texSlot = res.GetSlot();
+    Texture2D* texBtn = res.GetButton();
+    float slotFrameW = res.GetSlotFrameWidth();
+    float btnFrameW = res.GetButtonFrameWidth();
+
     // ── 1) Panel background ──
-    if (m_texPanel.id > 0) {
-        Rectangle panelSrc = {0.0f, 0.0f, static_cast<float>(m_texPanel.width), static_cast<float>(m_texPanel.height)};
-        float scaleX = panelW / static_cast<float>(m_texPanel.width);
-        float scaleY = panelH / static_cast<float>(m_texPanel.height);
-        r.SubmitSprite(&m_texPanel, panelSrc, {panelX, panelY},
-                       {scaleX, scaleY}, 0.0f, {0, 0}, WHITE, Layer::UI, 1.0f, false, 0);
+    if (texPanel && texPanel->id > 0) {
+        int corner = texPanel->width / 3;
+        NPatchInfo npi;
+        npi.source = {0.0f, 0.0f, (float)texPanel->width, (float)texPanel->height};
+        npi.left = corner; npi.top = corner; npi.right = corner; npi.bottom = corner;
+        npi.layout = 0; // NPATCH_NINE_PATCH
+
+        r.SubmitNPatch(texPanel, npi, {panelX, panelY, panelW, panelH}, WHITE, Layer::UI, 1.0f);
     } else {
         Color fallback = m_gameOver ? Color{40, 10, 10, 220} : Color{20, 20, 20, 200};
         r.DrawRectangle({panelX, panelY}, {panelW, panelH}, fallback, Layer::UI, 1.0f);
     }
 
     // ── 2) Decorative header across top of panel ──
-    {
-        Texture2D& headerTex = m_gameOver ? m_texHeaderLose : m_texHeaderWin;
-        if (headerTex.id > 0) {
-            Rectangle hdrSrc = {0.0f, 0.0f, static_cast<float>(headerTex.width), static_cast<float>(headerTex.height)};
-            // Stretch header to ~90% of panel width, keep aspect for height
-            float headerDrawW = panelW * 0.90f;
-            float headerDrawH = headerDrawW * (static_cast<float>(headerTex.height) / static_cast<float>(headerTex.width));
-            float hdrScaleX = headerDrawW / static_cast<float>(headerTex.width);
-            float hdrScaleY = headerDrawH / static_cast<float>(headerTex.height);
-            float hdrX = panelX + (panelW - headerDrawW) * 0.5f;
-            float hdrY = panelY + panelH * 0.02f;
-            r.SubmitSprite(&headerTex, hdrSrc, {hdrX, hdrY},
-                           {hdrScaleX, hdrScaleY}, 0.0f, {0, 0}, WHITE, Layer::UI, 2.0f, false, 0);
-        }
+    if (texHeader && texHeader->id > 0) {
+        Rectangle hdrSrc = {0.0f, 0.0f, static_cast<float>(texHeader->width), static_cast<float>(texHeader->height)};
+        // Stretch header to ~90% of panel width, keep aspect for height
+        float headerDrawW = panelW * 0.90f;
+        float headerDrawH = headerDrawW * (static_cast<float>(texHeader->height) / static_cast<float>(texHeader->width));
+        float hdrScaleX = headerDrawW / static_cast<float>(texHeader->width);
+        float hdrScaleY = headerDrawH / static_cast<float>(texHeader->height);
+        float hdrX = panelX + (panelW - headerDrawW) * 0.5f;
+        float hdrY = panelY + panelH * 0.02f;
+        
+        Color tint = m_gameOver ? Color{255, 100, 100, 255} : WHITE;
+        r.SubmitSprite(texHeader, hdrSrc, {hdrX, hdrY},
+                       {hdrScaleX, hdrScaleY}, 0.0f, {0, 0}, tint, Layer::UI, 2.0f, false, 0);
     }
 
     // ── 3) Title text ──
@@ -163,28 +143,30 @@ void ResultView::Render() {
             float sx = starStartX + static_cast<float>(i) * (starSize + starSpacing);
 
             if (i < m_snap.stars) {
-                // Filled star: frame 1 (orange/highlighted) from 5-frame sheet
-                if (m_texStarFilled.id > 0 && m_starFilledFrameW > 0) {
+                // Filled star: frame 1 (orange/highlighted)
+                if (texSlot && texSlot->id > 0 && slotFrameW > 0) {
                     Rectangle src = {
-                        static_cast<float>(1 * m_starFilledFrameW), 0.0f,
-                        static_cast<float>(m_starFilledFrameW), static_cast<float>(m_texStarFilled.height)
+                        slotFrameW, 0.0f, // frame 1
+                        slotFrameW, static_cast<float>(texSlot->height)
                     };
-                    float scale = starSize / static_cast<float>(m_starFilledFrameW);
-                    r.SubmitSprite(&m_texStarFilled, src, {sx, starY},
-                                   {scale, scale}, 0.0f, {0, 0}, WHITE, Layer::UI, 3.0f, false, 0);
+                    float scaleX = starSize / slotFrameW;
+                    float scaleY = starSize / static_cast<float>(texSlot->height);
+                    r.SubmitSprite(texSlot, src, {sx, starY},
+                                   {scaleX, scaleY}, 0.0f, {0, 0}, GOLD, Layer::UI, 3.0f, false, 0);
                 } else {
                     r.DrawText("*", {sx, starY}, static_cast<int>(starSize), GOLD);
                 }
             } else {
-                // Empty star: frame 0 from 5-frame sheet
-                if (m_texStarEmpty.id > 0 && m_starEmptyFrameW > 0) {
+                // Empty star: frame 0
+                if (texSlot && texSlot->id > 0 && slotFrameW > 0) {
                     Rectangle src = {
-                        0.0f, 0.0f,
-                        static_cast<float>(m_starEmptyFrameW), static_cast<float>(m_texStarEmpty.height)
+                        0.0f, 0.0f, // frame 0
+                        slotFrameW, static_cast<float>(texSlot->height)
                     };
-                    float scale = starSize / static_cast<float>(m_starEmptyFrameW);
-                    r.SubmitSprite(&m_texStarEmpty, src, {sx, starY},
-                                   {scale, scale}, 0.0f, {0, 0}, WHITE, Layer::UI, 3.0f, false, 0);
+                    float scaleX = starSize / slotFrameW;
+                    float scaleY = starSize / static_cast<float>(texSlot->height);
+                    r.SubmitSprite(texSlot, src, {sx, starY},
+                                   {scaleX, scaleY}, 0.0f, {0, 0}, GRAY, Layer::UI, 3.0f, false, 0);
                 } else {
                     r.DrawText("o", {sx, starY}, static_cast<int>(starSize), GRAY);
                 }
@@ -224,15 +206,15 @@ void ResultView::Render() {
         float btnX = panelX + (panelW - btnDrawW) * 0.5f;
         float btnY = panelY + panelH * 0.82f;
 
-        if (m_texBtn.id > 0 && m_btnFrameW > 0) {
+        if (texBtn && texBtn->id > 0 && btnFrameW > 0) {
             // Frame 0 = normal state
             Rectangle btnSrc = {
                 0.0f, 0.0f,
-                static_cast<float>(m_btnFrameW), static_cast<float>(m_texBtn.height)
+                btnFrameW, static_cast<float>(texBtn->height)
             };
-            float btnScaleX = btnDrawW / static_cast<float>(m_btnFrameW);
-            float btnScaleY = btnDrawH / static_cast<float>(m_texBtn.height);
-            r.SubmitSprite(&m_texBtn, btnSrc, {btnX, btnY},
+            float btnScaleX = btnDrawW / btnFrameW;
+            float btnScaleY = btnDrawH / static_cast<float>(texBtn->height);
+            r.SubmitSprite(texBtn, btnSrc, {btnX, btnY},
                            {btnScaleX, btnScaleY}, 0.0f, {0, 0}, WHITE, Layer::UI, 3.0f, false, 0);
         } else {
             r.DrawRectangle({btnX, btnY}, {btnDrawW, btnDrawH}, Color{60, 60, 80, 200}, Layer::UI, 3.0f);
