@@ -9,7 +9,7 @@
 #include "View/ResultView.h"
 #include "View/MenuView.h"
 #include "View/InventoryView.h"
-#include "Model/DualWorld.h"
+#include "Model/GameState.h"
 #include "View/UIResourceManager.h"
 #include <cmath>
 #include <cstdlib>
@@ -27,7 +27,6 @@ bool GameView::Init() {
         return false;
     }
     View::ParticleRenderer::GetInstance();
-    LoadShadowShader();
     View::UIResourceManager::GetInstance().Init();
 
     // Preload Character Atlases
@@ -222,17 +221,6 @@ bool GameView::Init() {
     return true;
 }
 
-void GameView::LoadShadowShader() {
-    if (m_shaderLoaded) return;
-
-    const char* vsPath = "assets/shaders/shadow.vs";
-    const char* fsPath = "assets/shaders/shadow.fs";
-    m_shadowShader = LoadShader(vsPath, fsPath);
-    if (m_shadowShader.id != 0) {
-        m_shaderLoaded = true;
-    }
-}
-
 void GameView::Update(float dt) {
     View::CharacterRenderer::GetInstance().UpdateAll(dt);
     View::FloatingTextManager::GetInstance().Update(dt);
@@ -249,15 +237,6 @@ void GameView::Update(float dt) {
         m_shakeTimer -= dt;
         if (m_shakeTimer < 0.0f) m_shakeTimer = 0.0f;
     }
-}
-
-void GameView::SetActiveWorldLayer(WorldLayer layer, const Vector2& lightWorldPos) {
-    m_activeLayer = layer;
-    m_lightWorldPos = lightWorldPos;
-}
-
-WorldLayer GameView::GetActiveWorldLayer() const {
-    return m_activeLayer;
 }
 
 // ── Background Parallax ────────────────────────────────────────────
@@ -328,35 +307,25 @@ void GameView::LoadTileset(int tileType, const std::string& texturePath, int col
     m_tilesets[tileType] = info;
 }
 
-void GameView::RenderTilemap(const DualWorld* world) {
-    if (!world) return;
+void GameView::RenderTilemap(const std::vector<Tile>& tiles) {
     Renderer& r = Renderer::GetInstance();
     const float ts = (float)TILE_SIZE;
 
-    auto renderLayer = [&](WorldLayer layer, Layer renderLayerEnum, float z) {
-        const auto& tiles = world->GetTiles(layer);
-        for (const auto& tile : tiles) {
-            auto it = m_tilesets.find(tile.tileType);
-            if (it == m_tilesets.end()) continue;
-            TilesetInfo& tsi = it->second;
-            if (tsi.texture.id == 0) continue;
+    for (const auto& tile : tiles) {
+        auto it = m_tilesets.find(tile.tileType);
+        if (it == m_tilesets.end()) continue;
+        TilesetInfo& tsi = it->second;
+        if (tsi.texture.id == 0) continue;
 
-            float srcTileSize = (float)tsi.texture.width / (float)tsi.gridCols;
-            float col = (float)(tile.tileId % tsi.gridCols);
-            float row = (float)(tile.tileId / tsi.gridCols);
-            Rectangle src = { col * srcTileSize, row * srcTileSize, srcTileSize, srcTileSize };
-            Vector2 pos = { (float)tile.x * ts, (float)tile.y * ts };
-            float scale = ts / srcTileSize;
+        float srcTileSize = (float)tsi.texture.width / (float)tsi.gridCols;
+        float col = (float)(tile.tileId % tsi.gridCols);
+        float row = (float)(tile.tileId / tsi.gridCols);
+        Rectangle src = { col * srcTileSize, row * srcTileSize, srcTileSize, srcTileSize };
+        Vector2 pos = { (float)tile.x * ts, (float)tile.y * ts };
+        float scale = ts / srcTileSize;
 
-            r.SubmitSprite(&tsi.texture, src, pos, {scale, scale}, 0.0f, {0,0},
-                           WHITE, renderLayerEnum, z, false, 0);
-        }
-    };
-
-    renderLayer(WorldLayer::Light, Layer::Background, -1.0f);
-
-    if (m_activeLayer == WorldLayer::Shadow) {
-        renderLayer(WorldLayer::Shadow, Layer::World, 0.0f);
+        r.SubmitSprite(&tsi.texture, src, pos, {scale, scale}, 0.0f, {0,0},
+                       WHITE, Layer::World, 0.0f, false, 0);
     }
 }
 
@@ -384,19 +353,6 @@ void GameView::Render(const Camera2D& camera, const std::vector<Particle*>& part
     // Render background parallax (before camera transform)
     RenderBackground(cam);
 
-    // Apply shadow shader for Shadow world layer
-    if (m_activeLayer == WorldLayer::Shadow && m_shaderLoaded) {
-        Vector2 screenPos = GetWorldToScreen2D(m_lightWorldPos, cam);
-        SetShaderValue(m_shadowShader, GetShaderLocation(m_shadowShader, "lightScreenPos"), &screenPos, SHADER_UNIFORM_VEC2);
-        float screenW = (float)r.GetWindowWidth();
-        float screenH = (float)r.GetWindowHeight();
-        SetShaderValue(m_shadowShader, GetShaderLocation(m_shadowShader, "screenW"), &screenW, SHADER_UNIFORM_FLOAT);
-        SetShaderValue(m_shadowShader, GetShaderLocation(m_shadowShader, "screenH"), &screenH, SHADER_UNIFORM_FLOAT);
-        float radius = 150.0f;
-        SetShaderValue(m_shadowShader, GetShaderLocation(m_shadowShader, "radius"), &radius, SHADER_UNIFORM_FLOAT);
-        BeginShaderMode(m_shadowShader);
-    }
-
     BeginMode2D(cam);
     
     // Render entities and particles
@@ -409,11 +365,6 @@ void GameView::Render(const Camera2D& camera, const std::vector<Particle*>& part
     r.EndFrameAndFlush();
     EndMode2D();
 
-    if (m_activeLayer == WorldLayer::Shadow && m_shaderLoaded) {
-        EndShaderMode();
-    }
-
-    // Draw HUD over everything (independent of camera)
     ::DrawFPS(10, 10);
 }
 
@@ -444,11 +395,6 @@ void GameView::Shutdown() {
     }
     m_backgrounds.clear();
 
-    if (m_shaderLoaded && m_shadowShader.id != 0) {
-        UnloadShader(m_shadowShader);
-        m_shaderLoaded = false;
-    }
-    
     View::UIResourceManager::GetInstance().Shutdown();
 }
 

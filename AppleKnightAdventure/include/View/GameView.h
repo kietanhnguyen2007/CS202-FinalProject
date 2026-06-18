@@ -8,7 +8,7 @@
 #include <unordered_map>
 
 struct Particle;
-class DualWorld;
+struct Tile;
 
 namespace View {
 
@@ -19,19 +19,14 @@ public:
     bool Init();
     void Update(float dt);
 
-    // Render world with optional dual-world shader
     void Render(const Camera2D& camera, const std::vector<Particle*>& particles = {}, float dt = 0.0f);
 
     void Shutdown();
 
-    // Dual-world support
-    void SetActiveWorldLayer(WorldLayer layer, const Vector2& lightWorldPos = {0,0});
-    WorldLayer GetActiveWorldLayer() const;
-
     // Tilemap — multi-tilesheet support
     // Each tileType maps to a tilesheet; tileId is the index within that tilesheet grid
     void LoadTileset(int tileType, const std::string& texturePath, int cols);
-    void RenderTilemap(const DualWorld* world);
+    void RenderTilemap(const std::vector<Tile>& tiles);
 
     // Background parallax
     void LoadBackgrounds();
@@ -49,19 +44,12 @@ private:
     GameView() = default;
     ~GameView() = default;
 
-    void LoadShadowShader();
-
     // Each tileType → { texture, gridCols }
     struct TilesetInfo {
         Texture2D texture{};
         int gridCols = 1;
     };
     std::unordered_map<int, TilesetInfo> m_tilesets;
-
-    WorldLayer m_activeLayer = WorldLayer::Light;
-    Shader m_shadowShader{};
-    bool m_shaderLoaded = false;
-    Vector2 m_lightWorldPos{};
 
     // Camera shake
     float m_shakeTimer = 0.0f;

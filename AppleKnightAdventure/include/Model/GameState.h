@@ -7,6 +7,14 @@
 #include <vector>
 #include <memory>
 
+struct Tile {
+    int x = 0;
+    int y = 0;
+    int tileType = 1;
+    int tileId = -1;
+    bool solid = true;
+};
+
 class GameState {
 protected:
     GameMode m_mode;
