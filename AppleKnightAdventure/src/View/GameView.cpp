@@ -179,10 +179,13 @@ bool GameView::Init() {
     cr.PreloadAtlas("assets/textures/enemies/flying_hurt.json");
     cr.PreloadAtlas("assets/textures/enemies/flying_death.json");
 
-    // Load Tilesets
-    LoadTileset(1, "assets/textures/tiles/light_tileset.png", 8);
-    LoadTileset(2, "assets/textures/tiles/shadow_tileset.png", 8);
-    LoadTileset(3, "assets/textures/tiles/brick_tileset.png", 8);
+    // Load Tilesets — Legacy Fantasy High Forest
+    LoadTileset(1, "assets/textures/tiles/Tiles.png", 25);
+    LoadTileset(2, "assets/textures/tiles/Buildings.png", 25);
+    LoadTileset(3, "assets/textures/tiles/Hive.png", 25);
+    LoadTileset(4, "assets/textures/tiles/Interior-01.png", 25);
+    LoadTileset(5, "assets/textures/tiles/Props-Rocks.png", 18);
+    LoadTileset(6, "assets/textures/tiles/Tree-Assets.png", 21);
 
     // Preload Objects
     cr.PreloadAtlas("assets/textures/objects/checkpoint_captured.json");
@@ -260,27 +263,23 @@ WorldLayer GameView::GetActiveWorldLayer() const {
 // ── Background Parallax ────────────────────────────────────────────
 
 void GameView::LoadBackgrounds() {
-    const int bgCount = 4;
-    const char* bgPaths[4] = {
-        "assets/textures/backgrounds/bg_1",
-        "assets/textures/backgrounds/bg_2",
-        "assets/textures/backgrounds/bg_3",
-        "assets/textures/backgrounds/bg_4"
+    const struct { const char* file; float speed; } forestLayers[] = {
+        {"assets/textures/backgrounds/forest/far.png",        0.05f},
+        {"assets/textures/backgrounds/forest/main.png",       0.15f},
+        {"assets/textures/backgrounds/forest/tree_dark.png",   0.30f},
+        {"assets/textures/backgrounds/forest/tree_golden.png", 0.45f},
+        {"assets/textures/backgrounds/forest/tree_green.png",  0.60f},
+        {"assets/textures/backgrounds/forest/tree_red.png",    0.75f},
+        {"assets/textures/backgrounds/forest/tree_yellow.png", 0.90f},
     };
-    const int layerCounts[4] = {4, 5, 4, 3};
-    const float speeds[5] = {0.1f, 0.25f, 0.5f, 0.75f, 1.0f};
+    const int layerCount = sizeof(forestLayers) / sizeof(forestLayers[0]);
 
-    m_backgrounds.resize(bgCount);
-    for (int b = 0; b < bgCount; ++b) {
-        int n = layerCounts[b];
-        for (int l = 0; l < n; ++l) {
-            char path[256];
-            snprintf(path, sizeof(path), "%s/%d.png", bgPaths[b], l + 1);
-            BGLayerInfo info;
-            info.tex = ::LoadTexture(path);
-            info.parallaxSpeed = speeds[l % 5];
-            m_backgrounds[b].push_back(info);
-        }
+    m_backgrounds.resize(1);
+    for (int l = 0; l < layerCount; ++l) {
+        BGLayerInfo info;
+        info.tex = ::LoadTexture(forestLayers[l].file);
+        info.parallaxSpeed = forestLayers[l].speed;
+        m_backgrounds[0].push_back(info);
     }
 }
 
@@ -342,12 +341,14 @@ void GameView::RenderTilemap(const DualWorld* world) {
             TilesetInfo& tsi = it->second;
             if (tsi.texture.id == 0) continue;
 
+            float srcTileSize = (float)tsi.texture.width / (float)tsi.gridCols;
             float col = (float)(tile.tileId % tsi.gridCols);
             float row = (float)(tile.tileId / tsi.gridCols);
-            Rectangle src = { col * ts, row * ts, ts, ts };
+            Rectangle src = { col * srcTileSize, row * srcTileSize, srcTileSize, srcTileSize };
             Vector2 pos = { (float)tile.x * ts, (float)tile.y * ts };
+            float scale = ts / srcTileSize;
 
-            r.SubmitSprite(&tsi.texture, src, pos, {1,1}, 0.0f, {0,0},
+            r.SubmitSprite(&tsi.texture, src, pos, {scale, scale}, 0.0f, {0,0},
                            WHITE, renderLayerEnum, z, false, 0);
         }
     };

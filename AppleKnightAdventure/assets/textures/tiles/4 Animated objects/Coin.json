@@ -1,1 +1,0 @@
-{"frames":{"frame_0":{"frame":{"x":0,"y":0,"w":10,"h":10}},"frame_1":{"frame":{"x":10,"y":0,"w":10,"h":10}},"frame_2":{"frame":{"x":20,"y":0,"w":10,"h":10}},"frame_3":{"frame":{"x":30,"y":0,"w":10,"h":10}}},"clips":{"default":{"frames":["frame_0","frame_1","frame_2","frame_3"],"durations":[0.15,0.15,0.15,0.15],"loop":true}}}
