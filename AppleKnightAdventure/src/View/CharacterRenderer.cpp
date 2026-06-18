@@ -83,6 +83,14 @@ bool CharacterRenderer::Register(const Entity* entity,
         }
     }
 
+    // Auto-set boss asset root from atlas path pattern
+    if (entity->GetType() == EntityType::Boss) {
+        auto pos = atlasPath.find("/phase");
+        if (pos != std::string::npos) {
+            m_bossAssetRoot[id] = atlasPath.substr(0, pos + 1);
+        }
+    }
+
     // Try to play default clip if it exists
     if (!defaultClip.empty()) {
         if (animator.HasClip(defaultClip)) {
@@ -135,6 +143,7 @@ void CharacterRenderer::Unregister(uint32_t entityId) {
     m_entities.erase(entityId);
     m_lastActions.erase(entityId);
     m_bossPhases.erase(entityId);
+    m_bossAssetRoot.erase(entityId);
 }
 
 void CharacterRenderer::Clear() {
@@ -144,6 +153,7 @@ void CharacterRenderer::Clear() {
     m_actionConfigs.clear();
     m_lastActions.clear();
     m_bossPhases.clear();
+    m_bossAssetRoot.clear();
     m_removeCallbacks.clear();
 }
 
@@ -316,32 +326,61 @@ void CharacterRenderer::ClearBossPhase(uint32_t entityId) {
     m_bossPhases.erase(entityId);
 }
 
-static const char* PhaseAtlasPath(BossPhase phase) {
+void CharacterRenderer::SetBossAssetRoot(uint32_t entityId, const std::string& rootPath) {
+    m_bossAssetRoot[entityId] = rootPath;
+}
+
+static const char* PhaseSubdir(BossPhase phase) {
     switch (phase) {
-        case BossPhase::Phase1:   return "assets/textures/boss/phase1.json";
-        case BossPhase::Phase2:   return "assets/textures/boss/phase2.json";
-        case BossPhase::Phase3:   return "assets/textures/boss/phase3.json";
-        case BossPhase::Enraged:  return "assets/textures/boss/enraged.json";
-        default:                  return "assets/textures/boss/phase1.json";
+        case BossPhase::Phase1:   return "phase1";
+        case BossPhase::Phase2:   return "phase2";
+        case BossPhase::Phase3:   return "phase3";
+        case BossPhase::Enraged:  return "phase4";
+        default:                  return "phase1";
     }
 }
 
 bool CharacterRenderer::SwitchPhase(uint32_t entityId, BossPhase phase) {
-    auto it = m_animators.find(entityId);
-    if (it == m_animators.end()) return false;
+    auto animIt = m_animators.find(entityId);
+    if (animIt == m_animators.end()) return false;
 
-    const char* atlasPath = PhaseAtlasPath(phase);
+    auto rootIt = m_bossAssetRoot.find(entityId);
+    if (rootIt == m_bossAssetRoot.end()) return false;
 
-    auto atlasIt = m_atlasCache.find(atlasPath);
-    if (atlasIt == m_atlasCache.end()) {
-        if (!PreloadAtlas(atlasPath)) return false;
-        atlasIt = m_atlasCache.find(atlasPath);
+    std::string phaseDir = rootIt->second;
+    phaseDir += PhaseSubdir(phase);
+    phaseDir += "/";
+
+    static const char* clipFiles[] = {
+        "idle", "walk", "run", "jump",
+        "attack_1", "attack_2", "attack_3",
+        "projectile_attack1", "projectile_attack2",
+        "hurt", "dead", "healing", "skill",
+        "fall", "parry", "ultimate_skill"
+    };
+
+    auto& animator = animIt->second;
+    animator.ClearClips();
+
+    bool anyLoaded = false;
+    for (const char* name : clipFiles) {
+        std::string path = phaseDir + name + ".json";
+        auto cacheIt = m_atlasCache.find(path);
+        if (cacheIt == m_atlasCache.end()) {
+            if (!PreloadAtlas(path)) continue;
+            cacheIt = m_atlasCache.find(path);
+        }
+        for (const auto& clipName : cacheIt->second->GetClipNames()) {
+            auto clip = cacheIt->second->GetClip(clipName);
+            if (clip) {
+                animator.AddClip(clip);
+                anyLoaded = true;
+            }
+        }
     }
 
-    auto& animator = it->second;
-    animator.LoadClipsFromAtlas(*atlasIt->second);
+    if (!anyLoaded) return false;
 
-    m_entityAtlas[entityId] = atlasIt->second;
     m_bossPhases[entityId] = phase;
     return true;
 }

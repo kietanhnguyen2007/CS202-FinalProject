@@ -30,6 +30,12 @@ void Animator::AddClip(const std::shared_ptr<AnimationClip>& clip) {
     m_clips.emplace(clip->name, clip);
 }
 
+void Animator::ClearClips() {
+    Stop();
+    m_clips.clear();
+    m_texture = nullptr;
+}
+
 void Animator::LoadClipsFromAtlas(TextureAtlas& atlas) {
     Stop();
     m_clips.clear();

@@ -111,9 +111,9 @@ bool GameView::Init() {
     cr.PreloadAtlas("assets/textures/boss/boss2/phase3/attack_1.json");
     cr.PreloadAtlas("assets/textures/boss/boss2/phase3/attack_2.json");
     cr.PreloadAtlas("assets/textures/boss/boss2/phase3/projectile_attack1.json");
+    cr.PreloadAtlas("assets/textures/boss/boss2/phase3/projectile_attack2.json");
     cr.PreloadAtlas("assets/textures/boss/boss2/phase3/hurt.json");
-    cr.PreloadAtlas("assets/textures/boss/boss2/phase4/projectile_attack2.json");
-    cr.PreloadAtlas("assets/textures/boss/boss2/phase4/dead.json");
+    cr.PreloadAtlas("assets/textures/boss/boss2/phase3/dead.json");
     // Boss 3 — existing 4-phase boss
     cr.PreloadAtlas("assets/textures/boss/boss3/phase1/idle.json");
     cr.PreloadAtlas("assets/textures/boss/boss3/phase1/walk.json");

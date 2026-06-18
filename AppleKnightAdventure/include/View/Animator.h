@@ -92,6 +92,9 @@ public:
     void SetPlaybackMode(PlaybackMode mode);
     PlaybackMode GetPlaybackMode() const;
 
+    // Remove all clips and set texture to null
+    void ClearClips();
+
     // Bulk clip replacement from an already-loaded TextureAtlas
     // Clears all existing clips and loads from the atlas; sets texture.
     void LoadClipsFromAtlas(TextureAtlas& atlas);
