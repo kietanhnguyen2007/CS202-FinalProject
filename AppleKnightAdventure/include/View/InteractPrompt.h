@@ -13,6 +13,9 @@ public:
     void Hide();
     bool IsVisible() const;
 
+    bool LoadResources(const std::string& atlasJsonPath = "");
+    void Shutdown();
+
     void Render();
 
 private:
@@ -21,6 +24,9 @@ private:
 
     bool m_visible = false;
     std::string m_text;
+
+    Texture2D m_texIcon{};
+    int m_iconFrameW = 0;
 };
 
 } // namespace View

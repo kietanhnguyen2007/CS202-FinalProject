@@ -1,4 +1,5 @@
 #include "View/Animator.h"
+#include "View/TextureAtlas.h"
 #include <cmath>
 #include <algorithm>
 
@@ -27,6 +28,22 @@ void Animator::AddClip(const std::shared_ptr<AnimationClip>& clip) {
         clip->totalDuration = total;
     }
     m_clips.emplace(clip->name, clip);
+}
+
+void Animator::ClearClips() {
+    Stop();
+    m_clips.clear();
+    m_texture = nullptr;
+}
+
+void Animator::LoadClipsFromAtlas(TextureAtlas& atlas) {
+    Stop();
+    m_clips.clear();
+    for (const auto& clipName : atlas.GetClipNames()) {
+        auto clip = atlas.GetClip(clipName);
+        if (clip) AddClip(clip);
+    }
+    m_texture = atlas.GetTexture();
 }
 
 bool Animator::HasClip(const std::string& name) const {
@@ -174,12 +191,36 @@ Rectangle Animator::GetCurrentSrcRect() const {
 
 Vector2 Animator::GetCurrentOrigin() const {
     if (!m_current || m_current->frames.empty()) return {0,0};
-    return m_current->frames[m_frameIndex].origin;
+    const auto& frame = m_current->frames[m_frameIndex];
+
+    // If it has originalSize, it was trimmed (TexturePacker style)
+    if (frame.originalSize.x > 0 && frame.originalSize.y > 0) {
+        float pivotX = (frame.originalSize.x * 0.5f) - frame.spriteSourceSize.x;
+        float pivotY = (frame.originalSize.y * 0.5f) - frame.spriteSourceSize.y;
+
+        if (m_flipX) {
+            pivotX = frame.src.width - pivotX;
+        }
+        return { pivotX, pivotY };
+    }
+
+    // Fallback to center of the src rect if no trim metadata
+    return { frame.src.width * 0.5f, frame.src.height * 0.5f };
 }
 
 bool Animator::GetFlipX() const { return m_flipX; }
 void Animator::SetFlipX(bool flip) { m_flipX = flip; }
-bool Animator::HasTexture() const { return m_texture != nullptr && m_texture->id != 0; }
+
+Texture2D* Animator::GetCurrentTexture() const {
+    if (!m_current || m_current->frames.empty()) return m_texture;
+    Texture2D* tex = m_current->frames[m_frameIndex].texture;
+    return tex ? tex : m_texture;
+}
+
+bool Animator::HasTexture() const { 
+    Texture2D* t = GetCurrentTexture();
+    return t != nullptr && t->id != 0; 
+}
 
 int Animator::GetCurrentFrameIndex() const { return m_frameIndex; }
 

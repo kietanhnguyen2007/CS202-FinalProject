@@ -1,6 +1,7 @@
 #include "View/InventoryView.h"
 #include "View/Renderer.h"
 #include "View/UIHelpers.h"
+#include "View/UIResourceManager.h"
 #include "Model/Inventory.h"
 #include "Model/Item.h"
 #include "Systems/SoundManager.h"
@@ -18,13 +19,49 @@ bool InventoryView::Init() {
     return true;
 }
 
+void InventoryView::LoadItemAtlases() {
+    auto loadOne = [&](const std::string& itemName, const std::string& jsonPath,
+                       bool animated, const std::string& clipName) {
+        auto atlas = Animations::TextureAtlas::LoadFromJSON(jsonPath);
+        if (!atlas) return;
+        atlas->LoadTexture();
+        ItemIconInfo info;
+        info.atlas = std::move(atlas);
+        info.animated = animated;
+        if (animated) {
+            info.anim.SetTexture(info.atlas->GetTexture());
+            if (info.atlas->HasClip(clipName)) {
+                info.anim.AddClip(info.atlas->GetClip(clipName));
+                info.anim.Play(clipName);
+            }
+        }
+        m_itemIcons.emplace(itemName, std::move(info));
+    };
+
+    loadOne("Apple",     "assets/textures/items/apple.json",       false, "");
+    loadOne("Coin",      "assets/textures/items/coin.json",        true,  "spin");
+    loadOne("Key",       "assets/textures/items/key.json",         false, "");
+    loadOne("BagCoins",  "assets/textures/items/bag_coins.json",   false, "");
+    loadOne("Equipment", "assets/textures/items/equipment.json",   false, "");
+    loadOne("PotionRed", "assets/textures/items/potion_red.json",  false, "");
+}
+
 bool InventoryView::LoadResources(const std::string& atlasJsonPath) {
     (void)atlasJsonPath;
+    m_itemIcons.clear();
+    LoadItemAtlases();
+
     m_loaded = true;
     return true;
 }
 
 void InventoryView::Shutdown() {
+    for (auto& kv : m_itemIcons) {
+        kv.second.anim.Stop();
+        kv.second.atlas.reset();
+    }
+    m_itemIcons.clear();
+
     m_loaded = false;
     DetachObservable();
 }
@@ -41,53 +78,185 @@ void InventoryView::Close() {
 bool InventoryView::IsOpen() const { return m_open; }
 
 void InventoryView::Update(float dt) {
-    (void)dt;
+    for (auto& kv : m_itemIcons) {
+        if (kv.second.animated) {
+            kv.second.anim.Update(dt);
+        }
+    }
 }
 
+// ---------------------------------------------------------------------------
+// DrawSlot  — draws one inventory slot using the Dark Dwellers sprite sheet
+// ---------------------------------------------------------------------------
+void InventoryView::DrawSlot(float x, float y, float size, bool highlighted) {
+    auto& res = UIResourceManager::GetInstance();
+    Texture2D* texSlot = res.GetSlot();
+    float slotFrameW = res.GetSlotFrameWidth();
+
+    if (!texSlot || texSlot->id == 0 || slotFrameW <= 0) return;
+    Renderer& r = Renderer::GetInstance();
+
+    int frame = highlighted ? 1 : 0;
+    float frameH = (float)texSlot->height;
+
+    Rectangle src = {
+        frame * slotFrameW,
+        0.0f,
+        slotFrameW,
+        frameH
+    };
+
+    float scaleX = size / slotFrameW;
+    float scaleY = size / frameH;
+
+    r.SubmitSprite(texSlot, src,
+                   {x, y},
+                   {scaleX, scaleY},
+                   0.0f, {0, 0}, WHITE,
+                   Layer::UI, 0.1f, false, 0);
+}
+
+// ---------------------------------------------------------------------------
+// Render
+// ---------------------------------------------------------------------------
 void InventoryView::Render() {
     if (!m_open || !m_loaded) return;
     Renderer& r = Renderer::GetInstance();
     int w = r.GetWindowWidth();
     int h = r.GetWindowHeight();
 
-    // Draw a centered panel
-    Vector2 center = { w*0.5f, h*0.5f };
-    r.DrawRectangle({center.x-240, center.y-180}, {480, 360}, {30,30,30,220}, Layer::UI, 0.0f);
+    auto& res = UIResourceManager::GetInstance();
+    Texture2D* texPanelBg = res.GetPanelBg();
+    Texture2D* texCloseBtn = res.GetCloseBtn();
+    float cbFrameW = res.GetCloseBtnFrameWidth();
 
-    // Grid layout
+    // ---- Panel dimensions (37.5% × 50% of screen, centered) ----
+    float panelW = w * 0.375f;
+    float panelH = h * 0.50f;
+    float panelX = (w - panelW) * 0.5f;
+    float panelY = (h - panelH) * 0.5f;
+
+    // Draw panel background texture using 9-slice
+    if (texPanelBg && texPanelBg->id != 0) {
+        int corner = texPanelBg->width / 3;
+        NPatchInfo npi;
+        npi.source = {0.0f, 0.0f, (float)texPanelBg->width, (float)texPanelBg->height};
+        npi.left = corner;
+        npi.top = corner;
+        npi.right = corner;
+        npi.bottom = corner;
+        npi.layout = 0; // NPATCH_NINE_PATCH
+
+        r.SubmitNPatch(texPanelBg, npi, {panelX, panelY, panelW, panelH}, WHITE, Layer::UI, 0.0f);
+    } else {
+        // Fallback: solid rectangle if texture failed to load
+        r.DrawRectangle({panelX, panelY}, {panelW, panelH},
+                        {30, 30, 30, 220}, Layer::UI, 0.0f);
+    }
+
+    // ---- Close button (top-right corner of panel) ----
+    if (texCloseBtn && texCloseBtn->id != 0 && cbFrameW > 0) {
+        float closeBtnSize = panelW * 0.06f;
+        float closeBtnX = panelX + panelW - closeBtnSize - panelW * 0.03f;
+        float closeBtnY = panelY + panelH * 0.03f;
+
+        float cbFrameH = (float)texCloseBtn->height;
+        // Frame 0 = normal state
+        Rectangle cbSrc = { 0.0f, 0.0f, cbFrameW, cbFrameH };
+        float cbScaleX = closeBtnSize / cbFrameW;
+        float cbScaleY = closeBtnSize / cbFrameH;
+
+        r.SubmitSprite(texCloseBtn, cbSrc,
+                       {closeBtnX, closeBtnY},
+                       {cbScaleX, cbScaleY},
+                       0.0f, {0, 0}, WHITE,
+                       Layer::UI, 0.2f, false, 0);
+    }
+
+    // ---- Title "INVENTORY" ----
+    float titleFontSize = panelH * 0.07f;
+    float titleX = panelX + panelW * 0.05f;
+    float titleY = panelY + panelH * 0.04f;
+    r.DrawText("INVENTORY", {titleX, titleY}, (int)titleFontSize, WHITE);
+
+    // ---- Grid: 6 cols × 4 rows ----
     const int cols = 6;
     const int rows = 4;
-    const float slotW = 64.0f;
-    const float slotH = 64.0f;
-    const float startX = center.x - (cols*slotW)/2.0f + 8.0f;
-    const float startY = center.y - (rows*slotH)/2.0f + 20.0f;
+
+    // Slot area: inset from panel edges
+    float gridPadX  = panelW * 0.06f;
+    float gridTopY  = panelY + panelH * 0.16f;   // below title
+    float gridBotY  = panelY + panelH * 0.95f;   // near bottom
+    float gridLeftX = panelX + gridPadX;
+    float gridW     = panelW - gridPadX * 2.0f;
+    float gridH     = gridBotY - gridTopY;
+
+    float slotSize  = gridW / (float)cols;        // width drives size (square slots)
+    if (slotSize * rows > gridH) {
+        slotSize = gridH / (float)rows;           // clamp if vertical space is tight
+    }
+
+    // Center the grid horizontally within panel
+    float totalGridW = slotSize * cols;
+    float startX = gridLeftX + (gridW - totalGridW) * 0.5f;
+
+    // Center the grid vertically within available space
+    float totalGridH = slotSize * rows;
+    float startY = gridTopY + (gridH - totalGridH) * 0.5f;
+
+    float iconPadding = slotSize * 0.15f;   // padding inside slot for the item icon
+    float iconSize    = slotSize - iconPadding * 2.0f;
 
     int idx = 0;
-    for (int y = 0; y < rows; ++y) {
-        for (int x = 0; x < cols; ++x) {
-            float sx = startX + x * slotW;
-            float sy = startY + y * slotH;
-            r.DrawRectangle({sx, sy}, {slotW-8, slotH-8}, {60,60,60,200}, Layer::UI, 0.0f);
+    for (int row = 0; row < rows; ++row) {
+        for (int col = 0; col < cols; ++col) {
+            float sx = startX + col * slotSize;
+            float sy = startY + row * slotSize;
 
+            bool highlighted = (idx == m_selection);
+            DrawSlot(sx, sy, slotSize, highlighted);
+
+            // Draw item icon if this slot has an item
             if (idx < (int)m_items.size()) {
-                auto &p = m_items[idx];
-                // draw item name and count
-                r.DrawText(p.first.c_str(), {sx+8, sy+8}, 12, WHITE);
-                char b[16]; snprintf(b, sizeof(b), "x%d", p.second);
-                r.DrawText(b, {sx+8, sy+32}, 12, YELLOW);
+                auto& p = m_items[idx];
+
+                auto iconIt = m_itemIcons.find(p.first);
+                if (iconIt != m_itemIcons.end()) {
+                    const auto& icon = iconIt->second;
+                    if (icon.atlas && icon.atlas->GetTexture() && icon.atlas->GetTexture()->id != 0) {
+                        Rectangle src{};
+                        if (icon.animated && icon.anim.IsPlaying()) {
+                            src = icon.anim.GetCurrentSrcRect();
+                        } else if (icon.atlas->HasFrame("default")) {
+                            src = icon.atlas->GetFrameRect("default");
+                        }
+                        if (src.width > 0 && src.height > 0) {
+                            float ix = sx + iconPadding;
+                            float iy = sy + iconPadding * 0.6f;  // slightly above center
+                            r.SubmitSprite(icon.atlas->GetTexture(), src,
+                                           {ix, iy},
+                                           {iconSize / src.width, iconSize / src.height},
+                                           0.0f, {0, 0}, WHITE,
+                                           Layer::UI, 0.3f, false, 0);
+                        }
+                    }
+                }
+
+                // Item count text "xN" in bottom-left of slot
+                char b[16];
+                snprintf(b, sizeof(b), "x%d", p.second);
+                float countFontSize = slotSize * 0.22f;
+                float countX = sx + slotSize * 0.08f;
+                float countY = sy + slotSize * 0.72f;
+                r.DrawText(b, {countX, countY}, (int)countFontSize, YELLOW);
             }
 
-            if (idx == m_selection) {
-                // highlight
-                r.DrawRectangle({sx, sy}, {slotW-8, slotH-8}, {255,255,255,48}, Layer::UI, 0.0f);
-            }
             ++idx;
         }
     }
 }
 
 void InventoryView::SetInventorySnapshot(const Inventory& snapshot) {
-    // clear and fill from Inventory
     m_items.clear();
     int count = snapshot.GetItemCount();
     for (int i = 0; i < count; ++i) {
@@ -105,7 +274,6 @@ void InventoryView::UnregisterInventoryChangedCallback() { m_onInventoryChanged 
 void InventoryView::AttachObservable(ObservableList<const Item*>* observable) {
     m_attachedObservable = observable;
     if (!observable) return;
-    // Subscribe to observable callbacks to trigger re-snapshot
     observable->OnItemAddedCallback = [this](const Item* const&) {
         if (m_onInventoryChanged) m_onInventoryChanged();
     };

@@ -3,6 +3,7 @@
 #include "View/Renderer.h"
 #include "View/FloatingText.h"
 #include "View/TextureAtlas.h"
+#include "View/UIResourceManager.h"
 
 using namespace View::Animations;
 
@@ -34,6 +35,11 @@ void EnemyStatusRenderer::Update(float dt) {
 
 void EnemyStatusRenderer::Render(const Camera2D& camera) {
     Renderer& r = Renderer::GetInstance();
+    auto& res = UIResourceManager::GetInstance();
+    Texture2D* texFire = res.GetFireIcon();
+    Texture2D* texWater = res.GetWaterIcon();
+    Texture2D* texLightning = res.GetLightningIcon();
+
     for (const auto& kv : m_status) {
         uint32_t id = kv.first;
         const auto& flags = kv.second;
@@ -43,38 +49,24 @@ void EnemyStatusRenderer::Render(const Camera2D& camera) {
 
         float iconSize = 16.0f;
         float offsetX = -16.0f;
-        if (m_atlas && flags.burn && m_atlas->HasFrame("status/burn")) {
-            Rectangle src = m_atlas->GetFrameRect("status/burn");
-            Texture2D* tex = m_atlas->GetTexture();
-            r.SubmitSprite(tex, src, {pos.x + offsetX, pos.y - 24}, {iconSize/src.width, iconSize/src.height}, 0.0f, {0,0}, WHITE, Layer::Foreground, 0.0f, false, id);
-            offsetX += iconSize + 2.0f;
-        } else if (flags.burn) {
-            Vector2 sp = GetWorldToScreen2D({pos.x + offsetX, pos.y - 24}, camera);
-            r.DrawText("B", sp, 14, ORANGE);
-            offsetX += 12.0f;
-        }
 
-        if (m_atlas && flags.wet && m_atlas->HasFrame("status/wet")) {
-            Rectangle src = m_atlas->GetFrameRect("status/wet");
-            Texture2D* tex = m_atlas->GetTexture();
-            r.SubmitSprite(tex, src, {pos.x + offsetX, pos.y - 24}, {iconSize/src.width, iconSize/src.height}, 0.0f, {0,0}, WHITE, Layer::Foreground, 0.0f, false, id);
-            offsetX += iconSize + 2.0f;
-        } else if (flags.wet) {
-            Vector2 sp = GetWorldToScreen2D({pos.x + offsetX, pos.y - 24}, camera);
-            r.DrawText("W", sp, 14, SKYBLUE);
-            offsetX += 12.0f;
-        }
+        auto drawIcon = [&](Texture2D* tex, bool flag, const char* fallback, Color fbColor) {
+            if (flag) {
+                if (tex && tex->id > 0) {
+                    Rectangle src = {0.0f, 0.0f, (float)tex->width, (float)tex->height};
+                    r.SubmitSprite(tex, src, {pos.x + offsetX, pos.y - 24}, {iconSize/src.width, iconSize/src.height}, 0.0f, {0,0}, WHITE, Layer::Foreground, 0.0f, false, id);
+                    offsetX += iconSize + 2.0f;
+                } else {
+                    Vector2 sp = GetWorldToScreen2D({pos.x + offsetX, pos.y - 24}, camera);
+                    r.DrawText(fallback, sp, 14, fbColor);
+                    offsetX += 12.0f;
+                }
+            }
+        };
 
-        if (m_atlas && flags.shocked && m_atlas->HasFrame("status/shocked")) {
-            Rectangle src = m_atlas->GetFrameRect("status/shocked");
-            Texture2D* tex = m_atlas->GetTexture();
-            r.SubmitSprite(tex, src, {pos.x + offsetX, pos.y - 24}, {iconSize/src.width, iconSize/src.height}, 0.0f, {0,0}, WHITE, Layer::Foreground, 0.0f, false, id);
-            offsetX += iconSize + 2.0f;
-        } else if (flags.shocked) {
-            Vector2 sp = GetWorldToScreen2D({pos.x + offsetX, pos.y - 24}, camera);
-            r.DrawText("S", sp, 14, YELLOW);
-            offsetX += 12.0f;
-        }
+        drawIcon(texFire, flags.burn, "B", ORANGE);
+        drawIcon(texWater, flags.wet, "W", SKYBLUE);
+        drawIcon(texLightning, flags.shocked, "S", YELLOW);
     }
 }
 

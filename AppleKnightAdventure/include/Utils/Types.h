@@ -35,7 +35,9 @@ enum class ItemType {
 enum class ProjectileType {
     Arrow,
     Magic,
-    BossAttack
+    BossAttack,
+    RangedBomb,
+    FlyingProjectile
 };
 
 enum class PetType {
@@ -57,10 +59,10 @@ enum class WeaponType {
 };
 
 enum class SkillType {
-    Fireball,
-    Heal,
-    Dash,
-    Shield
+    UltimateFighter,
+    UltimateKnight,
+    UltimateNinja,
+    UltimateMagicCaster
 };
 
 enum class DamageType {

@@ -1,0 +1,46 @@
+{
+    "clips": {
+        "projectile_attack1": {
+            "loop": false,
+            "frames": [
+                "projectile_attack1_0",
+                "projectile_attack1_1",
+                "projectile_attack1_2",
+                "projectile_attack1_3"
+            ],
+            "durations": [
+                0.1,
+                0.1,
+                0.1,
+                0.1
+            ]
+        }
+    },
+    "frames": {
+        "projectile_attack1_0": {
+            "x": 0,
+            "y": 0,
+            "w": 196,
+            "h": 77
+        },
+        "projectile_attack1_1": {
+            "x": 197,
+            "y": 0,
+            "w": 196,
+            "h": 99
+        },
+        "projectile_attack1_2": {
+            "x": 394,
+            "y": 0,
+            "w": 194,
+            "h": 113
+        },
+        "projectile_attack1_3": {
+            "x": 589,
+            "y": 0,
+            "w": 167,
+            "h": 136
+        }
+    },
+    "image": "projectile_attack1.png"
+}

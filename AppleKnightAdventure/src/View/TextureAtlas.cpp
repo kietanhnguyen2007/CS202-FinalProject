@@ -54,6 +54,15 @@ std::unique_ptr<TextureAtlas> TextureAtlas::LoadFromJSON(const std::string& json
 
         if (!imagePath.empty()) {
             atlas->m_texturePath = baseDir + imagePath;
+        } else {
+            std::string fallbackPath = jsonPath;
+            size_t extPos = fallbackPath.find_last_of('.');
+            if (extPos != std::string::npos) {
+                fallbackPath = fallbackPath.substr(0, extPos) + ".png";
+            } else {
+                fallbackPath += ".png";
+            }
+            atlas->m_texturePath = fallbackPath;
         }
 
         // --- Parse frames ---
@@ -142,6 +151,41 @@ std::unique_ptr<TextureAtlas> TextureAtlas::LoadFromJSON(const std::string& json
             }
         }
 
+        // --- Auto-generate clip from frames if no clips exist ---
+        if (atlas->m_clips.empty() && !atlas->m_frames.empty()) {
+            auto clip = std::make_shared<AnimationClip>();
+            clip->name = "default";
+            for (auto const& [fname, rect] : atlas->m_frames) {
+                AnimationFrame af;
+                af.src = rect;
+                af.duration = 0.1f;
+                af.origin = {0,0};
+                af.name = fname;
+                
+                // Read metadata if available
+                if (j.contains("frames") && j["frames"].is_object() && j["frames"].contains(fname)) {
+                    const auto& frameJson = j["frames"][fname];
+                    if (frameJson.contains("rotated")) af.rotated = frameJson["rotated"].get<bool>();
+                    if (frameJson.contains("trimmed")) af.trimmed = frameJson["trimmed"].get<bool>();
+                    if (frameJson.contains("spriteSourceSize") && frameJson["spriteSourceSize"].is_object()) {
+                        af.spriteSourceSize.x = (float)frameJson["spriteSourceSize"].value("x", 0);
+                        af.spriteSourceSize.y = (float)frameJson["spriteSourceSize"].value("y", 0);
+                    }
+                    if (frameJson.contains("sourceSize") && frameJson["sourceSize"].is_object()) {
+                        af.originalSize.x = (float)frameJson["sourceSize"].value("w", 0);
+                        af.originalSize.y = (float)frameJson["sourceSize"].value("h", 0);
+                    }
+                    if (af.originalSize.x > 0 && af.originalSize.y > 0) {
+                        af.origin = { af.spriteSourceSize.x, af.spriteSourceSize.y };
+                    }
+                }
+                
+                clip->frames.push_back(af);
+            }
+            clip->totalDuration = clip->frames.size() * 0.1f;
+            atlas->m_clips.emplace("default", clip);
+        }
+
         // metadata is attached when building clip frames above
 
     } catch (const std::exception& ex) {
@@ -158,6 +202,14 @@ bool TextureAtlas::LoadTexture() {
     if (m_texture.id == 0) {
         std::cerr << "TextureAtlas: failed to load texture: " << m_texturePath << "\n";
         return false;
+    }
+    // Update all clips to use this texture
+    for (auto& pair : m_clips) {
+        if (pair.second) {
+            for (auto& frame : pair.second->frames) {
+                frame.texture = &m_texture;
+            }
+        }
     }
     return true;
 }

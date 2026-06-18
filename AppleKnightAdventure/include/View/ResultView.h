@@ -35,6 +35,7 @@ private:
     bool m_visible = false;
     bool m_gameOver = false;
     float m_anim = 0.0f;
+
 };
 
 } // namespace View

@@ -26,7 +26,6 @@ public:
     void SetVisible(bool v) { m_visible = v; }
     MenuMode GetMode() const { return m_mode; }
 
-    // Sub-mode activators
     void ShowMainMenu();
     void ShowPauseOverlay();
     void ShowErrorDialog(const std::string& message);
@@ -40,24 +39,26 @@ private:
     void RenderError();
     void RenderConnection();
 
+    // Helpers — draw Dark Dwellers themed UI elements
+    void DrawButton(const char* label, float x, float y, float w, float h, bool selected);
+    void DrawPanel(float x, float y, float w, float h);
+
     bool m_visible = true;
     bool m_loaded = false;
     int m_selected = 0;
 
     MenuMode m_mode = MenuMode::Main;
 
-    // Shared menu items per mode
     std::vector<std::string> m_mainItems = { "Start", "Options", "Quit" };
     std::vector<std::string> m_pauseItems = { "Resume", "Quit to Menu" };
 
-    // Error dialog
     std::string m_errorMsg;
     std::vector<std::string> m_errorItems = { "OK" };
 
-    // Connection status
     std::string m_connectionIp;
     bool m_connected = false;
     std::vector<std::string> m_connectionItems = { "Back" };
+
 };
 
 } // namespace View

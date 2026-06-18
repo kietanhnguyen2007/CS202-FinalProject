@@ -267,6 +267,79 @@ bool Renderer::SubmitSprite(Texture2D* texture,
     }
 }
 
+void Renderer::SubmitNPatch(Texture2D* texture, NPatchInfo nPatchInfo, const Rectangle& dest,
+                            Color tint, Layer layer, float z) {
+    if (!texture) return;
+
+    float srcX = nPatchInfo.source.x;
+    float srcY = nPatchInfo.source.y;
+    float srcW = nPatchInfo.source.width;
+    float srcH = nPatchInfo.source.height;
+
+    float left = (float)nPatchInfo.left;
+    float top = (float)nPatchInfo.top;
+    float right = (float)nPatchInfo.right;
+    float bottom = (float)nPatchInfo.bottom;
+
+    float destX = dest.x;
+    float destY = dest.y;
+    float destW = dest.width;
+    float destH = dest.height;
+
+    // Prevent negative center size by scaling borders down if needed
+    if (destW < left + right) {
+        float scale = destW / (left + right);
+        left *= scale;
+        right *= scale;
+    }
+    if (destH < top + bottom) {
+        float scale = destH / (top + bottom);
+        top *= scale;
+        bottom *= scale;
+    }
+
+    // Sub-rectangles source
+    Rectangle srcRects[9] = {
+        { srcX, srcY, left, top }, // Top-Left
+        { srcX + left, srcY, srcW - left - right, top }, // Top-Center
+        { srcX + srcW - right, srcY, right, top }, // Top-Right
+        
+        { srcX, srcY + top, left, srcH - top - bottom }, // Mid-Left
+        { srcX + left, srcY + top, srcW - left - right, srcH - top - bottom }, // Mid-Center
+        { srcX + srcW - right, srcY + top, right, srcH - top - bottom }, // Mid-Right
+        
+        { srcX, srcY + srcH - bottom, left, bottom }, // Bot-Left
+        { srcX + left, srcY + srcH - bottom, srcW - left - right, bottom }, // Bot-Center
+        { srcX + srcW - right, srcY + srcH - bottom, right, bottom } // Bot-Right
+    };
+
+    // Sub-rectangles dest
+    Rectangle destRects[9] = {
+        { destX, destY, left, top }, // Top-Left
+        { destX + left, destY, destW - left - right, top }, // Top-Center
+        { destX + destW - right, destY, right, top }, // Top-Right
+        
+        { destX, destY + top, left, destH - top - bottom }, // Mid-Left
+        { destX + left, destY + top, destW - left - right, destH - top - bottom }, // Mid-Center
+        { destX + destW - right, destY + top, right, destH - top - bottom }, // Mid-Right
+        
+        { destX, destY + destH - bottom, left, bottom }, // Bot-Left
+        { destX + left, destY + destH - bottom, destW - left - right, bottom }, // Bot-Center
+        { destX + destW - right, destY + destH - bottom, right, bottom } // Bot-Right
+    };
+
+    for (int i = 0; i < 9; ++i) {
+        if (srcRects[i].width <= 0.0f || srcRects[i].height <= 0.0f) continue;
+        if (destRects[i].width <= 0.0f || destRects[i].height <= 0.0f) continue;
+        
+        float scaleX = destRects[i].width / srcRects[i].width;
+        float scaleY = destRects[i].height / srcRects[i].height;
+        
+        SubmitSprite(texture, srcRects[i], {destRects[i].x, destRects[i].y}, 
+                     {scaleX, scaleY}, 0.0f, {0,0}, tint, layer, z, false, 0);
+    }
+}
+
 void Renderer::EndFrameAndFlush() {
     if (!m_initialized) return;
     m_drawCalls = 0;
@@ -279,92 +352,18 @@ void Renderer::EndFrameAndFlush() {
             return lb.commands[a].m_z < lb.commands[b].m_z;
         });
 
-        size_t i = 0;
-        while (i < lb.count) {
-            Texture2D* tex = lb.commands[lb.indexOrder[i]].m_texture;
-            size_t j = i;
-            while (j < lb.count && lb.commands[lb.indexOrder[j]].m_texture == tex) ++j;
-            size_t runSize = j - i;
+        for (size_t i = 0; i < lb.count; ++i) {
+            RenderCommand& cmd = lb.commands[lb.indexOrder[i]];
+            if (!cmd.m_texture) continue;
 
-            size_t processed = 0;
-            while (processed < runSize) {
-                size_t batchCount = runSize - processed;
-                if (batchCount > s_maxQuads) batchCount = s_maxQuads;
+            Rectangle src = cmd.m_src;
+            if (cmd.m_flipX) src.width = -src.width; // Flip horizontally
 
-                size_t vertBase = 0;
-                size_t colorIdx = 0;
-                for (size_t b = 0; b < batchCount; ++b) {
-                    RenderCommand& cmd = lb.commands[lb.indexOrder[i + processed + b]];
-                    Rectangle src = cmd.m_src;
-                    float w = src.width * cmd.m_scaleX;
-                    float h = src.height * cmd.m_scaleY;
+            Rectangle dest = { cmd.m_x, cmd.m_y, std::abs(src.width) * cmd.m_scaleX, std::abs(src.height) * cmd.m_scaleY };
+            Vector2 origin = { cmd.m_originX, cmd.m_originY };
 
-                    float u0 = src.x / (float)cmd.m_texture->width;
-                    float v0 = src.y / (float)cmd.m_texture->height;
-                    float u1 = (src.x + src.width) / (float)cmd.m_texture->width;
-                    float v1 = (src.y + src.height) / (float)cmd.m_texture->height;
-                    if (cmd.m_flipX) std::swap(u0, u1);
-
-                    float lx[4] = { -cmd.m_originX, -cmd.m_originX + w, -cmd.m_originX + w, -cmd.m_originX };
-                    float ly[4] = { -cmd.m_originY, -cmd.m_originY, -cmd.m_originY + h, -cmd.m_originY + h };
-
-                    if (cmd.m_rotation != 0.0f) {
-                        float ang = cmd.m_rotation * DEG2RAD;
-                        float ca = cosf(ang), sa = sinf(ang);
-                        float cx = cmd.m_x, cy = cmd.m_y;
-                        for (int v = 0; v < 4; ++v) {
-                            float rx = lx[v], ry = ly[v];
-                            lx[v] = cx + rx * ca - ry * sa;
-                            ly[v] = cy + rx * sa + ry * ca;
-                        }
-                    } else {
-                        for (int v = 0; v < 4; ++v) {
-                            lx[v] += cmd.m_x;
-                            ly[v] += cmd.m_y;
-                        }
-                    }
-
-                    for (int v = 0; v < 4; ++v) {
-                        s_vertices[vertBase + v*3 + 0] = lx[v];
-                        s_vertices[vertBase + v*3 + 1] = ly[v];
-                        s_vertices[vertBase + v*3 + 2] = cmd.m_z;
-                    }
-
-                    float u[4] = {u0, u1, u1, u0};
-                    float v[4] = {v0, v0, v1, v1};
-                    for (int vi = 0; vi < 4; ++vi) {
-                        s_texcoords[(vertBase/3)*2 + vi*2 + 0] = u[vi];
-                        s_texcoords[(vertBase/3)*2 + vi*2 + 1] = v[vi];
-                    }
-
-                    for (int v = 0; v < 4; ++v) {
-                        s_colors[colorIdx + v*4 + 0] = cmd.m_tint.r;
-                        s_colors[colorIdx + v*4 + 1] = cmd.m_tint.g;
-                        s_colors[colorIdx + v*4 + 2] = cmd.m_tint.b;
-                        s_colors[colorIdx + v*4 + 3] = cmd.m_tint.a;
-                    }
-
-                    vertBase += 12;
-                    colorIdx += 16;
-                }
-
-                int vertsCount = (int)(batchCount * 4);
-                int indicesCount = (int)(batchCount * 6);
-                UpdateMeshBuffer(s_mesh, 0, s_vertices, sizeof(float) * 3 * vertsCount, 0);
-                UpdateMeshBuffer(s_mesh, 1, s_texcoords, sizeof(float) * 2 * vertsCount, 0);
-                UpdateMeshBuffer(s_mesh, 3, s_colors, sizeof(unsigned char) * 4 * vertsCount, 0);
-                UpdateMeshBuffer(s_mesh, 6, s_indices, sizeof(unsigned short) * indicesCount, 0);
-
-                s_mesh.vertexCount = vertsCount;
-                s_mesh.triangleCount = (int)batchCount * 2;
-
-                SetMaterialTexture(&s_material, MATERIAL_MAP_DIFFUSE, *tex);
-                DrawMesh(s_mesh, s_material, MatrixIdentity());
-                m_drawCalls++;
-
-                processed += batchCount;
-            }
-            i = j;
+            ::DrawTexturePro(*cmd.m_texture, src, dest, origin, cmd.m_rotation, cmd.m_tint);
+            m_drawCalls++;
         }
     }
 }

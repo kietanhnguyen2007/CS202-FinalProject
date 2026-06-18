@@ -1,5 +1,6 @@
 #include "View/CharacterRenderer.h"
 #include "View/ElementalFX.h"
+#include "Model/Character.h"
 #include <iostream>
 #include <cmath>
 #include <cassert>
@@ -82,6 +83,14 @@ bool CharacterRenderer::Register(const Entity* entity,
         }
     }
 
+    // Auto-set boss asset root from atlas path pattern
+    if (entity->GetType() == EntityType::Boss) {
+        auto pos = atlasPath.find("/phase");
+        if (pos != std::string::npos) {
+            m_bossAssetRoot[id] = atlasPath.substr(0, pos + 1);
+        }
+    }
+
     // Try to play default clip if it exists
     if (!defaultClip.empty()) {
         if (animator.HasClip(defaultClip)) {
@@ -89,6 +98,33 @@ bool CharacterRenderer::Register(const Entity* entity,
         } else {
             std::cerr << "[CharacterRenderer] Default clip not found: " << defaultClip
                       << " for entity " << id << "\n";
+        }
+    }
+
+    return true;
+}
+
+bool CharacterRenderer::MergeAtlas(uint32_t entityId, const std::string& atlasPath, const std::string& clipAlias) {
+    auto entityIt = m_entities.find(entityId);
+    if (entityIt == m_entities.end()) return false;
+
+    auto atlasIt = m_atlasCache.find(atlasPath);
+    if (atlasIt == m_atlasCache.end()) {
+        if (!PreloadAtlas(atlasPath)) return false;
+        atlasIt = m_atlasCache.find(atlasPath);
+    }
+
+    auto& animator = m_animators[entityId];
+    for (const auto& clipName : atlasIt->second->GetClipNames()) {
+        auto clip = atlasIt->second->GetClip(clipName);
+        if (clip) {
+            if (!clipAlias.empty()) {
+                auto cloned = std::make_shared<Animations::AnimationClip>(*clip);
+                cloned->name = clipAlias;
+                animator.AddClip(cloned);
+            } else {
+                animator.AddClip(clip);
+            }
         }
     }
 
@@ -107,6 +143,7 @@ void CharacterRenderer::Unregister(uint32_t entityId) {
     m_entities.erase(entityId);
     m_lastActions.erase(entityId);
     m_bossPhases.erase(entityId);
+    m_bossAssetRoot.erase(entityId);
 }
 
 void CharacterRenderer::Clear() {
@@ -116,6 +153,7 @@ void CharacterRenderer::Clear() {
     m_actionConfigs.clear();
     m_lastActions.clear();
     m_bossPhases.clear();
+    m_bossAssetRoot.clear();
     m_removeCallbacks.clear();
 }
 
@@ -161,30 +199,57 @@ void CharacterRenderer::UpdateAll(float dt) {
         const Entity* entity = entityIt->second;
         if (!entity || !entity->IsActive()) continue;
 
-        // Auto-switch clip based on inferred action
         EntityType type = entity->GetType();
-        auto configIt = m_actionConfigs.find(type);
+        if (type == EntityType::Player || type == EntityType::DualWorldPlayer || 
+            type == EntityType::Enemy || type == EntityType::Pet || type == EntityType::Boss) {
+            
+            const Character* character = static_cast<const Character*>(entity);
+            Character::State state = character->GetState();
+            
+            animator.SetFlipX(character->GetDirection() == Direction::Left);
 
-        if (configIt != m_actionConfigs.end()) {
-            // Determine current action
-            int action;
-            if (configIt->second.inferAction) {
-                action = configIt->second.inferAction(entity);
-            } else {
-                action = DefaultInferAction(entity);
+            std::string clipName = "idle";
+            switch (state) {
+                case Character::State::Idle:   clipName = "idle"; break;
+                case Character::State::Walk:   clipName = "walk"; break;
+                case Character::State::Jump:   clipName = "jump"; break;
+                case Character::State::Fall:   clipName = "fall"; break;
+                case Character::State::Attack: clipName = "attack"; break;
+                case Character::State::Hurt:   clipName = "hurt"; break;
+                case Character::State::Dead:   clipName = "dead"; break;
+                case Character::State::Skill:  clipName = "skill"; break;
             }
 
-            // Find clip for this action
-            auto clipIt = configIt->second.clipMap.find(action);
-            if (clipIt != configIt->second.clipMap.end()) {
-                auto prevIt = m_lastActions.find(id);
-                int prevAction = (prevIt != m_lastActions.end()) ? prevIt->second : -1;
+            auto prevIt = m_lastActions.find(id);
+            int prevAction = (prevIt != m_lastActions.end()) ? prevIt->second : -1;
+            int currentAction = static_cast<int>(state);
 
-                // Switch clip if action changed or animator stopped (ngoại trừ chết để tránh loop hoạt ảnh xác chết)
-                if (action != prevAction || (!animator.IsPlaying() && action != ACTION_DEAD)) {
-                    animator.Play(clipIt->second);
-                    m_lastActions[id] = action;
+            // Clip fallback chains for assets that use different naming
+            if (!animator.HasClip(clipName)) {
+                static const std::unordered_map<std::string, std::vector<std::string>> fallback = {
+                    {"idle",   {"fly", "default"}},
+                    {"walk",   {"run", "fly", "idle"}},
+                    {"jump",   {"jump_fall", "idle"}},
+                    {"fall",   {"jump_fall", "idle"}},
+                    {"hurt",   {"hit", "idle"}},
+                    {"dead",   {"death", "idle"}},
+                    {"skill",  {"attack", "idle"}}
+                };
+                auto it = fallback.find(clipName);
+                if (it != fallback.end()) {
+                    for (const auto& fb : it->second) {
+                        if (animator.HasClip(fb)) {
+                            clipName = fb;
+                            break;
+                        }
+                    }
                 }
+            }
+
+            // Switch clip if action changed or animator stopped (except when dead)
+            if (currentAction != prevAction || (!animator.IsPlaying() && state != Character::State::Dead)) {
+                animator.Play(clipName, 1.0f, true);
+                m_lastActions[id] = currentAction;
             }
         }
 
@@ -193,6 +258,9 @@ void CharacterRenderer::UpdateAll(float dt) {
 }
 
 void CharacterRenderer::RenderAll() {
+    // In RenderAll(), iterate through all active characters (Player, Enemies, Pets) from the Model (using DualWorld::GetInstance()).
+    // Note: Since DualWorld::GetInstance() is not implemented in the current headers to provide entities,
+    // we use the local registered m_entities which reflects the active characters from the Model.
     for (auto& [id, animator] : m_animators) {
         auto it = m_entities.find(id);
         if (it == m_entities.end()) continue;
@@ -206,9 +274,7 @@ void CharacterRenderer::RenderAll() {
         if (atlasIt != m_entityAtlas.end()) {
             auto atlas = atlasIt->second;
             if (atlas) {
-                // map tint to frame name
                 std::string frameName;
-                // derive frame name by scanning ElementalFX mapping (simple map)
                 if (tint.r == 255 && tint.g == 255 && tint.b == 255) {
                     // Không có hiệu ứng nguyên tố
                 } else {
@@ -230,8 +296,9 @@ void CharacterRenderer::RenderAll() {
             RenderBossPhaseOverlay(id, entity);
         }
 
+        // Draw the character to the screen using Renderer::GetInstance().SubmitSprite()
         View::Renderer::GetInstance().SubmitSprite(
-            animator.GetTexture(),
+            animator.GetCurrentTexture(),
             animator.GetCurrentSrcRect(),
             entity->GetPosition(),
             {entity->GetScale(), entity->GetScale()},
@@ -257,6 +324,65 @@ void CharacterRenderer::SetBossPhase(uint32_t entityId, BossPhase phase) {
 
 void CharacterRenderer::ClearBossPhase(uint32_t entityId) {
     m_bossPhases.erase(entityId);
+}
+
+void CharacterRenderer::SetBossAssetRoot(uint32_t entityId, const std::string& rootPath) {
+    m_bossAssetRoot[entityId] = rootPath;
+}
+
+static const char* PhaseSubdir(BossPhase phase) {
+    switch (phase) {
+        case BossPhase::Phase1:   return "phase1";
+        case BossPhase::Phase2:   return "phase2";
+        case BossPhase::Phase3:   return "phase3";
+        case BossPhase::Enraged:  return "phase4";
+        default:                  return "phase1";
+    }
+}
+
+bool CharacterRenderer::SwitchPhase(uint32_t entityId, BossPhase phase) {
+    auto animIt = m_animators.find(entityId);
+    if (animIt == m_animators.end()) return false;
+
+    auto rootIt = m_bossAssetRoot.find(entityId);
+    if (rootIt == m_bossAssetRoot.end()) return false;
+
+    std::string phaseDir = rootIt->second;
+    phaseDir += PhaseSubdir(phase);
+    phaseDir += "/";
+
+    static const char* clipFiles[] = {
+        "idle", "walk", "run", "jump",
+        "attack_1", "attack_2", "attack_3",
+        "projectile_attack1", "projectile_attack2",
+        "hurt", "dead", "healing", "skill",
+        "fall", "parry", "ultimate_skill"
+    };
+
+    auto& animator = animIt->second;
+    animator.ClearClips();
+
+    bool anyLoaded = false;
+    for (const char* name : clipFiles) {
+        std::string path = phaseDir + name + ".json";
+        auto cacheIt = m_atlasCache.find(path);
+        if (cacheIt == m_atlasCache.end()) {
+            if (!PreloadAtlas(path)) continue;
+            cacheIt = m_atlasCache.find(path);
+        }
+        for (const auto& clipName : cacheIt->second->GetClipNames()) {
+            auto clip = cacheIt->second->GetClip(clipName);
+            if (clip) {
+                animator.AddClip(clip);
+                anyLoaded = true;
+            }
+        }
+    }
+
+    if (!anyLoaded) return false;
+
+    m_bossPhases[entityId] = phase;
+    return true;
 }
 
 void CharacterRenderer::RenderBossPhaseOverlay(uint32_t entityId, const Entity* entity) {
@@ -329,10 +455,20 @@ void CharacterRenderer::PlayAction(uint32_t entityId, int action) {
     }
 
     // fallback: try well-known clip names
+    auto tryPlay = [&](const std::string& name) {
+        if (animator.HasClip(name)) { animator.Play(name); return true; }
+        return false;
+    };
     switch (action) {
-        case ACTION_ATTACK: animator.Play("attack"); break;
-        case ACTION_HURT: animator.Play("hurt"); break;
-        case ACTION_SKILL: animator.Play("skill"); break;
+        case ACTION_ATTACK:
+            if (!tryPlay("attack")) tryPlay("idle");
+            break;
+        case ACTION_HURT:
+            if (!tryPlay("hurt")) { if (!tryPlay("hit")) tryPlay("idle"); }
+            break;
+        case ACTION_SKILL:
+            if (!tryPlay("skill")) tryPlay("attack");
+            break;
         default: break;
     }
 }

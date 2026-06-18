@@ -1,0 +1,46 @@
+{
+    "clips": {
+        "skill3_teleport_end": {
+            "loop": false,
+            "frames": [
+                "skill3_teleport_end_0",
+                "skill3_teleport_end_1",
+                "skill3_teleport_end_2",
+                "skill3_teleport_end_3"
+            ],
+            "durations": [
+                0.125,
+                0.125,
+                0.125,
+                0.125
+            ]
+        }
+    },
+    "frames": {
+        "skill3_teleport_end_0": {
+            "x": 0,
+            "y": 0,
+            "w": 109,
+            "h": 179
+        },
+        "skill3_teleport_end_1": {
+            "x": 110,
+            "y": 0,
+            "w": 108,
+            "h": 178
+        },
+        "skill3_teleport_end_2": {
+            "x": 219,
+            "y": 0,
+            "w": 107,
+            "h": 178
+        },
+        "skill3_teleport_end_3": {
+            "x": 327,
+            "y": 0,
+            "w": 109,
+            "h": 178
+        }
+    },
+    "image": "skill3_teleport_end.png"
+}

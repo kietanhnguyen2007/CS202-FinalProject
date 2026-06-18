@@ -35,6 +35,10 @@ public:
     bool Register(const Entity* entity,
                   const std::string& atlasPath,
                   const std::string& defaultClip = "idle");
+    
+    // Merge additional clips into an already registered entity's animator
+    bool MergeAtlas(uint32_t entityId, const std::string& atlasPath, const std::string& clipAlias = "");
+
     void Unregister(uint32_t entityId);
     void Clear();
 
@@ -57,6 +61,16 @@ public:
     // Boss phase visual override
     void SetBossPhase(uint32_t entityId, BossPhase phase);
     void ClearBossPhase(uint32_t entityId);
+
+    // Set the asset root path for a boss entity (e.g. "assets/textures/boss/boss2/")
+    // Used by SwitchPhase to locate phase-specific animation files.
+    void SetBossAssetRoot(uint32_t entityId, const std::string& rootPath);
+
+    // Switch a boss entity to a new phase, replacing all animation clips
+    // with those from the corresponding phase directory.
+    // Requires SetBossAssetRoot to have been called first.
+    // Returns true on success, false if entity not found or root not set.
+    bool SwitchPhase(uint32_t entityId, BossPhase phase);
 
     // Memory safety:
     // Check if entityId is currently registered
@@ -91,6 +105,9 @@ private:
 
     // Boss phase visual overrides
     std::unordered_map<uint32_t, BossPhase> m_bossPhases;
+
+    // Per-entity boss asset root path (e.g. "assets/textures/boss/boss2/")
+    std::unordered_map<uint32_t, std::string> m_bossAssetRoot;
 
     // Entity lifecycle callbacks (Controller/Model hooks Unregister into these)
     std::unordered_map<uint32_t, std::function<void(uint32_t)>> m_removeCallbacks;

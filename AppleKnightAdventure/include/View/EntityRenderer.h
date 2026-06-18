@@ -38,10 +38,6 @@ public:
     void SetOnEntityRemovedCallback(uint32_t entityId, std::function<void(uint32_t)> cb);
     void ClearOnEntityRemovedCallback(uint32_t entityId);
 
-private:
-    EntityRenderer() = default;
-    ~EntityRenderer() = default;
-
     struct RenderData {
         const Entity* entity;
         Texture2D* texture;
@@ -50,6 +46,13 @@ private:
         bool flipX;
         bool visible = true;
     };
+
+    // Iteration support for rendering systems
+    const std::unordered_map<uint32_t, RenderData>& GetEntities() const { return m_entities; }
+
+private:
+    EntityRenderer() = default;
+    ~EntityRenderer() = default;
 
     std::unordered_map<uint32_t, RenderData> m_entities;
     std::unordered_map<uint32_t, std::function<void(uint32_t)>> m_removeCallbacks;

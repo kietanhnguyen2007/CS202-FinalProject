@@ -33,4 +33,7 @@ add_custom_command(TARGET AppleKnightAdventure POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
     "${CMAKE_SOURCE_DIR}/raylib/lib/raylib.dll"
     $<TARGET_FILE_DIR:AppleKnightAdventure>
+  COMMAND ${CMAKE_COMMAND} -E copy_directory
+    "${CMAKE_SOURCE_DIR}/assets"
+    "$<TARGET_FILE_DIR:AppleKnightAdventure>/assets"
 )

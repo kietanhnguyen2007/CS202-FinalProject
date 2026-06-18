@@ -9,6 +9,8 @@
 
 namespace View::Animations {
 
+class TextureAtlas; // forward decl for LoadClipsFromAtlas
+
 struct AnimationFrame {
     Rectangle src;
     float duration = 0.1f; // seconds
@@ -24,6 +26,9 @@ struct AnimationFrame {
     // Optional name of the frame from the atlas (if provided). Useful to correlate
     // metadata and for debugging. May be empty for manually-constructed frames.
     std::string name;
+
+    // Pointer to the texture this frame belongs to (allows animators to use multiple textures)
+    Texture2D* texture = nullptr;
 };
 
 struct AnimationClip {
@@ -72,6 +77,7 @@ public:
     bool GetFlipX() const;
     void SetFlipX(bool flip);
     bool HasTexture() const;
+    Texture2D* GetCurrentTexture() const;
 
     // Debug / introspection
     int GetCurrentFrameIndex() const;
@@ -85,6 +91,13 @@ public:
 
     void SetPlaybackMode(PlaybackMode mode);
     PlaybackMode GetPlaybackMode() const;
+
+    // Remove all clips and set texture to null
+    void ClearClips();
+
+    // Bulk clip replacement from an already-loaded TextureAtlas
+    // Clears all existing clips and loads from the atlas; sets texture.
+    void LoadClipsFromAtlas(TextureAtlas& atlas);
 
     // Events
     std::function<void(const std::string&, int)> OnFrameChanged;

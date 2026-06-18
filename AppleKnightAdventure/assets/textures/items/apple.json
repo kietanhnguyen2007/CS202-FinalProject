@@ -1,0 +1,13 @@
+{
+    "frames":  {
+                   "default":  {
+                                   "frame":  {
+                                                 "y":  0,
+                                                 "w":  64,
+                                                 "h":  64,
+                                                 "x":  0
+                                             }
+                               }
+               },
+    "image":  "apple.png"
+}
