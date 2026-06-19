@@ -1,0 +1,8 @@
+{
+    "frames": {
+        "default": {
+            "frame": { "x": 0, "y": 0, "w": 64, "h": 64 }
+        }
+    },
+    "image": "checkpoint_uncaptured.png"
+}

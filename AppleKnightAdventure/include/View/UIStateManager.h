@@ -34,6 +34,7 @@ public:
 
     UILayer GetTopLayer() const;
     bool IsOverlayActive() const { return !m_stack.empty(); }
+    bool IsLayerActive(UILayer layer) const;
 
     // Render all active layers in correct order with auto-dim.
     // Must be called after GameView::Render each frame.

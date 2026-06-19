@@ -76,6 +76,12 @@ void MenuView::ShowConnectionStatus(const std::string& ip, bool connected) {
     m_selected = 0;
 }
 
+void MenuView::ShowRoleSelect(const std::vector<std::string>& roles) {
+    m_mode = MenuMode::RoleSelect;
+    m_roleItems = roles;
+    m_selected = 0;
+}
+
 // ---------------------------------------------------------------------------
 // Render dispatcher
 // ---------------------------------------------------------------------------
@@ -86,6 +92,7 @@ void MenuView::Render() {
         case MenuMode::Pause:      RenderPause();      break;
         case MenuMode::Error:      RenderError();      break;
         case MenuMode::Connection: RenderConnection(); break;
+        case MenuMode::RoleSelect: RenderRoleSelect(); break;
     }
 }
 
@@ -325,6 +332,55 @@ void MenuView::RenderError() {
     float btnX = panelX + (panelW - btnW) * 0.5f;
     float btnY = panelY + panelH * 0.70f;
     DrawButton(m_errorItems[0].c_str(), btnX, btnY, btnW, btnH, (m_selected == 0));
+}
+
+// ---------------------------------------------------------------------------
+// RenderRoleSelect — role selection for Co-op mode
+// ---------------------------------------------------------------------------
+void MenuView::RenderRoleSelect() {
+    Renderer& r = Renderer::GetInstance();
+    int w = r.GetWindowWidth();
+    int h = r.GetWindowHeight();
+
+    r.DrawRectangle({0, 0}, {(float)w, (float)h}, {10, 5, 20, 200}, Layer::UI, 0.0f);
+
+    float panelW = w * 0.40f;
+    float panelH = h * 0.50f;
+    float panelX = ((float)w - panelW) * 0.5f;
+    float panelY = ((float)h - panelH) * 0.5f;
+    DrawPanel(panelX, panelY, panelW, panelH);
+
+    {
+        const char* title = "Select Role";
+        int fontSize = (int)(h * 0.045f);
+        if (fontSize < 14) fontSize = 14;
+        int tw = ::MeasureText(title, fontSize);
+        float tx = panelX + (panelW - (float)tw) * 0.5f;
+        float ty = panelY + panelH * 0.08f;
+        r.DrawText(title, {tx, ty}, fontSize, WHITE);
+    }
+
+    {
+        const char* desc = "Choose your role for Co-op:";
+        int descFont = (int)(h * 0.025f);
+        if (descFont < 10) descFont = 10;
+        int dw = ::MeasureText(desc, descFont);
+        float dx = panelX + (panelW - (float)dw) * 0.5f;
+        float dy = panelY + panelH * 0.20f;
+        r.DrawText(desc, {dx, dy}, descFont, LIGHTGRAY);
+    }
+
+    float btnW = panelW * 0.55f;
+    float btnH = panelH * 0.14f;
+    float btnX = panelX + (panelW - btnW) * 0.5f;
+    float btnStartY = panelY + panelH * 0.35f;
+    float spacing = panelH * 0.20f;
+
+    for (size_t i = 0; i < m_roleItems.size(); ++i) {
+        float by = btnStartY + (float)i * spacing;
+        bool sel = ((int)i == m_selected);
+        DrawButton(m_roleItems[i].c_str(), btnX, by, btnW, btnH, sel);
+    }
 }
 
 // ---------------------------------------------------------------------------

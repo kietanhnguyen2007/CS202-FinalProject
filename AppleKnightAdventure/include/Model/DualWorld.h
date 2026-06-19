@@ -1,15 +1,9 @@
 #ifndef DUALWORLD_H
 #define DUALWORLD_H
 
+#include "Model/GameState.h"
 #include "Utils/Types.h"
 #include <vector>
-
-struct Tile {
-    int x;
-    int y;
-    int tileType;
-    int tileId;
-};
 
 class DualWorld {
 protected:

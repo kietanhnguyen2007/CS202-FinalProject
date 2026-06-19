@@ -2,6 +2,7 @@
 #include "View/Renderer.h"
 #include <functional>
 #include <cassert>
+#include <iostream>
 
 namespace View {
 
@@ -38,15 +39,18 @@ void EntityRenderer::Unregister(uint32_t entityId) {
         cb(entityId);
     }
     m_entities.erase(entityId);
+    m_animatedEntities.erase(entityId);
 }
 
 void EntityRenderer::Clear() {
     m_entities.clear();
+    m_animatedEntities.clear();
     m_removeCallbacks.clear();
 }
 
 bool EntityRenderer::IsRegistered(uint32_t entityId) const {
-    return m_entities.find(entityId) != m_entities.end();
+    return m_entities.find(entityId) != m_entities.end()
+        || m_animatedEntities.find(entityId) != m_animatedEntities.end();
 }
 
 void EntityRenderer::SetOnEntityRemovedCallback(uint32_t entityId, std::function<void(uint32_t)> cb) {
@@ -57,7 +61,67 @@ void EntityRenderer::ClearOnEntityRemovedCallback(uint32_t entityId) {
     m_removeCallbacks.erase(entityId);
 }
 
+bool EntityRenderer::RegisterAnimated(const Entity* entity, const std::string& atlasPath,
+                                       const std::string& startClip,
+                                       Vector2 origin, bool flipX) {
+    if (!entity) return false;
+    uint32_t id = static_cast<uint32_t>(entity->GetId());
+
+    auto atlas = Animations::TextureAtlas::LoadFromJSON(atlasPath);
+    if (!atlas) {
+        std::cerr << "[EntityRenderer] RegisterAnimated failed: " << atlasPath << "\n";
+        return false;
+    }
+    atlas->LoadTexture();
+
+    auto& ad = m_animatedEntities[id];
+    ad.entity = entity;
+    ad.atlas = std::move(atlas);
+    ad.origin = origin;
+    ad.flipX = flipX;
+    ad.visible = true;
+    ad.animator.SetTexture(ad.atlas->GetTexture());
+    for (const auto& clipName : ad.atlas->GetClipNames()) {
+        auto clip = ad.atlas->GetClip(clipName);
+        if (clip) ad.animator.AddClip(clip);
+    }
+    if (!startClip.empty() && ad.animator.HasClip(startClip)) {
+        ad.animator.Play(startClip);
+    }
+    return true;
+}
+
+void EntityRenderer::Update(float dt) {
+    for (auto& [id, ad] : m_animatedEntities) {
+        if (!ad.entity || !ad.entity->IsActive()) continue;
+        ad.animator.Update(dt);
+    }
+}
+
 void EntityRenderer::RenderAll() {
+    // Render animated entities
+    for (const auto& [id, ad] : m_animatedEntities) {
+        const Entity* entity = ad.entity;
+        if (!ad.visible) continue;
+        if (!entity || !entity->IsActive()) continue;
+        if (!ad.animator.HasTexture()) continue;
+
+        Rectangle src = ad.animator.GetCurrentSrcRect();
+        View::Renderer::GetInstance().SubmitSprite(
+            ad.animator.GetTexture(),
+            src,
+            entity->GetPosition(),
+            {entity->GetScale(), entity->GetScale()},
+            entity->GetRotation(),
+            ad.origin,
+            WHITE,
+            View::Layer::World,
+            0.0f,
+            ad.flipX,
+            id);
+    }
+
+    // Render static entities
     for (const auto& [id, data] : m_entities) {
         // data may contain entity pointer and texture/src information
         const Entity* entity = data.entity;
@@ -81,8 +145,10 @@ void EntityRenderer::RenderAll() {
 
 Texture2D* EntityRenderer::GetTexture(uint32_t entityId) const {
     auto it = m_entities.find(entityId);
-    if (it == m_entities.end()) return nullptr;
-    return it->second.texture;
+    if (it != m_entities.end()) return it->second.texture;
+    auto ait = m_animatedEntities.find(entityId);
+    if (ait != m_animatedEntities.end()) return ait->second.animator.GetTexture();
+    return nullptr;
 }
 
 void EntityRenderer::UpdateSpriteRect(uint32_t entityId, const Rectangle& src) {
@@ -93,8 +159,9 @@ void EntityRenderer::UpdateSpriteRect(uint32_t entityId, const Rectangle& src) {
 
 void EntityRenderer::SetEntityVisible(uint32_t entityId, bool visible) {
     auto it = m_entities.find(entityId);
-    if (it == m_entities.end()) return;
-    it->second.visible = visible;
+    if (it != m_entities.end()) { it->second.visible = visible; return; }
+    auto ait = m_animatedEntities.find(entityId);
+    if (ait != m_animatedEntities.end()) { ait->second.visible = visible; }
 }
 
 } // namespace View

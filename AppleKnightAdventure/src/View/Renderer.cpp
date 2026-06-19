@@ -126,7 +126,7 @@ void Renderer::Shutdown() {
     }
     free(s_layers);
     s_layers = nullptr;
-    if (s_mesh.vboId) UnloadMesh(s_mesh);
+    if (s_mesh.vboId[0] != 0) UnloadMesh(s_mesh);
     if (s_material.shader.id) UnloadMaterial(s_material);
     free(s_vertices); s_vertices = nullptr;
     free(s_texcoords); s_texcoords = nullptr;
@@ -184,7 +184,7 @@ void Renderer::BeginFrame() {
     }
 }
 
-bool Renderer::SubmitSprite(Texture2D* texture,
+bool Renderer::SubmitSprite(const Texture2D* texture,
                             const Rectangle& src,
                             Vector2 pos,
                             Vector2 scale,

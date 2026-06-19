@@ -747,7 +747,8 @@ struct DamagePacket {
 ```
 ParticleSystem (Model)        ParticleRenderer (View)
 ├── std::vector<Particle>     ├── EmitBurst(pos, count, color)
-├── Acquire() / Release()     ├── EmitReaction(pos, type)
+├── Acquire() / Release()     ├── EmitBurst(pos, count, color)
+│                             ├── EmitReaction(pos, type)
 └── ObjectPool<Particle>      └── RenderAll(particles, camera, dt)
 
 FloatingTextManager (View)
@@ -762,14 +763,14 @@ Camera shake (GameView)
 
 ### Particle types
 
-| Type | Trigger | Số lượng | Màu |
-|---|---|---|---|
-| Hit | Enemy nhận damage | 5-8 | Trắng |
-| Death | Enemy chết | 15-25 | Đỏ + Cam |
-| Heal | Player hồi máu | 5 | Xanh lá |
-| Reaction Vaporize | Fire + Water | 20 | Trắng xanh |
-| Reaction Conduct | Water + Thunder | 15 | Xanh dương + Vàng |
-| Reaction Overload | Fire + Thunder | 25 | Đỏ + Vàng |
+| Type | Trigger | Số lượng | Màu | View method |
+|---|---|---|---|---|---|
+| Hit | Enemy nhận damage | 5-8 | Trắng | `EmitBurst()` |
+| Death | Enemy chết | 15-25 | Đỏ + Cam | `EmitBurst()` |
+| Heal | Player hồi máu | 5 | Xanh lá | `EmitBurst()` |
+| Reaction Vaporize | Fire + Water | 20 | Trắng xanh | `EmitReaction(pos, Vaporize)` |
+| Reaction Conduct | Water + Thunder | 15 | Xanh dương + Vàng | `EmitReaction(pos, Conduct)` |
+| Reaction Overload | Fire + Thunder | 25 | Đỏ + Vàng | `EmitReaction(pos, Overload)` |
 
 ### Các cách gọi View
 
@@ -789,7 +790,7 @@ Camera shake (GameView)
 | Entity hit | `GameController::OnHit()` | `ParticleRenderer::EmitBurst(pos, 8, WHITE)`, `FloatingTextManager::Emit(pos, "-N", RED, 1.5f)`, `GameView::Shake(3.0f, 0.15f)` |
 | Entity die | `GameController::OnEntityRemoved()` | `ParticleRenderer::EmitBurst(pos, 20, RED)`, `GameView::Shake(5.0f, 0.3f)` |
 | Player heal | `GameController::OnHeal()` | `ParticleRenderer::EmitBurst(pos, 5, GREEN)`, `FloatingTextManager::Emit(pos, "+N", GREEN, 1.5f)` |
-| Reaction | `ElementalSystem::React()` | `ParticleRenderer::EmitReaction(pos, type)` |
+| Reaction | `ElementalSystem::React()` | `ParticleRenderer::EmitReaction(pos, ReactionType::Vaporize)` |
 | Nhặt coin | `GameController::OnItemCollect()` | `FloatingTextManager::Emit(pos, "+N", YELLOW, 1.5f)` |
 | Boss heavy attack | `GameController::OnBossAttack()` | `GameView::Shake(8.0f, 0.5f)` |
 | Ultimate cast | `GameController::OnUltimate()` | `GameView::Shake(10.0f, 0.6f)`, `ParticleRenderer::EmitBurst(pos, 30, WHITE)` |
@@ -826,7 +827,6 @@ UIStateManager (View)
 ├── Pop()                     // đóng layer trên cùng
 ├── Clear()                   // đóng tất cả
 ├── IsOverlayActive() → bool  // đang có modal nào không?
-├── IsLayerActive(layer)      // kiểm tra layer cụ thể
 ├── RenderAll()               // render theo thứ tự
 └── std::stack<UILayer> m_stack;
 ```
@@ -1198,6 +1198,32 @@ float GetVisionRadius() const { return m_visionRadius; }
 void SetCanAttack(bool v) { m_canAttack = v; }
 bool GetCanAttack() const { return m_canAttack; }
 ```
+
+### `Player.h` — HP/MP/SP/Ultimate cho HUD
+
+HUDView cần các method sau để hiển thị thanh MP, SP, Ultimate. Hiện tại `Character.h` chỉ có `GetHealth()/GetMaxHealth()`.
+
+```cpp
+// Thêm vào class Player (hoặc Character nếu dùng chung):
+int GetMP() const;
+int GetMaxMP() const;
+int GetSP() const;
+int GetMaxSP() const;
+float GetUltimateCharge() const;
+float GetMaxUltimateCharge() const;
+
+// Member variables:
+int m_mp = 100;
+int m_maxMp = 100;
+int m_sp = 50;
+int m_maxSp = 100;
+float m_ultimateCharge = 0.0f;
+float m_maxUltimateCharge = 100.0f;
+```
+
+**View method gọi:** `HUDView::Render()` đọc `GetMP()/GetMaxMP()`, `GetSP()/GetMaxSP()`, `GetUltimateCharge()/GetMaxUltimateCharge()` mỗi frame.
+
+---
 
 ### `LevelScoring.h` — Cần thêm setter
 
@@ -1736,27 +1762,35 @@ Tất cả attack đều có hướng trùng với **facing** của entity.
 | 2 | `Model/GameState.h/.cpp` | Thiếu fields | Thêm Tile struct, tile storage, callbacks, remote player, mapType, role helpers | `GameView::RenderTilemap()` đọc `GetTiles()`. `HUDView` đọc `GetClearTime()`. |
 | 3 | `Model/Player.h` | Thiếu fields | Thêm role, visionRadius, SetCanAttack(), skillSlots (ObservableList) | `HUDView::Update()` đọc HP/MP/SP. `SkillBarView` attach `m_skillSlots`. |
 | 4 | `Model/LevelScoring.h` | Thiếu getter | Thêm GetTotalItems(), GetTotalEnemies(), SetTotalItems() | `ResultView::Show()` nhận snapshot, đọc scores. |
-| 5 | ~~`Model/DualWorld.h`~~ | **Xoá** | Không còn DualWorld | — |
-| 6 | `Factories/LevelFactory.cpp` | Rỗng | Implement parser mới | Không gọi View — tạo GameState. Controller gọi View sau khi load. |
+| 5a | `Model/DualWorld.h` + `.cpp` | **Còn tồn tại** | File vẫn trên disk (32+47 lines). Cần xoá hẳn — kiến trúc DualWorld đã loại bỏ. | — |
+| 5b | `Model/GameState.h` + `Model/DualWorld.h` | **Đã sửa** | `DualWorld.h` giờ include `GameState.h` và dùng chung `struct Tile`. Không còn redefinition. | — |
+| 6 | `Factories/LevelFactory.cpp` | Đã code (96 lines) | Có `LoadLevel()`, `SaveLevel()`, `LoadDualWorld()`, `SaveDualWorld()`. Cần sửa để dùng single world format mới. | Không gọi View — tạo GameState. Controller gọi View sau khi load. |
 | 7 | `Controller/GameController.h/.cpp` | Stub | Viết mới: single world, fog, co-op camera, role-based input | Gọi tất cả View methods mỗi frame + theo event. |
 | 8 | `Controller/MenuController.h/.cpp` | Stub | Viết mới: level select, co-op role selection | Gọi `MenuView::ShowMainMenu()`, `ShowPauseOverlay()`, `ShowRoleSelect()`. |
 | 9 | `Controller/InputController.h/.cpp` | Stub | Viết mới + InputCommand struct | Không gọi View — Controller đọc InputCommand rồi quyết định View method. |
 | 10 | `Systems/VisibilitySystem.h/.cpp` | Chưa có | Tạo mới: fog of war overlay | `VisibilitySystem::Render()` vẽ dark overlay. `GameController::Update()` gọi. |
 | 11 | `View/GameView.h/.cpp` | Đã sửa | RenderTilemap(tiles), xoá layer switching, Boss 2 phase4→phase3 | `GameController::Update()` gọi Update/Render mỗi frame. |
 | 12 | `assets/levels/level1-6.lvl` | Trống | Tạo 6 level files | Không gọi View — LevelFactory parse → GameState → View đọc. |
-| 13 | `Model/Player.h` | Thiếu stats | Thêm HP/MP/SP, coinCount, ultimateCharge | `HUDView::Update()` đọc mỗi frame. |
-| 14 | `View/HUDView.cpp` | Chưa có | Viết mới: bars, timer, coin, buff icons | `GameController::Update()` gọi mỗi frame. |
-| 15 | `View/SkillBarView.cpp` | Chưa có | Viết mới: skill slots + ObservableList | `GameController::Update()` gọi mỗi frame. |
-| 16 | `Systems/ElementalSystem.h/.cpp` | Stub | Implement DamagePacket, ApplyDamage, React | `EnemyStatusRenderer` đọc `GetStatus()`. `ElementalFX` apply tint. |
-| 17 | `Systems/ParticleSystem.h/.cpp` | Stub | Implement Particle struct + lifecycle + pool | `ParticleRenderer::RenderAll()` đọc `GetActiveParticles()`. |
-| 18 | `View/ParticleRenderer.cpp` | Chưa có | Viết mới: EmitBurst, RenderAll | `GameController::OnHit()`, `OnEntityRemoved()` gọi `EmitBurst()`. |
-| 19 | `View/FloatingText.cpp` | Chưa có | Viết mới: Emit, Update, Render | `GameController` gọi `Emit()` theo event. `Update()` mỗi frame. |
-| 20 | `View/UIStateManager.h/.cpp` | Chưa có | Viết mới: modal stack, Push/Pop/Clear | `GameController::OnInputI()` gọi `Push(Inventory)`. `Update()` gọi `RenderAll()`. |
-| 21 | `Systems/SoundManager.h/.cpp` | Stub | Implement singleton, PlaySFX, PlayBGM | `GameController` gọi `PlaySFX()` theo event. `MenuController` gọi `PlayBGM()`. |
-| 22 | `Systems/ObjectPool.h` | Chưa có | Template pool cho Projectile/Particle/Effect | `ParticleRenderer::RenderAll()` đọc `GetActive()` để render. |
-| 23 | `Network/Packet.h/.cpp` | Stub | Implement serialization | Không gọi View — NetworkManager → Controller. |
-| 24 | `Network/Server.h/.cpp` | Stub | Implement TCP server | Không gọi View. |
-| 25 | `Network/Client.h/.cpp` | Stub | Implement TCP client | Không gọi View. |
-| 26 | `Network/NetworkManager.h/.cpp` | Stub | Implement state sync | `MenuView::ShowConnectionStatus()`, `ShowErrorDialog()`. |
+| 13 | `Model/Player.h` | Thiếu stats | Thêm MP/SP/Ultimate getter (xem §3.1 Player.h — HUD) | `HUDView::Render()` đọc `GetMP()/GetSP()/GetUltimateCharge()` mỗi frame. |
+| 14 | `View/HUDView.cpp` | Đã code (235 lines) | Bỏ mock data MP/SP/Ult khi Model có API | `GameController::Update()` gọi mỗi frame. |
+| 15 | `View/SkillBarView.cpp` | Đã code (232 lines) | — | `GameController::Update()` gọi mỗi frame. |
+| 16 | `Systems/ElementalSystem.h/.cpp` | Đã code (187 lines) | DamagePacket, ApplyStatusEffect, Reaction xong. Cần thêm DOT tick timer. | `EnemyStatusRenderer` đọc `GetStatus()`. `ElementalFX` apply tint. |
+| 17 | `Systems/ParticleSystem.h/.cpp` | Đã code | Particle struct, ObjectPool, Emit, Update, GetActive — đầy đủ. | `ParticleRenderer::RenderAll()` đọc `GetActiveParticles()`. |
+| 18 | `View/ParticleRenderer.cpp` | Đã code (99 lines) | — | `GameController::OnHit()`, `OnEntityRemoved()` gọi `EmitBurst()`. |
+| 19 | `View/FloatingText.cpp` | Đã code (43 lines) | — | `GameController` gọi `Emit()` theo event. `Update()` mỗi frame. |
+| 20 | `View/UIStateManager.h/.cpp` | Đã code (112 lines) | — | `GameController::OnInputI()` gọi `Push(Inventory)`. `Update()` gọi `RenderAll()`. |
+| 21 | `Systems/SoundManager.h/.cpp` | Đã code (175 lines) | Singleton, InitAudio, LoadSound/Music, Play/Stop, volume control — đầy đủ. | `GameController` gọi `PlaySFX()` theo event. `MenuController` gọi `PlayBGM()`. |
+| 22 | `Systems/ObjectPool.h` | Đã code | Template pool: Acquire, Release, ReleaseAll, Reserve, GetActiveCount — đầy đủ. | `ParticleRenderer::RenderAll()` đọc `GetActive()` để render. |
+| 23 | `Network/Packet.h/.cpp` | Đã code | Append/Read int/float/bool/string — serialization đầy đủ. | Không gọi View — NetworkManager → Controller. |
+| 24 | `Network/Server.h/.cpp` | Đã code | TCP server: Start, Stop, AcceptClient, SendToClient, Broadcast, ReceiveFromClient. | Không gọi View. |
+| 25 | `Network/Client.h/.cpp` | Đã code | TCP client: Connect, Disconnect, Send, Receive. | Không gọi View. |
+| 26 | `Network/NetworkManager.h/.cpp` | Đã code | Wrapper: StartServer, ConnectToServer, Broadcast, Receive, Update. | `MenuView::ShowConnectionStatus()`, `ShowErrorDialog()`. |
+| 27 | `Model/CrossWorldManager.h/.cpp` | Đã code nhưng stale | Dùng DualWorld/DualWorldPlayer — cần sửa single world hoặc xoá. | — |
+| 28 | `Model/DualWorldPlayer.h/.cpp` | Còn tồn tại | File stale từ DualWorld. Cần xoá. | — |
+| 29 | `include/Model/Entity.h` | `EntityType::DualWorldPlayer` còn | Xoá enum value nếu không dùng. | — |
+| 30 | `View/MenuView.h/.cpp` | **Đã code** | `ShowRoleSelect()`, `MenuMode::RoleSelect`, `RenderRoleSelect()`. | `MenuController` gọi khi vào Co-op mode. |
+| 31 | `View/ParticleRenderer.h/.cpp` | **Đã code** | `EmitReaction(pos, ReactionType)` với `ReactionType` enum local. 3 reaction: Vaporize/Conduct/Overload. | `ElementalSystem::React()` gọi. |
+| 32 | `View/UIStateManager.h/.cpp` | **Đã code** | `IsLayerActive(layer)` — duyệt stack kiểm tra. | Controller check trước khi handle input. |
+| 33 | `Utils/Types.h` | Thiếu enum | Cần thêm `PlayerRole { Solo, Guide, Warrior }` và `ReactionType { Vaporize, Conduct, Overload }`. `GameMode` cần sửa thành `{ SinglePlayer, AsymCoopHost, AsymCoopClient }`. `BossType`, `MapType` cũng thiếu. | View method `MenuView::ShowRoleSelect()` cần `PlayerRole`. `ParticleRenderer::EmitReaction()` dùng enum local tạm. |
 
 

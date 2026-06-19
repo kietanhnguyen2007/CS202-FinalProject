@@ -2,9 +2,6 @@
 #include "Systems/ParticleSystem.h"
 #include <cmath>
 #include <cstdlib>
-#include "View/EntityRenderer.h"
-#include "View/GameView.h"
-#include "Model/Projectile.h"
 
 static Texture2D CreateSoftCircleTexture() {
     const int size = 16;
@@ -46,47 +43,8 @@ ParticleRenderer& ParticleRenderer::GetInstance() {
     return instance;
 }
 
-void ParticleRenderer::InitProjectileAtlases() {
-    auto loadAnim = [&](int projType, const std::string& jsonPath,
-                        bool animated, const std::string& clipName) {
-        auto atlas = Animations::TextureAtlas::LoadFromJSON(jsonPath);
-        if (!atlas) return;
-        atlas->LoadTexture();
-        ProjectileAnim pa;
-        pa.atlas = std::move(atlas);
-        pa.animated = animated;
-        if (animated) {
-            pa.anim.SetTexture(pa.atlas->GetTexture());
-            if (pa.atlas->HasClip(clipName)) {
-                auto clip = pa.atlas->GetClip(clipName);
-                if (clip) clip->loop = true;
-                pa.anim.AddClip(clip);
-                pa.anim.Play(clipName);
-            }
-        }
-        m_projectileAnims.emplace(projType, std::move(pa));
-    };
-
-    // BossAttack → attack_b atlas
-    loadAnim(static_cast<int>(ProjectileType::BossAttack),
-             "assets/textures/boss/boss_attack_b.json", true, "attack_b");
-    // Arrow → arrow atlas (animated, 4 frames)
-    loadAnim(static_cast<int>(ProjectileType::Arrow),
-             "assets/textures/projectiles/arrow.json", true, "default");
-    // Magic → fire bullet atlas (animated, 4 frames)
-    loadAnim(static_cast<int>(ProjectileType::Magic),
-             "assets/textures/projectiles/fire_bullet.json", true, "default");
-    // RangedBomb → animated bomb
-    loadAnim(static_cast<int>(ProjectileType::RangedBomb),
-             "assets/textures/enemies/ranged_bomb.json", true, "attack");
-    // FlyingProjectile → animated beam
-    loadAnim(static_cast<int>(ProjectileType::FlyingProjectile),
-             "assets/textures/enemies/flying_projectile.json", true, "shoot");
-}
-
 ParticleRenderer::ParticleRenderer() {
     m_softCircle = CreateSoftCircleTexture();
-    InitProjectileAtlases();
     m_initialized = true;
 }
 
@@ -96,13 +54,6 @@ ParticleRenderer::~ParticleRenderer() {
 
 void ParticleRenderer::RenderAll(const std::vector<Particle*>& particles, const Camera2D& camera, float dt) {
     if (!m_initialized) return;
-
-    // Update projectile animations
-    for (auto& kv : m_projectileAnims) {
-        if (kv.second.animated) {
-            kv.second.anim.Update(dt);
-        }
-    }
 
     Rectangle src = {0, 0, static_cast<float>(m_softCircle.width),
                      static_cast<float>(m_softCircle.height)};
@@ -120,47 +71,10 @@ void ParticleRenderer::RenderAll(const std::vector<Particle*>& particles, const 
             p->color, Layer::Foreground, 0.0f, false, 0);
     }
 
-    // Render projectiles using animated atlases
-    for (const auto& [id, renderData] : EntityRenderer::GetInstance().GetEntities()) {
-        const Entity* entity = renderData.entity;
-        if (!entity || !entity->IsActive()) continue;
-
-        if (entity->GetType() == EntityType::Projectile) {
-            const Projectile* proj = static_cast<const Projectile*>(entity);
-            int pType = static_cast<int>(proj->GetProjectileType());
-
-            auto animIt = m_projectileAnims.find(pType);
-            if (animIt != m_projectileAnims.end()) {
-                const auto& pa = animIt->second;
-                if (pa.atlas && pa.atlas->GetTexture() && pa.atlas->GetTexture()->id != 0) {
-                    Texture2D* tex = pa.atlas->GetTexture();
-                    Rectangle pSrc{};
-                    if (pa.animated && pa.anim.IsPlaying()) {
-                        pSrc = pa.anim.GetCurrentSrcRect();
-                    } else if (pa.atlas->HasFrame("default")) {
-                        pSrc = pa.atlas->GetFrameRect("default");
-                    } else {
-                        pSrc = {0, 0, (float)tex->width, (float)tex->height};
-                    }
-                    Renderer::GetInstance().SubmitSprite(
-                        tex, pSrc, proj->GetPosition(),
-                        {proj->GetScale(), proj->GetScale()}, proj->GetRotation(),
-                        {pSrc.width * 0.5f, pSrc.height * 0.5f},
-                        WHITE, Layer::World, 0.0f, false, proj->GetId());
-                }
-            }
-        }
-    }
-
     UpdateAndRenderDebris(Renderer::GetInstance(), camera, dt);
 }
 
 void ParticleRenderer::Shutdown() {
-    for (auto& kv : m_projectileAnims) {
-        kv.second.anim.Stop();
-        kv.second.atlas.reset();
-    }
-    m_projectileAnims.clear();
     if (m_initialized && m_softCircle.id != 0) {
         UnloadTexture(m_softCircle);
         m_softCircle = {};
@@ -178,6 +92,39 @@ void ParticleRenderer::EmitBurst(Vector2 pos, int count) {
         p.vel = { cosf(ang) * spd, sinf(ang) * spd };
         p.color = (Color){200, 180, 160, 255};
         p.life = 0.8f + ((rand() % 100) / 200.0f);
+        s_debris.push_back(p);
+    }
+}
+
+void ParticleRenderer::EmitReaction(Vector2 pos, ReactionType type) {
+    if (!m_initialized) return;
+    int count = 0;
+    Color color1, color2;
+    switch (type) {
+        case ReactionType::Vaporize:
+            count = 20;
+            color1 = (Color){180, 230, 255, 255};
+            color2 = (Color){200, 240, 255, 200};
+            break;
+        case ReactionType::Conduct:
+            count = 15;
+            color1 = (Color){100, 180, 255, 255};
+            color2 = (Color){255, 230, 80, 255};
+            break;
+        case ReactionType::Overload:
+            count = 25;
+            color1 = (Color){255, 80, 50, 255};
+            color2 = (Color){255, 200, 50, 255};
+            break;
+    }
+    for (int i = 0; i < count; ++i) {
+        float ang = ((float)i / (float)count) * 2.0f * 3.14159f + ((rand() % 100) / 100.0f) * 0.3f;
+        float spd = 60.0f + (float)(rand() % 100);
+        SimpleParticle p;
+        p.pos = { pos.x + (float)(rand() % 20 - 10), pos.y + (float)(rand() % 20 - 10) };
+        p.vel = { cosf(ang) * spd, sinf(ang) * spd };
+        p.color = (i % 2 == 0) ? color1 : color2;
+        p.life = 0.6f + ((rand() % 100) / 150.0f);
         s_debris.push_back(p);
     }
 }

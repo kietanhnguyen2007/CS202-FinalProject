@@ -79,6 +79,13 @@ UILayer UIStateManager::GetTopLayer() const {
     return m_stack.back();
 }
 
+bool UIStateManager::IsLayerActive(UILayer layer) const {
+    for (auto l : m_stack) {
+        if (l == layer) return true;
+    }
+    return false;
+}
+
 // ── Render ─────────────────────────────────────────────────────────
 
 void UIStateManager::DrawDimOverlay() {

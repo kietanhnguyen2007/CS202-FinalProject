@@ -9,7 +9,7 @@ enum class Layer : uint8_t { Background = 0, World = 1, Foreground = 2, UI = 3 }
 
 // Plain POD render command
 struct RenderCommand {
-    Texture2D* m_texture = nullptr;
+    const Texture2D* m_texture = nullptr;
     Rectangle m_src{};
     float m_x = 0.0f;
     float m_y = 0.0f;

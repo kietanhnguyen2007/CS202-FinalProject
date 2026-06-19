@@ -164,17 +164,19 @@ void Animator::Update(float dt) {
     // Recalculate frame index from playhead
     float acc = 0.0f;
     int newIndex = 0;
+    bool found = false;
     for (size_t i = 0; i < m_current->frames.size(); ++i) {
         float d = m_current->frames[i].duration;
         if (!(d > 0.0f)) d = 0.001f;
         if (m_playhead < acc + d - PLAYHEAD_EPS) {
             newIndex = (int)i;
+            found = true;
             break;
         }
         acc += d;
     }
 
-    if (newIndex == 0 && m_playhead + PLAYHEAD_EPS >= clipLength) {
+    if (!found) {
         newIndex = (int)m_current->frames.size() - 1;
     }
 

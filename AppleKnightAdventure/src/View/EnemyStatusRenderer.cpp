@@ -57,9 +57,8 @@ void EnemyStatusRenderer::Render(const Camera2D& camera) {
                     r.SubmitSprite(tex, src, {pos.x + offsetX, pos.y - 24}, {iconSize/src.width, iconSize/src.height}, 0.0f, {0,0}, WHITE, Layer::Foreground, 0.0f, false, id);
                     offsetX += iconSize + 2.0f;
                 } else {
-                    Vector2 sp = GetWorldToScreen2D({pos.x + offsetX, pos.y - 24}, camera);
-                    r.DrawText(fallback, sp, 14, fbColor);
-                    offsetX += 12.0f;
+                    r.DrawRectangle({pos.x + offsetX, pos.y - 24}, {iconSize, iconSize}, fbColor, Layer::Foreground, 0.0f);
+                    offsetX += iconSize + 2.0f;
                 }
             }
         };

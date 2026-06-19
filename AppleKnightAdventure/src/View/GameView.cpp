@@ -9,6 +9,7 @@
 #include "View/ResultView.h"
 #include "View/MenuView.h"
 #include "View/InventoryView.h"
+#include "View/UIStateManager.h"
 #include "Model/GameState.h"
 #include "View/UIResourceManager.h"
 #include <cmath>
@@ -194,7 +195,6 @@ bool GameView::Init() {
     cr.PreloadAtlas("assets/textures/objects/chest_open.json");
 
     // Load static textures (projectiles)
-    // m_bossAttackTex removed — asset now under boss3/boss_attack.png if needed later
     m_magicTex = ::LoadTexture("assets/textures/projectiles/arrow.png");
 
     // Load backgrounds
@@ -211,18 +211,19 @@ bool GameView::Init() {
     cr.PreloadAtlas("assets/textures/items/equipment.json");
     cr.PreloadAtlas("assets/textures/items/potion_red.json");
 
-    // Preload projectile atlases (for SkillBarView / ParticleRenderer)
+    // Preload projectile atlases (for CharacterRenderer projectile rendering)
     cr.PreloadAtlas("assets/textures/projectiles/arrow.json");
     cr.PreloadAtlas("assets/textures/projectiles/fire_bullet.json");
-    cr.PreloadAtlas("assets/textures/projectiles/slash.json");
-    cr.PreloadAtlas("assets/textures/projectiles/hit.json");
     cr.PreloadAtlas("assets/textures/projectiles/explosion.json");
+    cr.PreloadAtlas("assets/textures/enemies/ranged_bomb.json");
+    cr.PreloadAtlas("assets/textures/enemies/flying_projectile.json");
 
     return true;
 }
 
 void GameView::Update(float dt) {
     View::CharacterRenderer::GetInstance().UpdateAll(dt);
+    View::EntityRenderer::GetInstance().Update(dt);
     View::FloatingTextManager::GetInstance().Update(dt);
     View::EnemyStatusRenderer::GetInstance().Update(dt);
     if (View::ResultView::GetInstance().IsVisible()) {
@@ -278,7 +279,7 @@ void GameView::RenderBackground(const Camera2D& cam) {
     if (m_activeBgIndex < 0 || m_activeBgIndex >= (int)m_backgrounds.size()) return;
     const auto& layers = m_backgrounds[m_activeBgIndex];
 
-    for (const auto& layer : layers) {
+    for (auto& layer : layers) {
         if (layer.tex.id == 0) continue;
         float tw = (float)layer.tex.width;
         float th = (float)layer.tex.height;
@@ -291,7 +292,7 @@ void GameView::RenderBackground(const Camera2D& cam) {
         // Tile horizontally to fill screen
         float wrapped = fmod(offsetX, tw);
         for (float x = -wrapped; x < (float)screenW; x += tw) {
-            r.SubmitSprite(const_cast<Texture2D*>(&layer.tex), {0, 0, tw, th}, {x, 0},
+            r.SubmitSprite(&layer.tex, {0, 0, tw, th}, {x, 0},
                            {scaleX, scaleY}, 0.0f, {0, 0},
                            WHITE, Layer::Background, -2.0f, false, 0);
         }
@@ -355,17 +356,26 @@ void GameView::Render(const Camera2D& camera, const std::vector<Particle*>& part
 
     BeginMode2D(cam);
     
+    // Render tilemap
+    if (m_tiles) RenderTilemap(*m_tiles);
+
     // Render entities and particles
     View::CharacterRenderer::GetInstance().RenderAll();
+    View::EntityRenderer::GetInstance().RenderAll();
     View::ParticleRenderer::GetInstance().RenderAll(particles, cam, dt);
 
     View::EnemyStatusRenderer::GetInstance().Render(cam);
-    View::FloatingTextManager::GetInstance().Render(cam);
 
     r.EndFrameAndFlush();
     EndMode2D();
 
+    // Floating text rendered after EndMode2D to avoid double-transform (GetWorldToScreen2D + camera transform)
+    View::FloatingTextManager::GetInstance().Render(cam);
+
     ::DrawFPS(10, 10);
+
+    // Render UI overlay (HUD, menu, inventory, result, etc.)
+    View::UIStateManager::GetInstance().RenderAll();
 }
 
 void GameView::Shutdown() {
@@ -374,7 +384,6 @@ void GameView::Shutdown() {
     View::ParticleRenderer::GetInstance().Shutdown();
 
     // Unload static textures
-    if (m_bossAttackTex.id != 0) ::UnloadTexture(m_bossAttackTex);
     if (m_magicTex.id != 0) ::UnloadTexture(m_magicTex);
 
     // Unload tilesets

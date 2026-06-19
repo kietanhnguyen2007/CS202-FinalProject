@@ -36,8 +36,10 @@ public:
     // Camera shake
     void Shake(float intensity, float duration);
 
+    // Tilemap data from Controller
+    void SetTiles(const std::vector<Tile>* tiles) { m_tiles = tiles; }
+
     // Static textures
-    Texture2D* GetBossAttackTex() { return &m_bossAttackTex; }
     Texture2D* GetMagicTex() { return &m_magicTex; }
 
 private:
@@ -65,8 +67,10 @@ private:
     float m_bgScrollOffset = 0.0f;
 
     // Static textures
-    Texture2D m_bossAttackTex{};
     Texture2D m_magicTex{};
+
+    // Tilemap reference (set by Controller)
+    const std::vector<Tile>* m_tiles = nullptr;
 };
 
 } // namespace View

@@ -15,7 +15,7 @@ public:
 
     void BeginFrame();
 
-    bool SubmitSprite(Texture2D* texture,
+    bool SubmitSprite(const Texture2D* texture,
                       const Rectangle& src,
                       Vector2 pos,
                       Vector2 scale = {1.0f,1.0f},

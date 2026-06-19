@@ -158,20 +158,21 @@ void HUDView::Render() {
     snprintf(buf, sizeof(buf), "HP: %d/%d", hp, maxHp);
     drawBar(m_texBarFill, {startX, startY}, frac, buf);
 
-    // 2. MP (Mock)
-    int mockMp = 50, mockMaxMp = 100;
-    snprintf(buf, sizeof(buf), "MP: %d/%d", mockMp, mockMaxMp);
-    drawBar(m_texBarFillMP, {startX, startY + barSpacing}, (float)mockMp/mockMaxMp, buf);
+    // 2. MP (chờ Model bổ sung GetMP/GetMaxMP)
+    // TODO: int mp = m_player->GetMP();
+    // TODO: int maxMp = m_player->GetMaxMP();
+    // drawBar(m_texBarFillMP, {startX, startY + barSpacing}, (float)mp/maxMp, buf);
 
-    // 3. SP (Mock)
-    int mockSp = 75, mockMaxSp = 100;
-    snprintf(buf, sizeof(buf), "SP: %d/%d", mockSp, mockMaxSp);
-    drawBar(m_texBarFillSP, {startX, startY + barSpacing * 2.0f}, (float)mockSp/mockMaxSp, buf);
+    // 3. SP (chờ Model bổ sung GetSP/GetMaxSP)
+    // TODO: int sp = m_player->GetSP();
+    // TODO: int maxSp = m_player->GetMaxSP();
+    // drawBar(m_texBarFillSP, {startX, startY + barSpacing * 2.0f}, (float)sp/maxSp, buf);
 
-    // 4. Ultimate (Mock)
-    float mockUlt = 20.0f, mockMaxUlt = 100.0f;
-    snprintf(buf, sizeof(buf), "ULT: %d%%", (int)(mockUlt/mockMaxUlt * 100));
-    drawBar(m_texBarFillUlt, {startX, startY + barSpacing * 3.0f}, mockUlt/mockMaxUlt, buf);
+    // 4. Ultimate (chờ Model bổ sung GetUltimateCharge/GetMaxUltimateCharge)
+    // TODO: float ult = m_player->GetUltimateCharge();
+    // TODO: float maxUlt = m_player->GetMaxUltimateCharge();
+    // snprintf(buf, sizeof(buf), "ULT: %d%%", (int)(ult/maxUlt * 100));
+    // drawBar(m_texBarFillUlt, {startX, startY + barSpacing * 3.0f}, ult/maxUlt, buf);
 
     // ======================================================================
     // 5. Coin Icon — right side of screen

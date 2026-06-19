@@ -10,7 +10,8 @@ enum class MenuMode {
     Main,
     Pause,
     Error,
-    Connection
+    Connection,
+    RoleSelect
 };
 
 class MenuView {
@@ -30,6 +31,7 @@ public:
     void ShowPauseOverlay();
     void ShowErrorDialog(const std::string& message);
     void ShowConnectionStatus(const std::string& ip, bool connected);
+    void ShowRoleSelect(const std::vector<std::string>& roles);
 
 private:
     MenuView() = default;
@@ -38,6 +40,7 @@ private:
     void RenderPause();
     void RenderError();
     void RenderConnection();
+    void RenderRoleSelect();
 
     // Helpers — draw Dark Dwellers themed UI elements
     void DrawButton(const char* label, float x, float y, float w, float h, bool selected);
@@ -58,6 +61,9 @@ private:
     std::string m_connectionIp;
     bool m_connected = false;
     std::vector<std::string> m_connectionItems = { "Back" };
+
+    std::vector<std::string> m_roleItems;
+    int m_selectedRole = 0;
 
 };
 

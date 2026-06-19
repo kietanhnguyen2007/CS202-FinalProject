@@ -203,6 +203,7 @@ void CharacterRenderer::UpdateAll(float dt) {
         if (type == EntityType::Player || type == EntityType::DualWorldPlayer || 
             type == EntityType::Enemy || type == EntityType::Pet || type == EntityType::Boss) {
             
+            assert(dynamic_cast<const Character*>(entity) != nullptr && "Entity type filter mismatch with Character hierarchy");
             const Character* character = static_cast<const Character*>(entity);
             Character::State state = character->GetState();
             
