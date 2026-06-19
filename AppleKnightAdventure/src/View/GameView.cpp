@@ -215,8 +215,6 @@ bool GameView::Init() {
     cr.PreloadAtlas("assets/textures/projectiles/arrow.json");
     cr.PreloadAtlas("assets/textures/projectiles/fire_bullet.json");
     cr.PreloadAtlas("assets/textures/projectiles/explosion.json");
-    cr.PreloadAtlas("assets/textures/enemies/ranged_bomb.json");
-    cr.PreloadAtlas("assets/textures/enemies/flying_projectile.json");
 
     return true;
 }
