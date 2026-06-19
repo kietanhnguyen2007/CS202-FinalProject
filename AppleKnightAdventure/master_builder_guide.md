@@ -189,14 +189,27 @@ Mỗi sheet đi kèm file JSON chứa frame list. Ví dụ `Tiles.json`:
 
 > Không cần cấu hình gì thêm. Background tự động cuộn theo camera.
 
+### Camera2D setup
+
+```cpp
+// Trong GameController::Init() hoặc StartLevel():
+Camera2D cam;
+cam.target = playerSpawnWorldPos;  // từ LevelFactory (spawn_solo hoặc spawn_guide)
+cam.offset = { screenW/2.0f, screenH/2.0f };
+cam.rotation = 0.0f;
+cam.zoom = 1.0f;
+
+// Trong GameController::Update() — mỗi frame:
+cam.target = Vector2Lerp(cam.target, playerPos, 0.1f);  // follow player
+```
+
+> Camera pass vào `GameView::Render(camera, particles, dt)` sẽ được GameView dùng làm camera transform cho BeginMode2D.
+
 ### Các cách gọi View
 
 **Trong frame loop (GameController::Update — mỗi frame):**
-- `GameView::Update(dt)` — scroll background + shake timer
-- `GameView::RenderBackground(camera)` — parallax 7 layer
-- `BeginMode2D(camera)`
-- `GameView::RenderTilemap(tiles)` — tile grid
-- `EndMode2D()`
+- `GameView::Update(dt)` — scroll background + shake timer + EntityRenderer::Update + CharacterRenderer::UpdateAll + FloatingText::Update
+- `GameView::Render(camera, particles, dt)` — gọi tất cả: background → tilemap → CharacterRenderer → EntityRenderer → ParticleRenderer → EnemyStatusRenderer → FloatingText → FPS → UIStateManager
 
 **Theo event:**
 | Event | Ai gọi | View method |
@@ -205,7 +218,7 @@ Mỗi sheet đi kèm file JSON chứa frame list. Ví dụ `Tiles.json`:
 | Level load | `GameController::Init()` | `GameView::Init()` — PreloadAtlas cho tất cả entity |
 
 **View tự đọc Model:**
-- `GameView::RenderTilemap()` đọc `GameState::GetTiles()` — `std::vector<Tile>`
+- `GameView::RenderTilemap()` đọc `m_tiles` (con trỏ do Controller set qua `GameView::SetTiles()`)
 - `GameView::RenderBackground()` đọc camera position (từ GameController)
 
 ---
@@ -356,19 +369,24 @@ Bảng tổng hợp tất cả entity tokens trong `.lvl`:
 > Pet không có token — chọn từ Main Menu.  
 > Item xuất hiện qua chest/enemy drop, không có token riêng.
 
+### Entity Renderer
+
+`EntityRenderer` dùng cho entity **không animate** (static sprite, xoay vòng). `CharacterRenderer` dùng cho entity **có animation atlas**. Cả 2 đều được `GameView::Update()` / `GameView::Render()` gọi tự động — Controller không cần gọi trực tiếp.
+
 ### Các cách gọi View
 
-**Trong frame loop (GameController::Update — mỗi frame):**
-- `CharacterRenderer::UpdateAll(dt)` — update animation frame cho tất cả entity
-- `CharacterRenderer::RenderAll()` — render entity sprites + boss phase glow overlay
+**Trong frame loop (mỗi frame — GameView::Update/Render tự gọi):**
+- `CharacterRenderer::UpdateAll(dt)` — update animation frame
+- `CharacterRenderer::RenderAll()` — render entity sprites + boss phase glow overlay + elemental tint
+- `EntityRenderer::Update(dt)` + `EntityRenderer::RenderAll()`
 
 **Theo event:**
 | Event | Ai gọi | View method |
 |---|---|---|
 | Spawn enemy | `GameController::StartLevel()` | `CharacterRenderer::Register(enemy, path, "idle")` |
 | Spawn boss | `GameController::StartLevel()` | `CharacterRenderer::Register(boss, path, "idle")` + `SetBossAssetRoot(id, root)` |
-| Spawn chest | `GameController::StartLevel()` | `CharacterRenderer::Register(chest, "objects/chest.json", "idle")` |
-| Spawn checkpoint | `GameController::StartLevel()` | `CharacterRenderer::Register(checkpoint, "objects/checkpoint.json", "idle")` |
+| Spawn chest | `GameController::StartLevel()` | `CharacterRenderer::Register(chest, "objects/chest_closed.json", "default")` |
+| Spawn checkpoint | `GameController::StartLevel()` | `CharacterRenderer::Register(checkpoint, "objects/checkpoint_uncaptured.json", "default")` |
 | Entity die | `GameController::OnEntityRemoved()` | `CharacterRenderer::Unregister(id)` |
 | Player attack | `GameController::Update()` | `CharacterRenderer::PlayAction(playerId, ACTION_ATTACK)` |
 | Player skill | `GameController::Update()` | `CharacterRenderer::PlayAction(playerId, ACTION_SKILL)` |
@@ -380,6 +398,33 @@ Bảng tổng hợp tất cả entity tokens trong `.lvl`:
 - `CharacterRenderer::UpdateAll()` đọc từ mỗi `Entity`: `GetId()`, `GetType()`, `GetState()` (→ infer clip), `GetPosition()`, `GetScale()`, `GetDirection()`, `IsActive()`
 - `CharacterRenderer::RenderAll()` đọc `Boss::GetPhase()` (cho glow overlay)
 - `EntityRenderer` đọc `Entity::GetPosition()` × `TILE_SIZE` cho world position
+
+### Entity → Atlas path mapping
+
+Khi gọi `CharacterRenderer::Register(entity, path, clip)`, dùng path sau cho từng loại entity:
+
+| Entity type | Atlas path | Default clip | Ghi chú |
+|---|---|---|---|
+| **Player** — Fighter | `"assets/textures/player/fighter/idle.json"` | `"idle"` | 10+ state files riêng (walk/run/jump/attack1-3/hurt/dead/...) |
+| **Player** — Knight | `"assets/textures/player/knight/idle.json"` | `"idle"` | Tương tự Fighter |
+| **Player** — Ninja | `"assets/textures/player/ninja/idle.json"` | `"idle"` | Có thêm teleport + projectile |
+| **Player** — Magic Caster | `"assets/textures/player/magic_caster/idle.json"` | `"idle"` | Có thêm projectile_attack |
+| **Enemy** — Melee | `"assets/textures/enemies/melee_idle.json"` | `"idle"` | 6 state files (idle/walk/attack/hurt/death/...) |
+| **Enemy** — Ranged | `"assets/textures/enemies/ranged_idle.json"` | `"idle"` | 6 state files + `ranged_bomb.json` |
+| **Enemy** — Flying | `"assets/textures/enemies/flying_spritesheet.json"` | `"idle"` | 5 state files + `flying_projectile.json` |
+| **Boss 1 — Knight** (phase1) | `"assets/textures/boss/boss1/phase1/idle.json"` | `"idle"` | Dùng `SetBossAssetRoot(id, "boss/boss1")` + `SwitchPhase()` |
+| **Boss 2 — Witch** (phase1) | `"assets/textures/boss/boss2/phase1/idle.json"` | `"idle"` | 3 phase, mỗi phase có projectile |
+| **Boss 3 — 4-phase** (phase1) | `"assets/textures/boss/boss3/phase1/idle.json"` | `"idle"` | 4 phase, mỗi phase attack riêng + projectile |
+| **Chest** | `"assets/textures/objects/chest_closed.json"` | `"default"` | Đổi clip khi mở |
+| **Checkpoint** (uncaptured) | `"assets/textures/objects/checkpoint_uncaptured.json"` | `"default"` | Dùng `RegisterAnimated()` với flag_out + captured |
+| **Pet — Skull** | `"assets/textures/pets/skull/idle.json"` | `"idle"` | Thêm move/attack |
+| **Pet — Ghost** | `"assets/textures/pets/ghost/idle.json"` | `"idle"` | Thêm move/healing |
+| **Pet — Baby Dragon** | `"assets/textures/pets/baby_dragon/idle.json"` | `"idle"` | Thêm move/attack |
+| **Pet — Fairy** | `"assets/textures/pets/fairy/idle.json"` | `"idle"` | Thêm move/collect_item |
+
+> Tất cả state files (walk/run/jump/attack/...) đã được PreloadAtlas trong `GameView::Init()`. Controller chỉ cần gọi `Register()` với idle path làm base — `CharacterRenderer` tự động switch clip khi Controller gọi `PlayAction()`.
+>
+> Boss: dùng `SetBossAssetRoot(id, root)` + từng `Register()` riêng cho mỗi phase. `SwitchPhase(id, phase)` tự động load phase atlas nếu đã preload.
 
 ---
 
@@ -729,7 +774,7 @@ struct DamagePacket {
 **Trong frame loop:**
 - `ElementalFX` (tint) được `CharacterRenderer::RenderAll()` tự động đọc và apply
 - `EnemyStatusRenderer::Update(dt)` + `EnemyStatusRenderer::Render(camera)` — mỗi frame
-- `ParticleRenderer::Update(dt)` + `ParticleRenderer::RenderAll(particles, camera, dt)` — mỗi frame
+- `ParticleSystem::Update(dt)` (Model) + `ParticleRenderer::RenderAll(particles, camera, dt)` — mỗi frame
 
 **View tự đọc Model:**
 | View class | Đọc từ Model | Field/Method |
@@ -882,62 +927,62 @@ HandleGameInput(input);
 
 ### Kiến trúc
 
+SoundManager dùng **string key** (không phải enum). File `.wav` được load bằng key name, sau đó gọi bằng key đó.
+
 ```
-SoundManager (Model — singleton)
-├── Init()                     // Load tất cả SFX + BGM vào cache
-├── PlaySFX(SoundEvent event)  // Phát âm thanh 1 lần
-├── PlayBGM(BGMType type)      // Nhạc nền, loop
-├── StopBGM()
-├── SetMasterVolume(float)
+SoundManager (singleton)
+├── InitAudio()                // Init audio device
+├── LoadSound(name, filepath)  // Load 1 SFX từ file
+├── LoadMusic(name, filepath)  // Load 1 BGM từ file
+├── PlaySound("key")           // Phát SFX 1 lần
+├── PlayMusic("key")           // Phát BGM loop
+├── StopMusic("key")
 ├── SetSFXVolume(float)
-├── SetBGMVolume(float)
-└── Shutdown()                 // Unload tất cả
+├── SetMusicVolume(float)
+├── UnloadAll()                // Unload tất cả
+└── CloseAudio()
 ```
 
-### Event → Sound mapping
+### Controller Init — Load tất cả sounds
+
+Trong `GameController::Init()`, gọi `LoadSound`/`LoadMusic` cho từng file:
 
 ```cpp
-enum class SoundEvent {
-    PlayerAttack, PlayerHurt, PlayerHeal,
-    EnemyDeath, EnemyHit,
-    CoinCollect, AppleCollect, KeyCollect, EquipCollect,
-    ChestOpen, Checkpoint,
-    BossPhase, BossAttack, BossHurt, BossDeath,
-    Jump, Dash, Teleport, Ultimate,
-    UIHover, UIConfirm, UIError,
-    ReactionVaporize, ReactionConduct, ReactionOverload
-};
-
-enum class BGMType {
-    Menu, Game, Boss
-};
+SoundManager& snd = SoundManager::GetInstance();
+snd.InitAudio();
+snd.LoadSound("player_attack",   "assets/sounds/sfx/player_attack.wav");
+snd.LoadSound("enemy_death",     "assets/sounds/sfx/enemy_die.wav");
+snd.LoadSound("coin_pickup",     "assets/sounds/sfx/coin_pickup.wav");
+snd.LoadSound("chest_open",      "assets/sounds/sfx/chest_open.wav");
+snd.LoadSound("ui_hover",        "assets/sounds/sfx/ui_hover.wav");
+snd.LoadSound("ui_inventory_open",  "assets/sounds/sfx/ui_inventory_open.wav");
+snd.LoadSound("ui_inventory_close", "assets/sounds/sfx/ui_inventory_close.wav");
+// ... tương tự cho tất cả SFX
+snd.LoadMusic("bgm_menu",     "assets/sounds/music/bgm_menu.wav");
+snd.LoadMusic("bgm_gameplay", "assets/sounds/music/bgm_gameplay.wav");
+snd.LoadMusic("bgm_boss",     "assets/sounds/music/bgm_boss.wav");
 ```
 
-### Các cách gọi View
-
-**SoundManager là System, không phải View — các thành phần khác gọi nó như sau:**
+### Các cách gọi
 
 **Theo event (Controller/Model gọi 1 lần):**
-| Ai gọi | Method | Khi nào |
+| Ai gọi | Code | Khi nào |
 |---|---|---|
-| `GameController::Init()` | `SoundManager::Init()` | Game start — load tất cả SFX + BGM |
-| `GameController::StartLevel()` | `SoundManager::PlayBGM(BGMType::Game)` | Level load |
-| `GameController::OnBossSpawn()` | `SoundManager::PlayBGM(BGMType::Boss)` | Boss fight bắt đầu |
-| `GameController::OnBossDie()` | `SoundManager::PlayBGM(BGMType::Game)` | Boss chết, về BGM game |
-| `GameController::OnLevelComplete()` | `SoundManager::StopBGM()` | Level kết thúc |
-| `MenuController::ShowMainMenu()` | `SoundManager::PlayBGM(BGMType::Menu)` | Vào main menu |
-
-**Controller gọi PlaySFX khi có event:**
-| Event | Controller method | Code |
-|---|---|---|
-| Player attack | `GameController::Update()` | `SoundManager::PlaySFX(SoundEvent::PlayerAttack)` |
-| Enemy die | `GameController::OnEntityRemoved()` | `SoundManager::PlaySFX(SoundEvent::EnemyDeath)` |
-| Collect coin | `GameController::OnItemCollect()` | `SoundManager::PlaySFX(SoundEvent::CoinCollect)` |
-| Chest open | `GameController::OnInteract()` | `SoundManager::PlaySFX(SoundEvent::ChestOpen)` |
-| Boss phase | `GameController::OnBossPhase()` | `SoundManager::PlaySFX(SoundEvent::BossPhase)` |
-| Reaction | `ElementalSystem::React()` | `SoundManager::PlaySFX(SoundEvent::ReactionVaporize)` |
-| UI hover | `MenuController::Update()` | `SoundManager::PlaySFX(SoundEvent::UIHover)` |
-| UI confirm | `MenuController::Update()` | `SoundManager::PlaySFX(SoundEvent::UIConfirm)` |
+| `GameController::Init()` | `snd.InitAudio()` + các `LoadSound`/`LoadMusic` | Game start |
+| `GameController::StartLevel()` | `snd.PlayMusic("bgm_gameplay")` | Level load |
+| `GameController::OnBossSpawn()` | `snd.PlayMusic("bgm_boss")` | Boss fight bắt đầu |
+| `GameController::OnBossDie()` | `snd.PlayMusic("bgm_gameplay")` | Boss chết, về BGM game |
+| `GameController::OnLevelComplete()` | `snd.StopMusic("bgm_gameplay")` | Level kết thúc |
+| `MenuController::ShowMainMenu()` | `snd.PlayMusic("bgm_menu")` | Vào main menu |
+| `GameController::OnHit()` | `snd.PlaySound("player_hurt")` | Player nhận damage |
+| `GameController::OnEntityRemoved()` | `snd.PlaySound("enemy_death")` | Enemy chết |
+| `GameController::OnItemCollect()` | `snd.PlaySound("coin_pickup")` | Nhặt item |
+| `GameController::OnInteract()` | `snd.PlaySound("chest_open")` | Mở chest |
+| `GameController::OnBossPhase()` | `snd.PlaySound("boss_phase")` | Boss chuyển phase |
+| `ElementalSystem::React()` | `snd.PlaySound("vaporize")` | Reaction |
+| `MenuController::Update()` | `snd.PlaySound("ui_hover")` | UI hover |
+| `InventoryView::Open()` | `snd.PlaySound("ui_inventory_open")` | Mở inventory |
+| `InventoryView::Close()` | `snd.PlaySound("ui_inventory_close")` | Đóng inventory |
 
 ---
 
@@ -948,10 +993,11 @@ enum class BGMType {
 ```
 1. INIT SEQUENCE
    GameController::Init()
-   ├── SoundManager::Init()           // load âm thanh
-   ├── CharacterRenderer::Init()      // load textures
-   ├── MenuController::Init()         // load menu assets
-   └── GameView::Init()               // preload atlases
+   ├── SoundManager::GetInstance().InitAudio()
+   ├── SoundManager::GetInstance().LoadSound/LoadMusic   // load từng file .wav
+   ├── GameView::GetInstance().Init()       // preload atlases
+   ├── MenuController::GetInstance().Init()
+   └── UIStateManager::GetInstance().Init()
 
 2. LOAD LEVEL SEQUENCE
    GameController::StartLevel(levelNum, isCoop)
@@ -959,9 +1005,12 @@ enum class BGMType {
    │     • Parse .lvl → fill GameState::m_tiles, entities, scoring
    │     • Tạo Player với role phù hợp
    │     • Tạo Enemy (EnemyFactory), Boss, Chest, Checkpoint
-   ├── CharacterRenderer::Register()   // từng entity
-   ├── HUDView::Init()                 // reset bars
-   └── SoundManager::PlayBGM(BGMType::Game)
+   ├── Lấy entities từ GameState → for each: CharacterRenderer::Register(entity, atlasPath, "idle")
+   ├── GameView::GetInstance().SetTiles(&state->GetTiles())  // pass tile data
+   ├── GameView::LoadTileset(type, path, cols) × 6           // tilesheets
+   ├── GameView::LoadBackgrounds()
+   ├── HUDView::GetInstance().Init()            // reset bars
+   └── SoundManager::GetInstance().PlayMusic("bgm_gameplay")
 
 3. FRAME LOOP
    while (running) {
@@ -991,42 +1040,38 @@ enum class BGMType {
      │         • Fog of War (nếu Warrior)    │
      └──────────────────────────────────────┘
            ↓
-     ┌─ Render (View) ──────────────────────┐
-     │ GameView::Update(dt)                  │
-     │   ├── Scroll background               │
-     │   ├── Camera shake tick               │
-     │ GameView::RenderBackground(camera)    │
-     │ BeginMode2D(camera)                   │
-     │   ├── GameView::RenderTilemap(tiles)  │
-     │   ├── CharacterRenderer::RenderAll()  │
-     │   │     • Entity animation            │
-     │   │     • Boss phase glow overlay     │
-     │   │     • Elemental tint              │
-     │   ├── ParticleRenderer::RenderAll()   │
-     │   ├── EnemyStatusRenderer::Render()   │
-     │   └── FloatingTextManager::Render()   │
-     │ EndMode2D()                           │
-     │ HUDView::Render()                     │
-     │   ├── HP/MP/SP bars                   │
-     │   ├── Ultimate bar                    │
-     │   ├── Coin count                      │
-     │   └── Timer                           │
-     │ UIStateManager::RenderAll()           │
-     │   ├── SkillBarView (nếu mở)          │
-     │   ├── InteractPrompt (nếu active)    │
-     │   ├── MenuView (nếu pause)           │
-     │   ├── InventoryView (nếu mở)         │
-     │   └── ResultView (nếu kết thúc)      │
-     └──────────────────────────────────────┘
-   }
+      ┌─ Render (View) ──────────────────────┐
+      │ // GameView::Update() internally gọi:  │
+      │ //   CharacterRenderer::UpdateAll(dt)  │
+      │ //   EntityRenderer::Update(dt)        │
+      │ //   FloatingTextManager::Update(dt)   │
+      │ //   EnemyStatusRenderer::Update(dt)   │
+      │ //   ResultView::Update(dt) (nếu mở)   │
+      │ //   Camera shake fade                 │
+      │ GameView::Update(dt)                   │
+      │                                        │
+      │ // GameView::Render() internally gọi:   │
+      │ //   RenderBackground(camera)          │
+      │ //   BeginMode2D                       │
+      │ //     RenderTilemap(m_tiles)          │
+      │ //     CharacterRenderer::RenderAll()  │
+      │ //     EntityRenderer::RenderAll()     │
+      │ //     ParticleRenderer::RenderAll()   │
+      │ //     EnemyStatusRenderer::Render()   │
+      │ //   EndMode2D()                       │
+      │ //   FloatingTextManager::Render()     │
+      │ //   UIStateManager::RenderAll()       │
+      │ GameView::Render(camera, particles, dt)│
+      └──────────────────────────────────────┘
+    }
 
 4. LEVEL COMPLETE / GAME OVER
    GameController::OnLevelComplete()
    ├── Timer::Stop()
    ├── LevelScoring::Calculate()
-   ├── SoundManager::StopBGM()
-   ├── UIStateManager::Push(UILayer::Result)
-   └── ResultView::Update(dt) → Render()
+   ├── SoundManager::GetInstance().StopMusic("bgm_gameplay")
+   ├── UIStateManager::GetInstance().Push(UILayer::Result)
+   └── View::ResultView::GetInstance().Show(snapshot)
 ```
 
 ### ObservableList pattern
@@ -1066,7 +1111,7 @@ m_player->GetBuffs().Add({StatusEffect::Burn, 3.0f, 3.0f, 1});
       → Enemy::TakeDamage(50)
       → Nếu enemy HP ≤ 0 → Enemy::Die()
          → ObjectPool::Release(projectile)
-4. Sound: SoundManager::PlaySFX(SoundEvent::PlayerAttack)
+4. Sound: SoundManager::GetInstance().PlaySound("player_attack")
 5. View:
    a. CharacterRenderer::PlayAction(playerId, ACTION_ATTACK)
    b. ParticleRenderer::EmitBurst(enemyPos, 8, WHITE)
@@ -1079,20 +1124,24 @@ m_player->GetBuffs().Add({StatusEffect::Burn, 3.0f, 3.0f, 1});
 
 ```cpp
 bool GameController::Init() {
-    // 1. Sound
-    SoundManager::GetInstance().Init();
+    // 1. Sound — init device + load all .wav files
+    auto& snd = SoundManager::GetInstance();
+    snd.InitAudio();
+    snd.LoadSound("player_attack", "assets/sounds/sfx/player_attack.wav");
+    snd.LoadSound("ui_hover", "assets/sounds/sfx/ui_hover.wav");
+    // ... load tất cả SFX + BGM files
 
     // 2. Model
     m_gameState = std::make_unique<GameState>();
 
-    // 3. View — preload assets
+    // 3. View — preload atlases
     GameView::GetInstance().Init();
 
     // 4. Menu
     MenuController::GetInstance().Init();
 
     // 5. BGM
-    SoundManager::GetInstance().PlayBGM(BGMType::Menu);
+    snd.PlayMusic("bgm_menu");
     return true;
 }
 ```
@@ -1100,44 +1149,46 @@ bool GameController::Init() {
 ### Các cách gọi View — Tổng hợp tất cả View methods
 
 **Init (gọi 1 lần):**
-| View method | Ai gọi |
+| View / System method | Ai gọi |
 |---|---|
-| `CharacterRenderer::PreloadAtlas(path)` | `GameView::Init()` (trong `GameController::Init()`) |
+| `CharacterRenderer::PreloadAtlas(path)` | `GameView::Init()` internally |
 | `GameView::Init()` | `GameController::Init()` |
 | `GameView::LoadTileset(type, path, cols)` | `GameController::StartLevel()` |
 | `GameView::LoadBackgrounds()` | `GameController::StartLevel()` |
-| `HUDView::LoadResources(path)` + `Init()` | `GameController::Init()` |
+| `GameView::SetTiles(&state->GetTiles())` | `GameController::StartLevel()` |
+| `HUDView::Init()` | `GameController::StartLevel()` |
 | `MenuView::LoadResources(path)` + `Init()` | `MenuController::Init()` |
 | `UIStateManager::Init()` | `GameController::Init()` |
-| `SoundManager::Init()` | `GameController::Init()` |
+| `SoundManager::InitAudio()` + `LoadSound/LoadMusic` | `GameController::Init()` |
 | `ResultView::LoadResources(path)` | `GameController::Init()` |
 
 **Mỗi frame (trong GameController::Update):**
-```
-GameView::Update(dt)                          // scroll bg + shake
-GameView::RenderBackground(camera)            // parallax
-BeginMode2D(camera)
-  GameView::RenderTilemap(tiles)              // tile grid
-  CharacterRenderer::UpdateAll(dt)            // anim frames
-  CharacterRenderer::RenderAll()              // entity sprites
-  ParticleRenderer::RenderAll(particles, camera, dt)
-  EnemyStatusRenderer::Update(dt) + Render(camera)
-  FloatingTextManager::Update(dt) + Render(camera)
-EndMode2D()
-HUDView::Update(dt, player) + Render()        // bars, timer
-UIStateManager::RenderAll()                   // overlay stack
+```cpp
+// 1. Model update
+m_gameState->Update(dt);
+m_particleSystem.Update(dt);
+
+// 2. View update
+View::GameView::GetInstance().Update(dt);
+View::HUDView::GetInstance().Update(dt, m_gameState->GetLocalPlayer());
+
+// 3. Model → View data
+auto& particles = m_particleSystem.GetActive();
+
+// 4. Render (gọi tất cả trong 1 lần)
+View::GameView::GetInstance().Render(m_camera, particles, dt);
 ```
 
 **Theo event:**
 | Event | Controller method | View method(s) |
 |---|---|---|
-| Level load | `StartLevel()` | `LoadTileset()`, `LoadBackgrounds()`, `Register()` (mỗi entity) |
-| Entity die | `OnEntityRemoved()` | `Unregister(id)`, `EmitBurst()`, `FloatingTextManager::Emit()`, `Shake()` |
-| Boss phase | `OnBossPhase()` | `SwitchPhase(id, phase)`, `PlaySFX(BossPhase)` |
-| Open inventory | `OnInputI()` | `UIStateManager::Push(Inventory)`, `InventoryView::Open()` |
-| Pause | `OnInputESC()` | `UIStateManager::Push(Menu)`, `MenuView::ShowPauseOverlay()` |
-| Level complete | `OnLevelComplete()` | `UIStateManager::Push(Result)`, `ResultView::Show()` |
-| Collect item | `OnItemCollect()` | `FloatingTextManager::Emit()`, `PlaySFX(CoinCollect)` |
+| Level load | `StartLevel()` | `LoadTileset()` ×6, `LoadBackgrounds()`, `SetTiles()`, `Register()` (mỗi entity) |
+| Entity die | `OnEntityRemoved()` | `CharacterRenderer::Unregister(id)`, `ParticleRenderer::EmitBurst()`, `FloatingTextManager::Emit()`, `GameView::Shake()` |
+| Boss phase | `OnBossPhase()` | `CharacterRenderer::SwitchPhase(id, phase)`, `SoundManager::PlaySound("boss_phase")` |
+| Open inventory | `OnInputI()` | `UIStateManager::Push(UILayer::Inventory)`, `InventoryView::Open()` |
+| Pause | `OnInputESC()` | `UIStateManager::Push(UILayer::Menu)`, `MenuView::ShowPauseOverlay()` |
+| Level complete | `OnLevelComplete()` | `UIStateManager::Push(UILayer::Result)`, `ResultView::Show(snapshot)` |
+| Collect item | `OnItemCollect()` | `FloatingTextManager::Emit()`, `SoundManager::PlaySound("coin_pickup")` |
 
 ---
 
@@ -1345,7 +1396,7 @@ private:
 };
 ```
 
-**View method gọi:** `GameController::Init()` gọi `GameView::Init()`, `HUDView::LoadResources()`, `SoundManager::Init()`. `GameController::Update()` gọi tất cả View Update/Render mỗi frame. `MenuController` gọi `MenuView::ShowMainMenu()`, `MenuView::ShowPauseOverlay()`, `MenuView::ShowRoleSelect()`.
+**View method gọi:** `GameController::Init()` gọi `GameView::Init()`, `SoundManager::InitAudio()` + `LoadSound`. `GameController::Update()` gọi `GameView::Update(dt)`, `GameView::Render(camera, particles, dt)`. `MenuController` gọi `MenuView::ShowMainMenu()`, `MenuView::ShowPauseOverlay()`, `MenuView::ShowRoleSelect()`.
 
 ---
 
@@ -1581,24 +1632,16 @@ Thư mục `assets/levels/` cần tạo 6 file:
 
 ---
 
-## 3.12 SoundManager — Singleton
+## 3.12 SoundManager — Singleton (Đã code)
 
-**Vấn đề:** `SoundManager.h/.cpp` là stub — chưa có load sound, play event, BGM switching.
+`SoundManager` đã được implement hoàn chỉnh với string-based API.
 
-**Cần thêm:**
-
-| File | Thay đổi | View method gọi |
+| File | Trạng thái | API |
 |---|---|---|
-| `include/Systems/SoundManager.h` | Thêm `enum class SoundEvent`, `enum class BGMType`, `Init()`, `PlaySFX(SoundEvent)`, `PlayBGM(BGMType)`, `StopBGM()`, `SetVolume(float)`, `Shutdown()`, singleton | `GameController::Init()` gọi `Init()`. `GameController::Update()` gọi `PlaySFX()` theo event. `MenuController` gọi `PlayBGM(Menu)`. |
-| `src/Systems/SoundManager.cpp` | Implement load sound + cache + play | — |
+| `include/Systems/SoundManager.h` | ✅ Đã code | `InitAudio()`, `CloseAudio()`, `LoadSound(name, path)`, `LoadMusic(name, path)`, `PlaySound("key")`, `PlayMusic("key")`, `StopMusic("key")`, `SetSFXVolume()`, `SetMusicVolume()`, `UnloadAll()` |
+| `src/Systems/SoundManager.cpp` | ✅ Đã code | Các file .wav có sẵn trong `assets/sounds/sfx/` (23 file) và `assets/sounds/music/` (3 file). Cần Controller gọi `LoadSound`/`LoadMusic` trong `Init()` để load vào cache.
 
-**Asset structure:**
-```
-assets/sounds/sfx/     → SFX (LoadSound)
-assets/sounds/music/   → BGM (LoadMusicStream)
-```
-
-**Trạng thái:** Stub — cần implement toàn bộ.
+**Lưu ý:** API dùng string key, không phải enum. Xem §2.10 cho chi tiết.
 
 ---
 
@@ -1779,7 +1822,7 @@ Tất cả attack đều có hướng trùng với **facing** của entity.
 | 18 | `View/ParticleRenderer.cpp` | Đã code (99 lines) | — | `GameController::OnHit()`, `OnEntityRemoved()` gọi `EmitBurst()`. |
 | 19 | `View/FloatingText.cpp` | Đã code (43 lines) | — | `GameController` gọi `Emit()` theo event. `Update()` mỗi frame. |
 | 20 | `View/UIStateManager.h/.cpp` | Đã code (112 lines) | — | `GameController::OnInputI()` gọi `Push(Inventory)`. `Update()` gọi `RenderAll()`. |
-| 21 | `Systems/SoundManager.h/.cpp` | Đã code (175 lines) | Singleton, InitAudio, LoadSound/Music, Play/Stop, volume control — đầy đủ. | `GameController` gọi `PlaySFX()` theo event. `MenuController` gọi `PlayBGM()`. |
+| 21 | `Systems/SoundManager.h/.cpp` | Đã code (175 lines) | Singleton, InitAudio, LoadSound/Music, PlaySound("key"), PlayMusic("key"), volume control — đầy đủ. | `GameController` gọi `PlaySound("key")` theo event. `MenuController` gọi `PlayMusic("key")`. |
 | 22 | `Systems/ObjectPool.h` | Đã code | Template pool: Acquire, Release, ReleaseAll, Reserve, GetActiveCount — đầy đủ. | `ParticleRenderer::RenderAll()` đọc `GetActive()` để render. |
 | 23 | `Network/Packet.h/.cpp` | Đã code | Append/Read int/float/bool/string — serialization đầy đủ. | Không gọi View — NetworkManager → Controller. |
 | 24 | `Network/Server.h/.cpp` | Đã code | TCP server: Start, Stop, AcceptClient, SendToClient, Broadcast, ReceiveFromClient. | Không gọi View. |
