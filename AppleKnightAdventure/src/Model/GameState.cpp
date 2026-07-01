@@ -85,6 +85,9 @@ void GameState::TickTimer(float deltaTime) {
 CharacterClass GameState::GetPlayerClass() const { return m_playerClass; }
 void GameState::SetPlayerClass(CharacterClass playerClass) { m_playerClass = playerClass; }
 
+BackgroundTheme GameState::GetBackgroundTheme() const { return m_backgroundTheme; }
+void GameState::SetBackgroundTheme(BackgroundTheme theme) { m_backgroundTheme = theme; }
+
 int GameState::GenerateEntityId() { return m_nextEntityId++; }
 
 void GameState::Update(float deltaTime) {

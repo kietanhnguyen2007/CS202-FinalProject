@@ -6,6 +6,15 @@
 #include "Utils/Types.h"
 #include <vector>
 #include <memory>
+#include <cstdint>
+
+// Which parallax background set to use for a level.
+// Map builder sets this via GameState::SetBackgroundTheme() when loading a level.
+enum class BackgroundTheme : uint8_t {
+    Forest       = 0,   // Ansimuz Parallax Forest v2
+    ColdCorridor = 1,   // Ansimuz Gothicvania Cold Corridors
+    Underwater   = 2,   // Ansimuz Underwater Fantasy
+};
 
 struct Tile {
     int x = 0;
@@ -31,6 +40,7 @@ protected:
     float m_clearTime = 0.0f;
     bool m_timerRunning = false;
     CharacterClass m_playerClass = CharacterClass::Knight;
+    BackgroundTheme m_backgroundTheme = BackgroundTheme::Forest;
 
 public:
     GameState();
@@ -71,6 +81,9 @@ public:
 
     CharacterClass GetPlayerClass() const;
     void SetPlayerClass(CharacterClass playerClass);
+
+    BackgroundTheme GetBackgroundTheme() const;
+    void SetBackgroundTheme(BackgroundTheme theme);
 
     int GenerateEntityId();
 

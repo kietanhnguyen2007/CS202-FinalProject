@@ -240,25 +240,58 @@ void GameView::Update(float dt) {
 
 // ── Background Parallax ────────────────────────────────────────────
 
-void GameView::LoadBackgrounds() {
-    const struct { const char* file; float speed; } forestLayers[] = {
-        {"assets/textures/backgrounds/forest/far.png",        0.05f},
-        {"assets/textures/backgrounds/forest/main.png",       0.15f},
-        {"assets/textures/backgrounds/forest/tree_dark.png",   0.30f},
-        {"assets/textures/backgrounds/forest/tree_golden.png", 0.45f},
-        {"assets/textures/backgrounds/forest/tree_green.png",  0.60f},
-        {"assets/textures/backgrounds/forest/tree_red.png",    0.75f},
-        {"assets/textures/backgrounds/forest/tree_yellow.png", 0.90f},
-    };
-    const int layerCount = sizeof(forestLayers) / sizeof(forestLayers[0]);
+void GameView::LoadBackgrounds(BackgroundTheme theme) {
+    // Unload current set before loading new one
+    for (auto& bgSet : m_backgrounds)
+        for (auto& layer : bgSet)
+            UnloadTexture(layer.tex);
+    m_backgrounds.clear();
 
+    struct LayerDef { const char* file; float speed; };
+
+    // ── Forest (Ansimuz Parallax Forest v2) ──────────────────────────
+    static const LayerDef kForest[] = {
+        {"assets/textures/backgrounds/forest/back.png",   0.10f},
+        {"assets/textures/backgrounds/forest/middle.png", 0.30f},
+        {"assets/textures/backgrounds/forest/front.png",  0.60f},
+    };
+    // ── Cold Corridor (Ansimuz Gothicvania Cold Corridors) ────────────
+    static const LayerDef kColdCorridor[] = {
+        {"assets/textures/backgrounds/cold_corridor/back.png",       0.05f},
+        {"assets/textures/backgrounds/cold_corridor/far.png",        0.15f},
+        {"assets/textures/backgrounds/cold_corridor/middle.png",     0.30f},
+        {"assets/textures/backgrounds/cold_corridor/near.png",       0.50f},
+        {"assets/textures/backgrounds/cold_corridor/foreground.png", 0.75f},
+    };
+    // ── Underwater (Ansimuz Underwater Fantasy) ───────────────────────
+    static const LayerDef kUnderwater[] = {
+        {"assets/textures/backgrounds/underwater/far.png",          0.05f},
+        {"assets/textures/backgrounds/underwater/foreground_1.png", 0.20f},
+        {"assets/textures/backgrounds/underwater/foreground_2.png", 0.40f},
+        {"assets/textures/backgrounds/underwater/sand.png",         0.70f},
+    };
+
+    struct ThemeEntry { const LayerDef* layers; int count; };
+    static const ThemeEntry kThemes[] = {
+        { kForest,       3 },   // BackgroundTheme::Forest
+        { kColdCorridor, 5 },   // BackgroundTheme::ColdCorridor
+        { kUnderwater,   4 },   // BackgroundTheme::Underwater
+    };
+
+    int idx = static_cast<int>(theme);
+    const int themeCount = static_cast<int>(sizeof(kThemes) / sizeof(kThemes[0]));
+    if (idx < 0 || idx >= themeCount) idx = 0;
+
+    const ThemeEntry& entry = kThemes[idx];
     m_backgrounds.resize(1);
-    for (int l = 0; l < layerCount; ++l) {
+    m_backgrounds[0].clear();
+    for (int l = 0; l < entry.count; ++l) {
         BGLayerInfo info;
-        info.tex = ::LoadTexture(forestLayers[l].file);
-        info.parallaxSpeed = forestLayers[l].speed;
+        info.tex           = ::LoadTexture(entry.layers[l].file);
+        info.parallaxSpeed = entry.layers[l].speed;
         m_backgrounds[0].push_back(info);
     }
+    m_activeBgIndex = 0;
 }
 
 void GameView::SetActiveBackground(int index) {

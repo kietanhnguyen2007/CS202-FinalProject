@@ -70,7 +70,15 @@ void GameController::LoadTilesets() {
     gv.LoadTileset(4, "assets/textures/tiles/Interior-01.png", 25);
     gv.LoadTileset(5, "assets/textures/tiles/Props-Rocks.png", 18);
     gv.LoadTileset(6, "assets/textures/tiles/Tree-Assets.png", 21);
-    gv.LoadBackgrounds();
+    // TODO(map-builder): chọn BackgroundTheme dựa theo level/biome của map.
+    // Ví dụ:
+    //   BackgroundTheme theme = BackgroundTheme::Forest;       // level rừng
+    //   BackgroundTheme theme = BackgroundTheme::ColdCorridor; // level lâu đài
+    //   BackgroundTheme theme = BackgroundTheme::Underwater;   // level nước
+    // Sau đó:
+    //   m_gameState->SetBackgroundTheme(theme);
+    //   gv.LoadBackgrounds(theme);
+    gv.LoadBackgrounds(); // tạm dùng Forest mặc định
 }
 
 std::string GameController::GetLevelPath(int levelNumber) const {

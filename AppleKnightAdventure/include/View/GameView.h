@@ -3,6 +3,7 @@
 #include "raylib.h"
 #include "Utils/Types.h"
 #include "Utils/Constants.h"
+#include "Model/GameState.h"
 #include <vector>
 #include <string>
 #include <unordered_map>
@@ -29,7 +30,7 @@ public:
     void RenderTilemap(const std::vector<Tile>& tiles);
 
     // Background parallax
-    void LoadBackgrounds();
+    void LoadBackgrounds(BackgroundTheme theme = BackgroundTheme::Forest);
     void SetActiveBackground(int index);
     void RenderBackground(const Camera2D& cam);
 

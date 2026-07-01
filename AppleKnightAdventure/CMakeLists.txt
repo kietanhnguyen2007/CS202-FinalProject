@@ -10,13 +10,21 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON) # Helpful for VS Code IntelliSense
 # 3. Third-Party Dependencies (Remote)
 include(FetchContent)
 
-# Fetch nlohmann_json (Fixed Version)
+# Fetch nlohmann_json
 FetchContent_Declare(
     json
     GIT_REPOSITORY https://github.com/nlohmann/json.git
     GIT_TAG v3.11.3
 )
 FetchContent_MakeAvailable(json)
+
+# Fetch raylib (fixes MinGW stat64i32 undefined reference by building from source)
+FetchContent_Declare(
+    raylib
+    GIT_REPOSITORY https://github.com/raysan5/raylib.git
+    GIT_TAG 5.0
+)
+FetchContent_MakeAvailable(raylib)
 
 # 4. Find all source files safely
 # Watches the src tree recursively. If you add a new .cpp file, CMake will auto-reconfigure!
@@ -25,14 +33,12 @@ file(GLOB_RECURSE SRC_FILES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*
 # 5. Create the main executable
 add_executable(AppleKnightAdventure ${SRC_FILES})
 
-# 6. Add include directories (Project headers + Local Raylib headers)
+# 6. Add include directories (Project headers)
 target_include_directories(AppleKnightAdventure PRIVATE 
     include 
-    raylib/include
 )
 
-# 7. Add library directories (Local Raylib library files)
-target_link_directories(AppleKnightAdventure PRIVATE raylib/lib)
+# Note: raylib include and lib directories are automatically handled by target_link_libraries
 
 # 8. Link your libraries (JSON, Local Raylib, and required Windows libraries)
 target_link_libraries(AppleKnightAdventure PRIVATE 
