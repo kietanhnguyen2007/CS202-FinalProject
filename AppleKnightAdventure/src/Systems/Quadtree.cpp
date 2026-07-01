@@ -49,12 +49,13 @@ bool QuadtreeNode::Insert(Entity* entity) {
         Subdivide();
     }
 
+    bool inserted = false;
     for (int i = 0; i < 4; ++i) {
         if (children[i]->Insert(entity)) {
-            return true;
+            inserted = true;
         }
     }
-    return false;
+    return inserted;
 }
 
 void QuadtreeNode::Query(Rectangle range, std::vector<Entity*>& result) const {

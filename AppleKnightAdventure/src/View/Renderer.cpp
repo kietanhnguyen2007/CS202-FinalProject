@@ -365,6 +365,7 @@ void Renderer::EndFrameAndFlush() {
             ::DrawTexturePro(*cmd.m_texture, src, dest, origin, cmd.m_rotation, cmd.m_tint);
             m_drawCalls++;
         }
+        lb.count = 0;
     }
 }
 

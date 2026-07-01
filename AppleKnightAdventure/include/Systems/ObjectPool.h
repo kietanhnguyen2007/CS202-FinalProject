@@ -3,18 +3,19 @@
 
 #include <vector>
 #include <cstddef>
+#include <memory>
 
 template<typename T>
 class ObjectPool {
 protected:
-    std::vector<T> m_pool;
+    std::vector<std::unique_ptr<T>> m_pool;
     std::vector<size_t> m_available;
 
 public:
     explicit ObjectPool(size_t initialSize = 64) {
         if (initialSize > 0) {
-            m_pool.resize(initialSize);
             for (size_t i = 0; i < initialSize; ++i) {
+                m_pool.push_back(std::make_unique<T>());
                 m_available.push_back(initialSize - 1 - i);
             }
         }
@@ -22,21 +23,22 @@ public:
 
     T* Acquire() {
         if (m_available.empty()) {
-            m_pool.emplace_back();
-            return &m_pool.back();
+            m_pool.push_back(std::make_unique<T>());
+            return m_pool.back().get();
         }
         size_t index = m_available.back();
         m_available.pop_back();
-        T* obj = &m_pool[index];
+        T* obj = m_pool[index].get();
         *obj = T();
         return obj;
     }
 
     bool Release(T* obj) {
-        ptrdiff_t index = obj - m_pool.data();
-        if (index >= 0 && index < static_cast<ptrdiff_t>(m_pool.size())) {
-            m_available.push_back(static_cast<size_t>(index));
-            return true;
+        for (size_t i = 0; i < m_pool.size(); ++i) {
+            if (m_pool[i].get() == obj) {
+                m_available.push_back(i);
+                return true;
+            }
         }
         return false;
     }
@@ -51,7 +53,9 @@ public:
     void Reserve(size_t size) {
         size_t old = m_pool.size();
         if (size > old) {
-            m_pool.resize(size);
+            for (size_t i = old; i < size; ++i) {
+                m_pool.push_back(std::make_unique<T>());
+            }
             for (size_t i = size; i > old; --i) {
                 m_available.push_back(i - 1);
             }

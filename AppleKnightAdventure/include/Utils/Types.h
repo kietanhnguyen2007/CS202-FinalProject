@@ -85,6 +85,13 @@ enum class GameMode {
     MultiplayerClient
 };
 
+enum class CharacterClass {
+    Fighter,
+    Knight,
+    Ninja,
+    MagicCaster
+};
+
 enum class BossPhase {
     Phase1,
     Phase2,

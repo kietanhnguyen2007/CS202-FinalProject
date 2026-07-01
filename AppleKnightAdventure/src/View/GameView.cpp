@@ -349,9 +349,11 @@ void GameView::Render(const Camera2D& camera, const std::vector<Particle*>& part
         cam.target.y += oy;
     }
 
-    // Render background parallax (before camera transform)
+    // 1. Submit and flush parallax background in screen space
     RenderBackground(cam);
+    r.EndFrameAndFlush();
 
+    // 2. Begin camera space rendering for world elements
     BeginMode2D(cam);
     
     // Render tilemap
@@ -364,10 +366,11 @@ void GameView::Render(const Camera2D& camera, const std::vector<Particle*>& part
 
     View::EnemyStatusRenderer::GetInstance().Render(cam);
 
+    // Flush world elements in camera space
     r.EndFrameAndFlush();
     EndMode2D();
 
-    // Floating text rendered after EndMode2D to avoid double-transform (GetWorldToScreen2D + camera transform)
+    // 3. Render screen-space overlays (Floating text, FPS, UI)
     View::FloatingTextManager::GetInstance().Render(cam);
 
     ::DrawFPS(10, 10);

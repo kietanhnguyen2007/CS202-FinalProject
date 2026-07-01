@@ -20,8 +20,17 @@ protected:
     GameMode m_mode;
     std::unique_ptr<Player> m_localPlayer;
     std::vector<std::unique_ptr<Entity>> m_entities;
+    std::vector<Tile> m_tiles;
     int m_currentLevel;
     int m_totalLevels;
+    int m_mapWidth = 0;
+    int m_mapHeight = 0;
+    int m_totalItems = 0;
+    int m_totalEnemies = 0;
+    int m_nextEntityId = 1;
+    float m_clearTime = 0.0f;
+    bool m_timerRunning = false;
+    CharacterClass m_playerClass = CharacterClass::Knight;
 
 public:
     GameState();
@@ -41,6 +50,29 @@ public:
     int GetCurrentLevel() const;
     void SetCurrentLevel(int level);
     int GetTotalLevels() const;
+
+    void AddTile(const Tile& tile);
+    const std::vector<Tile>& GetTiles() const;
+    void ClearTiles();
+    int GetMapWidth() const;
+    int GetMapHeight() const;
+    void SetMapSize(int width, int height);
+
+    int GetTotalItems() const;
+    void SetTotalItems(int count);
+    int GetTotalEnemies() const;
+    void SetTotalEnemies(int count);
+
+    float GetClearTime() const;
+    void ResetTimer();
+    void StopTimer();
+    void SetTimerRunning(bool running);
+    void TickTimer(float deltaTime);
+
+    CharacterClass GetPlayerClass() const;
+    void SetPlayerClass(CharacterClass playerClass);
+
+    int GenerateEntityId();
 
     void Update(float deltaTime);
     void Clear();

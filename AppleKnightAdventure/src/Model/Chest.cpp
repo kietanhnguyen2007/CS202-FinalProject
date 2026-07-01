@@ -11,10 +11,11 @@ Chest::Chest()
 }
 
 Chest::Chest(Vector2 position)
-    : Entity(position, {TILE_SIZE * 0.8f, TILE_SIZE * 0.6f}, EntityType::Chest)
+    : Entity(position, {TILE_SIZE * 0.9f, TILE_SIZE * 0.7f}, EntityType::Chest)
     , m_opened(false)
     , m_lootGenerated(false)
 {
+    m_scale = 1.3f; // Make it significantly bigger visually
 }
 
 void Chest::Update(float deltaTime) {

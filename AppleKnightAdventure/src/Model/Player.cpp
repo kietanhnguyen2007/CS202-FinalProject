@@ -12,13 +12,14 @@ Player::Player()
 }
 
 Player::Player(Vector2 position)
-    : Character(position, {TILE_SIZE * 0.8f, TILE_SIZE * 0.9f}, EntityType::Player)
+    : Character(position, {TILE_SIZE * 0.5f, TILE_SIZE * 0.9f}, EntityType::Player)
     , m_score(0)
     , m_skillPoints(0)
 {
     m_speed = PLAYER_SPEED;
     m_maxHealth = PLAYER_MAX_HEALTH;
     m_health = m_maxHealth;
+    m_direction = Direction::Right;
 }
 
 void Player::Update(float deltaTime) {

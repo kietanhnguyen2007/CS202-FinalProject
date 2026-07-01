@@ -4,7 +4,7 @@
 GameState::GameState()
     : m_mode(GameMode::SinglePlayer)
     , m_currentLevel(1)
-    , m_totalLevels(1)
+    , m_totalLevels(6)
 {
 }
 
@@ -21,10 +21,16 @@ void GameState::SetMode(GameMode mode) { m_mode = mode; }
 Player* GameState::GetLocalPlayer() const { return m_localPlayer.get(); }
 
 void GameState::SetLocalPlayer(std::unique_ptr<Player> player) {
+    if (player && player->GetId() == 0) {
+        player->SetId(GenerateEntityId());
+    }
     m_localPlayer = std::move(player);
 }
 
 void GameState::AddEntity(std::unique_ptr<Entity> entity) {
+    if (entity && entity->GetId() == 0) {
+        entity->SetId(GenerateEntityId());
+    }
     m_entities.push_back(std::move(entity));
 }
 
@@ -51,6 +57,36 @@ int GameState::GetCurrentLevel() const { return m_currentLevel; }
 void GameState::SetCurrentLevel(int level) { m_currentLevel = level; }
 int GameState::GetTotalLevels() const { return m_totalLevels; }
 
+void GameState::AddTile(const Tile& tile) { m_tiles.push_back(tile); }
+const std::vector<Tile>& GameState::GetTiles() const { return m_tiles; }
+void GameState::ClearTiles() { m_tiles.clear(); }
+int GameState::GetMapWidth() const { return m_mapWidth; }
+int GameState::GetMapHeight() const { return m_mapHeight; }
+void GameState::SetMapSize(int width, int height) {
+    m_mapWidth = width;
+    m_mapHeight = height;
+}
+
+int GameState::GetTotalItems() const { return m_totalItems; }
+void GameState::SetTotalItems(int count) { m_totalItems = count; }
+int GameState::GetTotalEnemies() const { return m_totalEnemies; }
+void GameState::SetTotalEnemies(int count) { m_totalEnemies = count; }
+
+float GameState::GetClearTime() const { return m_clearTime; }
+void GameState::ResetTimer() { m_clearTime = 0.0f; m_timerRunning = true; }
+void GameState::StopTimer() { m_timerRunning = false; }
+void GameState::SetTimerRunning(bool running) { m_timerRunning = running; }
+void GameState::TickTimer(float deltaTime) {
+    if (m_timerRunning) {
+        m_clearTime += deltaTime;
+    }
+}
+
+CharacterClass GameState::GetPlayerClass() const { return m_playerClass; }
+void GameState::SetPlayerClass(CharacterClass playerClass) { m_playerClass = playerClass; }
+
+int GameState::GenerateEntityId() { return m_nextEntityId++; }
+
 void GameState::Update(float deltaTime) {
     if (m_localPlayer) {
         m_localPlayer->Update(deltaTime);
@@ -63,4 +99,8 @@ void GameState::Update(float deltaTime) {
 void GameState::Clear() {
     m_entities.clear();
     m_localPlayer.reset();
+    m_tiles.clear();
+    m_nextEntityId = 1;
+    m_clearTime = 0.0f;
+    m_timerRunning = false;
 }

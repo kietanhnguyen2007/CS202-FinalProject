@@ -15,7 +15,7 @@ Enemy::Enemy()
 }
 
 Enemy::Enemy(Vector2 position, EnemyType type)
-    : Character(position, {TILE_SIZE * 0.7f, TILE_SIZE * 0.8f}, EntityType::Enemy)
+    : Character(position, {TILE_SIZE * 0.8f * 1.7f, TILE_SIZE * 0.9f * 1.7f}, EntityType::Enemy)
     , m_enemyType(type)
     , m_state(EnemyState::Idle)
     , m_damage(10)
@@ -82,6 +82,9 @@ void Enemy::SetState(EnemyState state) {
     m_stateTimer = 0.0f;
 }
 
+float Enemy::GetStateTimer() const { return m_stateTimer; }
+void Enemy::SetStateTimer(float timer) { m_stateTimer = timer; }
+
 int Enemy::GetDamage() const { return m_damage; }
 void Enemy::SetDamage(int damage) { m_damage = damage; }
 
@@ -118,8 +121,11 @@ void Enemy::UpdateAI(Vector2 playerPosition, float deltaTime) {
             }
             break;
 
-        case EnemyState::Chase:
-            if (dist <= m_attackRange) {
+        case EnemyState::Chase: {
+            float distFromSpawn = std::abs(m_position.x - m_spawnPosition.x);
+            if (distFromSpawn > m_patrolRange * 1.5f) {
+                SetState(EnemyState::Patrol);
+            } else if (dist <= m_attackRange) {
                 SetState(EnemyState::Attack);
             } else if (dist > m_detectionRange * 1.5f) {
                 SetState(EnemyState::Patrol);
@@ -127,10 +133,24 @@ void Enemy::UpdateAI(Vector2 playerPosition, float deltaTime) {
                 Chase(playerPosition, deltaTime);
             }
             break;
+        }
 
-        case EnemyState::Attack:
-            Chase(playerPosition, deltaTime);
-            if (dist > m_attackRange * 1.2f) {
+        case EnemyState::Attack: {
+            float distFromSpawn = std::abs(m_position.x - m_spawnPosition.x);
+            if (distFromSpawn > m_patrolRange * 1.5f) {
+                SetState(EnemyState::Patrol);
+            } else {
+                Chase(playerPosition, deltaTime);
+                if (dist > m_attackRange * 1.2f) {
+                    SetState(EnemyState::Chase);
+                }
+            }
+            break;
+        }
+
+        case EnemyState::Hurt:
+            m_stateTimer += deltaTime;
+            if (m_stateTimer >= 0.4f) {
                 SetState(EnemyState::Chase);
             }
             break;
@@ -144,19 +164,22 @@ void Enemy::Patrol(float deltaTime) {
     m_stateTimer += deltaTime;
     float patrolX = m_spawnPosition.x + std::sin(m_stateTimer) * m_patrolRange;
     float dirX = (patrolX > m_position.x) ? 1.0f : -1.0f;
-    Move({dirX, 0}, deltaTime);
+    MoveX(dirX, deltaTime); // Use MoveX to preserve gravity (vel.y)
     m_direction = (dirX > 0) ? Direction::Right : Direction::Left;
 }
 
 void Enemy::Chase(Vector2 playerPosition, float deltaTime) {
     float dx = playerPosition.x - m_position.x;
-    float dy = playerPosition.y - m_position.y;
-    float dist = std::sqrt(dx * dx + dy * dy);
-    if (dist > 0) {
-        Vector2 dir = {dx / dist, dy / dist};
-        Move(dir, deltaTime);
-        m_direction = (dx > 0) ? Direction::Right : Direction::Left;
+    float dirX = (dx > 0) ? 1.0f : -1.0f;
+    
+    if (m_enemyType == EnemyType::Flying) {
+        float dy = playerPosition.y - m_position.y;
+        float dist = std::sqrt(dx * dx + dy * dy);
+        if (dist > 0) Move({dx / dist, dy / dist}, deltaTime); // Flying: full 2D movement
+    } else {
+        MoveX(dirX, deltaTime); // Ground: only horizontal, preserve gravity vel.y
     }
+    m_direction = (dx > 0) ? Direction::Right : Direction::Left;
 }
 
 void Enemy::Attack() {

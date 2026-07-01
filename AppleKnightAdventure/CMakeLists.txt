@@ -1,39 +1,58 @@
-cmake_minimum_required(VERSION 3.16)
-project(AppleKnightAdventure VERSION 1.0.0 LANGUAGES CXX)
+# 1. Project Setup
+cmake_minimum_required(VERSION 3.10)
+project(AppleKnightAdventure)
 
+# 2. C++ Standard Configuration
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-# Bring in nlohmann_json via FetchContent
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON) # Helpful for VS Code IntelliSense
+
+# 3. Third-Party Dependencies (Remote)
 include(FetchContent)
+
+# Fetch nlohmann_json (Fixed Version)
 FetchContent_Declare(
-  nlohmann_json
-  GIT_REPOSITORY https://github.com/nlohmann/json.git
-  GIT_TAG v3.11.2
+    json
+    GIT_REPOSITORY https://github.com/nlohmann/json.git
+    GIT_TAG v3.11.3
 )
-FetchContent_MakeAvailable(nlohmann_json)
+FetchContent_MakeAvailable(json)
 
-# Link local raylib (dynamic)
-add_library(raylib SHARED IMPORTED)
-set_target_properties(raylib PROPERTIES
-  IMPORTED_IMPLIB "${CMAKE_SOURCE_DIR}/raylib/lib/libraylibdll.a"
-  IMPORTED_LOCATION "${CMAKE_SOURCE_DIR}/raylib/lib/raylib.dll"
-  INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_SOURCE_DIR}/raylib/include"
+# 4. Find all source files safely
+# Watches the src tree recursively. If you add a new .cpp file, CMake will auto-reconfigure!
+file(GLOB_RECURSE SRC_FILES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
+
+# 5. Create the main executable
+add_executable(AppleKnightAdventure ${SRC_FILES})
+
+# 6. Add include directories (Project headers + Local Raylib headers)
+target_include_directories(AppleKnightAdventure PRIVATE 
+    include 
+    raylib/include
 )
 
-file(GLOB_RECURSE SOURCES src/*.cpp include/*.h)
+# 7. Add library directories (Local Raylib library files)
+target_link_directories(AppleKnightAdventure PRIVATE raylib/lib)
 
-add_executable(AppleKnightAdventure ${SOURCES})
-set_target_properties(AppleKnightAdventure PROPERTIES WIN32_EXECUTABLE FALSE)
-
-target_include_directories(AppleKnightAdventure PRIVATE include)
-target_link_libraries(AppleKnightAdventure PRIVATE raylib nlohmann_json::nlohmann_json winmm ws2_32)
-target_link_options(AppleKnightAdventure PRIVATE -mconsole)
-
-add_custom_command(TARGET AppleKnightAdventure POST_BUILD
-  COMMAND ${CMAKE_COMMAND} -E copy_if_different
-    "${CMAKE_SOURCE_DIR}/raylib/lib/raylib.dll"
-    $<TARGET_FILE_DIR:AppleKnightAdventure>
-  COMMAND ${CMAKE_COMMAND} -E copy_directory
-    "${CMAKE_SOURCE_DIR}/assets"
-    "$<TARGET_FILE_DIR:AppleKnightAdventure>/assets"
+# 8. Link your libraries (JSON, Local Raylib, and required Windows libraries)
+target_link_libraries(AppleKnightAdventure PRIVATE 
+    nlohmann_json::nlohmann_json 
+    raylib 
+    opengl32 
+    gdi32 
+    winmm
+    ws2_32
 )
+
+# 9. Create symlink/junction for assets in the build folder
+if(NOT EXISTS "${CMAKE_CURRENT_BINARY_DIR}/assets")
+    if(WIN32)
+        # Convert forward slashes to native backslashes for cmd compatibility
+        file(TO_NATIVE_PATH "${CMAKE_CURRENT_BINARY_DIR}/assets" NATIVE_LINK)
+        file(TO_NATIVE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/assets" NATIVE_TARGET)
+        # Use a directory junction on Windows (no admin privileges required)
+        execute_process(COMMAND cmd /c mklink /j "${NATIVE_LINK}" "${NATIVE_TARGET}")
+    else()
+        execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink "${CMAKE_CURRENT_SOURCE_DIR}/assets" "${CMAKE_CURRENT_BINARY_DIR}/assets")
+    endif()
+endif()

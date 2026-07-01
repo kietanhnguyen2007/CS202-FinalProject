@@ -82,7 +82,7 @@ void ParticleRenderer::Shutdown() {
     m_initialized = false;
 }
 
-void ParticleRenderer::EmitBurst(Vector2 pos, int count) {
+void ParticleRenderer::EmitBurst(Vector2 pos, int count, Color color) {
     if (!m_initialized) return;
     for (int i = 0; i < count; ++i) {
         float ang = ((float)i / (float)count) * 2.0f * 3.14159f;
@@ -90,7 +90,7 @@ void ParticleRenderer::EmitBurst(Vector2 pos, int count) {
         SimpleParticle p;
         p.pos = pos;
         p.vel = { cosf(ang) * spd, sinf(ang) * spd };
-        p.color = (Color){200, 180, 160, 255};
+        p.color = color;
         p.life = 0.8f + ((rand() % 100) / 200.0f);
         s_debris.push_back(p);
     }

@@ -76,11 +76,15 @@ Character::State Character::GetState() const { return m_state; }
 
 void Character::SetState(State state) { m_state = state; }
 
-void Character::Move(Vector2 dir, float deltaTime) {
+// Move sets BOTH axes - only call this for directional movement where Y is intentional
+void Character::Move(Vector2 dir, float /*deltaTime*/) {
     m_velocity.x = dir.x * m_speed;
     m_velocity.y = dir.y * m_speed;
-    m_position.x += m_velocity.x * deltaTime;
-    m_position.y += m_velocity.y * deltaTime;
+}
+
+// MoveX sets ONLY horizontal velocity, leaving gravity (vel.y) untouched
+void Character::MoveX(float dirX, float /*deltaTime*/) {
+    m_velocity.x = dirX * m_speed;
 }
 
 float Character::GetAttackCooldown() const { return m_attackCooldown; }
@@ -99,15 +103,15 @@ Rectangle Character::GetAttackBoundingBox() const {
     Rectangle box = GetBoundingBox();
     switch (m_direction) {
         case Direction::Right:
-            return {box.x + box.width, box.y, box.width, box.height};
+            return {box.x + box.width * 0.5f, box.y, box.width * 1.5f, box.height};
         case Direction::Left:
-            return {box.x - box.width, box.y, box.width, box.height};
+            return {box.x - box.width, box.y, box.width * 1.5f, box.height};
         case Direction::Up:
             return {box.x, box.y - box.height, box.width, box.height};
         case Direction::Down:
             return {box.x, box.y + box.height, box.width, box.height};
         default:
-            return box;
+            return {box.x + box.width * 0.5f, box.y, box.width * 1.5f, box.height}; // Default Right
     }
 }
 

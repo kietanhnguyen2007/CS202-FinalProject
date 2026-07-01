@@ -1,0 +1,16 @@
+{
+    "clips":  {
+
+              },
+    "frames":  {
+                   "default":  {
+                                   "frame":  {
+                                                 "y":  0,
+                                                 "w":  96,
+                                                 "h":  32,
+                                                 "x":  0
+                                             }
+                               }
+               },
+    "image":  "menu_button.png"
+}

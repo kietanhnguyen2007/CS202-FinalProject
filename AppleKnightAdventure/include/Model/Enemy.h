@@ -25,6 +25,8 @@ public:
     EnemyType GetEnemyType() const;
     EnemyState GetState() const;
     void SetState(EnemyState state);
+    float GetStateTimer() const;
+    void SetStateTimer(float timer);
 
     int GetDamage() const;
     void SetDamage(int damage);

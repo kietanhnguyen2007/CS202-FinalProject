@@ -1,0 +1,71 @@
+{
+    "clips": {
+        "attack_2": {
+            "loop": false,
+            "frames": [
+                "attack2_0",
+                "attack2_1",
+                "attack2_2",
+                "attack2_3",
+                "attack2_4"
+            ],
+            "durations": [
+                0.083,
+                0.083,
+                0.083,
+                0.083,
+                0.083
+            ]
+        },
+        "skill": {
+            "loop": false,
+            "frames": [
+                "attack2_0",
+                "attack2_1",
+                "attack2_2",
+                "attack2_3",
+                "attack2_4"
+            ],
+            "durations": [
+                0.083,
+                0.083,
+                0.083,
+                0.083,
+                0.083
+            ]
+        }
+    },
+    "frames": {
+        "attack2_0": {
+            "x": 0,
+            "y": 0,
+            "w": 220,
+            "h": 143
+        },
+        "attack2_1": {
+            "x": 221,
+            "y": 0,
+            "w": 228,
+            "h": 143
+        },
+        "attack2_2": {
+            "x": 450,
+            "y": 0,
+            "w": 184,
+            "h": 144
+        },
+        "attack2_3": {
+            "x": 635,
+            "y": 0,
+            "w": 160,
+            "h": 156
+        },
+        "attack2_4": {
+            "x": 796,
+            "y": 0,
+            "w": 160,
+            "h": 158
+        }
+    },
+    "image": "attack2.png"
+}

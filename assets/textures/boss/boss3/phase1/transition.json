@@ -1,0 +1,44 @@
+{
+    "clips": {
+        "transition": {
+            "loop": false,
+            "frames": [
+                "transition_0",
+                "transition_1",
+                "transition_2"
+            ],
+            "durations": [
+                1.667,
+                1.667,
+                1.667
+            ]
+        }
+    },
+    "frames": {
+        "transition_0": {
+            "frame": {
+                "y": 0,
+                "w": 125,
+                "h": 135,
+                "x": 0
+            }
+        },
+        "transition_1": {
+            "frame": {
+                "y": 0,
+                "w": 125,
+                "h": 135,
+                "x": 125
+            }
+        },
+        "transition_2": {
+            "frame": {
+                "y": 0,
+                "w": 125,
+                "h": 135,
+                "x": 250
+            }
+        }
+    },
+    "image": "transition.png"
+}

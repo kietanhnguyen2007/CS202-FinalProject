@@ -19,7 +19,7 @@ public:
     static ParticleRenderer& GetInstance();
 
     void RenderAll(const std::vector<Particle*>& particles, const Camera2D& camera, float dt);
-    void EmitBurst(Vector2 pos, int count = 8);
+    void EmitBurst(Vector2 pos, int count = 8, Color color = {200, 180, 160, 255});
     void EmitReaction(Vector2 pos, ReactionType type);
     void Shutdown();
 

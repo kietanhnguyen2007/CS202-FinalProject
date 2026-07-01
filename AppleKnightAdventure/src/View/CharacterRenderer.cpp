@@ -269,6 +269,25 @@ void CharacterRenderer::RenderAll() {
         const Entity* entity = it->second;
         if (!entity || !entity->IsActive() || !animator.HasTexture()) continue;
 
+        Vector2 pos = entity->GetPosition();
+        Vector2 size = entity->GetSize();
+        float baseScale = entity->GetScale();
+
+        // Calculate visual scale to keep Knight, enemies, and bosses proportioned to 32x32 tiles
+        float visualScale = baseScale;
+        if (entity->GetType() == EntityType::Player || entity->GetType() == EntityType::DualWorldPlayer) {
+            visualScale = 0.6f;      // Player: smaller character
+        } else if (entity->GetType() == EntityType::Enemy) {
+            visualScale = 0.6f * 1.7f * 2.0f; // Enemy: large, same as big tiles
+        } else if (entity->GetType() == EntityType::Boss) {
+            visualScale = 0.77f * 1.7f * 2.0f;
+        }
+
+        // Bounding box bottom center
+        Vector2 bottomCenter = { pos.x + size.x * 0.5f * baseScale, pos.y + size.y * baseScale };
+        Rectangle srcRect = animator.GetCurrentSrcRect();
+        Vector2 customOrigin = { srcRect.width * 0.5f * visualScale, srcRect.height * visualScale };
+
         // If aura frame exists in the entity atlas for current element, draw it behind the character
         auto tint = View::ElementalFX::GetInstance().GetTintForEntity(id);
         auto atlasIt = m_entityAtlas.find(id);
@@ -287,7 +306,8 @@ void CharacterRenderer::RenderAll() {
                 if (!frameName.empty() && atlas->HasFrame(frameName)) {
                     Rectangle src = atlas->GetFrameRect(frameName);
                     Texture2D* tex = atlas->GetTexture();
-                    View::Renderer::GetInstance().SubmitSprite(tex, src, entity->GetPosition(), {entity->GetScale(), entity->GetScale()}, 0.0f, {src.width*0.5f, src.height*0.5f}, WHITE, View::Layer::World, -0.01f, false, id);
+                    Vector2 auraOrigin = { src.width * 0.5f, src.height };
+                    View::Renderer::GetInstance().SubmitSprite(tex, src, bottomCenter, {visualScale, visualScale}, 0.0f, auraOrigin, WHITE, View::Layer::World, -0.01f, false, id);
                 }
             }
         }
@@ -300,11 +320,11 @@ void CharacterRenderer::RenderAll() {
         // Draw the character to the screen using Renderer::GetInstance().SubmitSprite()
         View::Renderer::GetInstance().SubmitSprite(
             animator.GetCurrentTexture(),
-            animator.GetCurrentSrcRect(),
-            entity->GetPosition(),
-            {entity->GetScale(), entity->GetScale()},
+            srcRect,
+            bottomCenter,
+            {visualScale, visualScale},
             entity->GetRotation(),
-            animator.GetCurrentOrigin(),
+            customOrigin,
             tint,
             View::Layer::World,
             0.0f,
@@ -417,18 +437,25 @@ void CharacterRenderer::RenderBossPhaseOverlay(uint32_t entityId, const Entity* 
     if (atlas->HasFrame(glowFrame)) {
         Rectangle src = atlas->GetFrameRect(glowFrame);
         Texture2D* tex = atlas->GetTexture();
-        float sc = entity->GetScale();
-        // Enraged boss gets slightly larger
-        if (phaseIt->second == BossPhase::Enraged) sc *= 1.3f;
+        
+        Vector2 pos = entity->GetPosition();
+        Vector2 size = entity->GetSize();
+        float baseScale = entity->GetScale();
+        
+        float visualScale = 0.77f; // Boss visual scale matches RenderAll
+        if (phaseIt->second == BossPhase::Enraged) visualScale *= 1.3f;
+        
+        Vector2 bottomCenter = { pos.x + size.x * 0.5f * baseScale, pos.y + size.y * baseScale };
+        Vector2 overlayOrigin = { src.width * 0.5f, src.height };
         
         // Lấy thông tin flipX từ animator để overlay lật mặt trùng với Boss
         auto animIt = m_animators.find(entityId);
         bool isFlipped = (animIt != m_animators.end()) ? animIt->second.GetFlipX() : false;
 
         View::Renderer::GetInstance().SubmitSprite(
-            tex, src, entity->GetPosition(),
-            {sc, sc}, 0.0f,
-            {src.width * 0.5f, src.height * 0.5f},
+            tex, src, bottomCenter,
+            {visualScale, visualScale}, 0.0f,
+            overlayOrigin,
             glowColor, View::Layer::Foreground, -0.02f, isFlipped, entityId);
     }
 }

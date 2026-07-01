@@ -52,6 +52,7 @@ public:
     void SetState(State state);
 
     void Move(Vector2 dir, float deltaTime);
+    void MoveX(float dirX, float deltaTime); // Horizontal-only move, preserves gravity velocity
 
     float GetAttackCooldown() const;
     void SetAttackCooldown(float cooldown);
