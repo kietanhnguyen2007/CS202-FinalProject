@@ -1,6 +1,8 @@
 #include "View/CharacterRenderer.h"
 #include "View/ElementalFX.h"
 #include "Model/Character.h"
+#include "Model/Enemy.h"
+#include "View/AssetManager.h"
 #include <iostream>
 #include <cmath>
 #include <cassert>
@@ -17,13 +19,12 @@ bool CharacterRenderer::PreloadAtlas(const std::string& atlasPath) {
         return true; // Đã load rồi
     }
 
-    auto atlas = Animations::TextureAtlas::LoadFromJSON(atlasPath);
+    auto atlas = AssetManager::GetInstance().GetAtlas(atlasPath);
     if (!atlas) {
         std::cerr << "[CharacterRenderer] Preload failed: " << atlasPath << "\n";
         return false;
     }
     
-    atlas->LoadTexture();
     m_atlasCache.emplace(atlasPath, std::move(atlas));
     return true;
 }
@@ -48,7 +49,9 @@ bool CharacterRenderer::Register(const Entity* entity,
     // Load or retrieve atlas from cache
     auto atlasIt = m_atlasCache.find(atlasPath);
     if (atlasIt == m_atlasCache.end()) {
-        if (!PreloadAtlas(atlasPath)) return false;
+        auto loaded = AssetManager::GetInstance().GetAtlas(atlasPath);
+        if (!loaded) return false;
+        m_atlasCache[atlasPath] = loaded;
         atlasIt = m_atlasCache.find(atlasPath);
     }
 
@@ -69,9 +72,10 @@ bool CharacterRenderer::Register(const Entity* entity,
         ActionConfig& cfg = m_actionConfigs[EntityType::Pet];
         if (cfg.clipMap.empty()) {
             cfg.clipMap[ACTION_IDLE] = "idle";
-            cfg.clipMap[ACTION_WALK] = "walk";
+            cfg.clipMap[ACTION_WALK] = "move";
             cfg.clipMap[ACTION_ATTACK] = "attack";
             cfg.clipMap[ACTION_DEAD] = "dead";
+            cfg.clipMap[ACTION_SKILL] = "healing";
         }
         if (!cfg.inferAction) {
             cfg.inferAction = [](const Entity* e)->int {
@@ -216,6 +220,8 @@ void CharacterRenderer::UpdateAll(float dt) {
                 case Character::State::Jump:   clipName = "jump"; break;
                 case Character::State::Fall:   clipName = "fall"; break;
                 case Character::State::Attack: clipName = "attack"; break;
+                case Character::State::Attack2: clipName = "attack_2"; break;
+                case Character::State::Attack3: clipName = "attack_3"; break;
                 case Character::State::Hurt:   clipName = "hurt"; break;
                 case Character::State::Dead:   clipName = "dead"; break;
                 case Character::State::Skill:  clipName = "skill"; break;
@@ -278,18 +284,40 @@ void CharacterRenderer::RenderAll() {
         if (entity->GetType() == EntityType::Player || entity->GetType() == EntityType::DualWorldPlayer) {
             visualScale = 0.6f;      // Player: smaller character
         } else if (entity->GetType() == EntityType::Enemy) {
-            visualScale = 0.6f * 1.7f * 2.0f; // Enemy: large, same as big tiles
+            visualScale = 0.6f * 1.7f; // Enemy: large, same as big tiles
         } else if (entity->GetType() == EntityType::Boss) {
-            visualScale = 0.77f * 1.7f * 2.0f;
+            visualScale = 0.77f * 1.7f;
         }
 
         // Bounding box bottom center
         Vector2 bottomCenter = { pos.x + size.x * 0.5f * baseScale, pos.y + size.y * baseScale };
         Rectangle srcRect = animator.GetCurrentSrcRect();
-        Vector2 customOrigin = { srcRect.width * 0.5f * visualScale, srcRect.height * visualScale };
+        
+        float originYFactor = 1.0f;
+        if (entity->GetType() == EntityType::Enemy || entity->GetType() == EntityType::Boss) {
+            originYFactor = 0.6667f; // Adjust for empty space at the bottom of the sprite frames
+        }
+        
+        Vector2 customOrigin = { srcRect.width * 0.5f * visualScale, srcRect.height * originYFactor * visualScale };
 
         // If aura frame exists in the entity atlas for current element, draw it behind the character
         auto tint = View::ElementalFX::GetInstance().GetTintForEntity(id);
+        
+        // Add flashing effect for dying enemies
+        if (entity->GetType() == EntityType::Enemy) {
+            const Enemy* enemy = static_cast<const Enemy*>(entity);
+            if (enemy->GetState() == EnemyState::Dead) {
+                float t = enemy->GetStateTimer();
+                // Blink effect for 0.5s: toggle alpha
+                if (t < 0.5f) {
+                    if (std::fmod(t, 0.1f) < 0.05f) {
+                        tint.a = 50; // transparent blink
+                    } else {
+                        tint.a = 255;
+                    }
+                }
+            }
+        }
         auto atlasIt = m_entityAtlas.find(id);
         if (atlasIt != m_entityAtlas.end()) {
             auto atlas = atlasIt->second;
@@ -442,11 +470,16 @@ void CharacterRenderer::RenderBossPhaseOverlay(uint32_t entityId, const Entity* 
         Vector2 size = entity->GetSize();
         float baseScale = entity->GetScale();
         
-        float visualScale = 0.77f; // Boss visual scale matches RenderAll
+        float visualScale = 0.77f * 1.7f; // Boss visual scale matches RenderAll
         if (phaseIt->second == BossPhase::Enraged) visualScale *= 1.3f;
         
         Vector2 bottomCenter = { pos.x + size.x * 0.5f * baseScale, pos.y + size.y * baseScale };
-        Vector2 overlayOrigin = { src.width * 0.5f, src.height };
+        
+        float originYFactor = 1.0f;
+        if (entity->GetType() == EntityType::Boss) { // Technically always true here
+            originYFactor = 0.6667f;
+        }
+        Vector2 overlayOrigin = { src.width * 0.5f * visualScale, src.height * originYFactor * visualScale };
         
         // Lấy thông tin flipX từ animator để overlay lật mặt trùng với Boss
         auto animIt = m_animators.find(entityId);
@@ -490,6 +523,12 @@ void CharacterRenderer::PlayAction(uint32_t entityId, int action) {
     switch (action) {
         case ACTION_ATTACK:
             if (!tryPlay("attack")) tryPlay("idle");
+            break;
+        case ACTION_ATTACK2:
+            if (!tryPlay("attack_2")) tryPlay("idle");
+            break;
+        case ACTION_ATTACK3:
+            if (!tryPlay("attack_3")) tryPlay("idle");
             break;
         case ACTION_HURT:
             if (!tryPlay("hurt")) { if (!tryPlay("hit")) tryPlay("idle"); }

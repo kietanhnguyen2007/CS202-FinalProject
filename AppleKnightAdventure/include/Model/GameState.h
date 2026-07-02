@@ -87,6 +87,9 @@ public:
 
     int GenerateEntityId();
 
+    void PlayerInteract();
+    bool IsLevelComplete() const;
+
     void Update(float deltaTime);
     void Clear();
 };

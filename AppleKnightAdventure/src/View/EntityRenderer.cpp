@@ -1,5 +1,6 @@
 #include "View/EntityRenderer.h"
 #include "View/Renderer.h"
+#include "View/AssetManager.h"
 #include <functional>
 #include <cassert>
 #include <iostream>
@@ -67,12 +68,11 @@ bool EntityRenderer::RegisterAnimated(const Entity* entity, const std::string& a
     if (!entity) return false;
     uint32_t id = static_cast<uint32_t>(entity->GetId());
 
-    auto atlas = Animations::TextureAtlas::LoadFromJSON(atlasPath);
+    auto atlas = AssetManager::GetInstance().GetAtlas(atlasPath);
     if (!atlas) {
         std::cerr << "[EntityRenderer] RegisterAnimated failed: " << atlasPath << "\n";
         return false;
     }
-    atlas->LoadTexture();
 
     auto& ad = m_animatedEntities[id];
     ad.entity = entity;
@@ -162,6 +162,12 @@ void EntityRenderer::SetEntityVisible(uint32_t entityId, bool visible) {
     if (it != m_entities.end()) { it->second.visible = visible; return; }
     auto ait = m_animatedEntities.find(entityId);
     if (ait != m_animatedEntities.end()) { ait->second.visible = visible; }
+}
+
+void EntityRenderer::SetClip(uint32_t entityId, const std::string& clipName) {
+    auto ait = m_animatedEntities.find(entityId);
+    if (ait == m_animatedEntities.end()) return;
+    ait->second.animator.Play(clipName);
 }
 
 } // namespace View

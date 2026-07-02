@@ -5,6 +5,7 @@
 #include "Model/Chest.h"
 #include "Model/Checkpoint.h"
 #include "Model/Item.h"
+#include "Model/KnightSkillSet.h"
 #include "View/GameView.h"
 #include "View/CharacterRenderer.h"
 #include "View/EntityRenderer.h"
@@ -59,6 +60,8 @@ bool GameController::Init() {
 
     m_running = true;
     m_returnToMenu = false;
+    LoadTilesets();
+
     return true;
 }
 
@@ -106,6 +109,8 @@ void GameController::RegisterPlayerVisuals(Player* player, CharacterClass player
     cr.MergeAtlas(id, root + "jump.json");
     cr.MergeAtlas(id, root + "run.json");
     cr.MergeAtlas(id, root + "attack1.json");
+    cr.MergeAtlas(id, root + "attack2.json");
+    cr.MergeAtlas(id, root + "attack3.json");
     cr.MergeAtlas(id, root + "hurt.json");
     cr.MergeAtlas(id, root + "dead.json");
 }
@@ -125,9 +130,16 @@ void GameController::RegisterEnemyVisuals(Enemy* enemy) {
             break;
         case EnemyType::Ranged:
             cr.Register(enemy, "assets/textures/enemies/ranged_idle.json", "idle");
+            cr.MergeAtlas(id, "assets/textures/enemies/ranged_run.json");
+            cr.MergeAtlas(id, "assets/textures/enemies/ranged.json");
+            cr.MergeAtlas(id, "assets/textures/enemies/ranged_hurt.json");
+            cr.MergeAtlas(id, "assets/textures/enemies/ranged_death.json");
             break;
         case EnemyType::Flying:
-            cr.Register(enemy, "assets/textures/enemies/flying_spritesheet.json", "idle");
+            cr.Register(enemy, "assets/textures/enemies/flying_spritesheet.json", "fly");
+            cr.MergeAtlas(id, "assets/textures/enemies/flying.json");
+            cr.MergeAtlas(id, "assets/textures/enemies/flying_hurt.json");
+            cr.MergeAtlas(id, "assets/textures/enemies/flying_death.json");
             break;
     }
 }
@@ -140,8 +152,13 @@ void GameController::RegisterChestVisuals(Chest* chest) {
 
 void GameController::RegisterCheckpointVisuals(Checkpoint* checkpoint) {
     if (!checkpoint) return;
-    View::EntityRenderer::GetInstance().RegisterAnimated(
-        checkpoint, "assets/textures/objects/checkpoint_uncaptured.json", "default");
+    if (checkpoint->IsEndGame()) {
+        View::EntityRenderer::GetInstance().RegisterAnimated(
+            checkpoint, "assets/textures/objects/checkpoint_captured.json", "default");
+    } else {
+        View::EntityRenderer::GetInstance().RegisterAnimated(
+            checkpoint, "assets/textures/objects/checkpoint_uncaptured.json", "default");
+    }
 }
 
 void GameController::RegisterItemVisuals(Item* item) {
@@ -191,6 +208,9 @@ void GameController::StartLevel(int levelNumber) {
     View::EntityRenderer::GetInstance().Clear();
     View::UIStateManager::GetInstance().Clear();
 
+    m_activePet.reset();
+    m_petProjectiles.clear();
+
     m_gameState = LevelFactory::LoadLevel(GetLevelPath(levelNumber), GameMode::SinglePlayer);
     if (!m_gameState) {
         m_gameState = LevelFactory::CreateDefaultLevel(levelNumber);
@@ -205,9 +225,9 @@ void GameController::StartLevel(int levelNumber) {
     m_levelComplete = false;
     m_paused = false;
     m_returnToMenu = false;
+    m_running = true;
     m_enemyAttackCooldown = 0.0f;
 
-    LoadTilesets();
     View::GameView::GetInstance().SetTiles(&m_gameState->GetTiles());
 
     if (Player* player = m_gameState->GetLocalPlayer()) {
@@ -350,26 +370,82 @@ void GameController::HandlePlayerInput(const InputCommand& cmd, float /*dt*/) {
     Player* player = m_gameState ? m_gameState->GetLocalPlayer() : nullptr;
     if (!player || !player->IsAlive()) return;
 
+    KnightSkillSet* skills = player->GetKnightSkills();
+    bool isLunging = skills && skills->m_isLunging;
+    bool blockMovement = player->IsDashing() || isLunging;
+
+    // --- Movement (blocked while dashing or lunging) ---
     float moveX = 0.0f;
-    if (cmd.moveLeft) moveX -= 1.0f;
-    if (cmd.moveRight) moveX += 1.0f;
+    if (!blockMovement) {
+        if (cmd.moveLeft)  moveX -= 1.0f;
+        if (cmd.moveRight) moveX += 1.0f;
+    }
 
     Vector2 vel = player->GetVelocity();
-    vel.x = moveX * PLAYER_SPEED;
+
+    // Sprint multiplier (only when not dashing/lunging)
+    float speedMult = (cmd.sprint && !blockMovement) ? Player::SPRINT_MULTIPLIER : 1.0f;
+    if (!blockMovement) {
+        vel.x = moveX * PLAYER_SPEED * speedMult;
+    }
+    player->SetSprinting(cmd.sprint && !player->IsDashing() && moveX != 0.0f);
+
     if (moveX > 0.0f) player->SetDirection(Direction::Right);
     else if (moveX < 0.0f) player->SetDirection(Direction::Left);
 
     m_playerOnGround = IsOnGround(player);
-    if (cmd.jump && m_playerOnGround) {
+    if (cmd.jump && m_playerOnGround && !player->IsDashing()) {
         vel.y = PLAYER_JUMP_FORCE;
     }
     player->SetVelocity(vel);
 
-    if (cmd.attack && player->CanAttack()) {
-        player->Attack();
-        View::CharacterRenderer::GetInstance().PlayAction(
-            static_cast<uint32_t>(player->GetId()), View::ACTION_ATTACK);
-        SoundManager::GetInstance().PlaySound("player_attack");
+    // --- Dash (L) ---
+    if (cmd.dash && player->CanDash()) {
+        bool isMoving = (cmd.moveLeft || cmd.moveRight);
+        float dirX    = (player->GetDirection() == Direction::Right) ? 1.0f : -1.0f;
+        player->StartDash(isMoving, dirX);
+    }
+
+    // --- Knight Skills ---
+    uint32_t pid = static_cast<uint32_t>(player->GetId());
+
+    if (skills && !player->IsDashing()) {
+        // Attack1 (J) — quick slash
+        if (cmd.attack && skills->TryAttack1()) {
+            player->Attack();  // syncs m_attackTimer for animation state
+            SoundManager::GetInstance().PlaySound("player_attack");
+        }
+        // Attack2 (K) — heavy strike (starts charging)
+        if (cmd.parry && skills->TryAttack2()) {
+            player->Attack2();
+            SoundManager::GetInstance().PlaySound("player_attack");
+        }
+        // Attack3 (U) — lunge thrust
+        if (cmd.skill1 && skills->TryAttack3()) {
+            player->Attack3();
+            SoundManager::GetInstance().PlaySound("player_attack");
+            // Apply lunge velocity (overrides current vel.x)
+            float lDir = 0.0f;
+            if (cmd.moveRight && !cmd.moveLeft) {
+                lDir = 1.0f;
+                player->SetDirection(Direction::Right);
+            } else if (cmd.moveLeft && !cmd.moveRight) {
+                lDir = -1.0f;
+                player->SetDirection(Direction::Left);
+            } else {
+                lDir = (player->GetDirection() == Direction::Right) ? 1.0f : -1.0f;
+            }
+            Vector2 lv = player->GetVelocity();
+            lv.x = lDir * skills->m_lungeSpeed;
+            player->SetVelocity(lv);
+        }
+    } else if (!skills) {
+        // Non-knight fallback — original single attack
+        if (cmd.attack && player->CanAttack()) {
+            player->Attack();
+            View::CharacterRenderer::GetInstance().PlayAction(pid, View::ACTION_ATTACK);
+            SoundManager::GetInstance().PlaySound("player_attack");
+        }
     }
 }
 
@@ -421,7 +497,9 @@ void GameController::UpdateEnemyAI(float dt) {
             }
         }
 
-        ApplyGravity(enemy, dt);
+        if (enemy->GetEnemyType() != EnemyType::Flying) {
+            ApplyGravity(enemy, dt);
+        }
         ResolveTileCollisions(enemy, dt);
     }
 }
@@ -430,28 +508,45 @@ void GameController::UpdateCombat(float dt) {
     Player* player = m_gameState->GetLocalPlayer();
     if (!player) return;
 
-    if (player->GetState() == Character::State::Attack) {
-        Rectangle attackBox = player->GetAttackBoundingBox();
+    KnightSkillSet* skills = player->GetKnightSkills();
+
+    // Helper lambda to deal damage to an enemy from a given hitbox
+    auto HitEnemiesInBox = [&](Rectangle attackBox, int damage) {
         for (auto& entity : m_gameState->GetAllEntities()) {
             if (entity->GetType() != EntityType::Enemy || !entity->IsActive()) continue;
             auto* enemy = static_cast<Enemy*>(entity.get());
             if (!RectOverlap(attackBox, enemy->GetBoundingBox())) continue;
-            if (enemy->GetState() == EnemyState::Hurt) continue;
+            if (enemy->GetState() == EnemyState::Hurt || enemy->GetState() == EnemyState::Dead) continue;
 
-            enemy->TakeDamage(25);
+            enemy->TakeDamage(damage);
             SoundManager::GetInstance().PlaySound("enemy_hurt");
             View::FloatingTextManager::GetInstance().Emit(
-                enemy->GetPosition(), "-25", RED, 1.0f);
-            View::ParticleRenderer::GetInstance().EmitBurst(
-                enemy->GetPosition(), 8, WHITE);
+                enemy->GetPosition(), "-" + std::to_string(damage), YELLOW, 1.0f);
+            View::ParticleRenderer::GetInstance().EmitBurst(enemy->GetPosition(), 8, WHITE);
             View::GameView::GetInstance().Shake(3.0f, 0.15f);
 
-            if (!enemy->IsActive()) {
-                OnEntityRemoved(enemy);
-            } else {
-                enemy->SetState(EnemyState::Hurt);
-            }
+            if (!enemy->IsActive()) OnEntityRemoved(enemy);
         }
+    };
+
+    if (skills) {
+        // Attack1 — standard slash box
+        if (skills->IsAttack1Active()) {
+            HitEnemiesInBox(player->GetAttackBoundingBox(), skills->attack1.damage);
+        }
+        // Attack2 — wider heavy hit box
+        if (skills->IsAttack2Active()) {
+            Rectangle heavyBox = skills->GetAttack2HitBox(
+                player->GetPosition(), player->GetSize(), player->GetDirection());
+            HitEnemiesInBox(heavyBox, skills->attack2.damage);
+        }
+        // Attack3 — player bounding box while lunging
+        if (skills->IsAttack3Active()) {
+            HitEnemiesInBox(player->GetBoundingBox(), skills->attack3.damage);
+        }
+    } else if (player->GetState() == Character::State::Attack) {
+        // Fallback for non-knight classes (hardcoded 25)
+        HitEnemiesInBox(player->GetAttackBoundingBox(), 25);
     }
 
     m_enemyAttackCooldown -= dt;
@@ -475,11 +570,14 @@ void GameController::UpdateCombat(float dt) {
         if (!enemy->CanAttack()) continue;
 
         enemy->Attack();
-        player->TakeDamage(enemy->GetDamage());
-        SoundManager::GetInstance().PlaySound("player_hurt");
-        View::FloatingTextManager::GetInstance().Emit(
-            player->GetPosition(), "-" + std::to_string(enemy->GetDamage()), RED, 1.0f);
-        View::GameView::GetInstance().Shake(4.0f, 0.2f);
+        // Invincibility from dash blocks all damage
+        if (!player->IsInvincible()) {
+            player->TakeDamage(enemy->GetDamage());
+            SoundManager::GetInstance().PlaySound("player_hurt");
+            View::FloatingTextManager::GetInstance().Emit(
+                player->GetPosition(), "-" + std::to_string(enemy->GetDamage()), RED, 1.0f);
+            View::GameView::GetInstance().Shake(4.0f, 0.2f);
+        }
         m_enemyAttackCooldown = 0.4f;
 
         if (!player->IsAlive()) {
@@ -598,14 +696,7 @@ void GameController::RespawnPlayer() {
 void GameController::CheckLevelComplete() {
     if (m_levelComplete || !m_gameState) return;
 
-    int activeEnemies = 0;
-    for (const auto& entity : m_gameState->GetAllEntities()) {
-        if (entity->GetType() == EntityType::Enemy && entity->IsActive()) {
-            activeEnemies++;
-        }
-    }
-
-    if (activeEnemies == 0 && m_defeatedEnemies >= m_gameState->GetTotalEnemies()) {
+    if (m_gameState->IsLevelComplete()) {
         m_levelComplete = true;
         m_gameState->StopTimer();
         m_scoring.SetClearTime(m_gameState->GetClearTime());
@@ -674,8 +765,19 @@ void GameController::Update(float dt) {
 
     UpdateCombat(dt);
     UpdateItems(dt);
+    UpdatePets(dt, cmd);
+    UpdateProjectiles(dt);
     m_particles.Update(dt);
     m_gameState->TickTimer(dt);
+
+    if (player && player->IsAlive()) {
+        const float mapHeight = std::max(1, m_gameState->GetMapHeight()) * TILE_SIZE;
+        if (player->GetPosition().y > mapHeight + TILE_SIZE * 2) {
+            player->TakeDamage(player->GetMaxHealth()); // Technically dies
+            SoundManager::GetInstance().PlaySound("player_hurt");
+            RespawnPlayer();
+        }
+    }
 
     if (player) {
         Vector2 center = {
@@ -713,8 +815,206 @@ void GameController::Render() {
 
 void GameController::Shutdown() {
     SoundManager::GetInstance().StopMusic("bgm_gameplay");
-    View::GameView::GetInstance().Shutdown();
-    View::HUDView::GetInstance().Shutdown();
     m_gameState.reset();
     m_running = false;
+}
+
+// ============================================================
+// Pet Management
+// ============================================================
+
+void GameController::RegisterPetVisuals(Pet* pet) {
+    if (!pet) return;
+    std::string base;
+    switch (pet->GetPetType()) {
+        case PetType::BabyDragon: base = "assets/textures/pets/baby_dragon/"; break;
+        case PetType::Ghost:      base = "assets/textures/pets/ghost/";       break;
+        case PetType::Skull:      base = "assets/textures/pets/skull/";       break;
+        case PetType::Fairy:      base = "assets/textures/pets/fairy/";       break;
+        default: return;
+    }
+    auto& cr = View::CharacterRenderer::GetInstance();
+    uint32_t id = static_cast<uint32_t>(pet->GetId());
+    
+    // Register base character rendering
+    cr.Register(pet, base + "idle.json", "idle");
+    cr.MergeAtlas(id, base + "move.json");
+    
+    if (pet->GetPetType() == PetType::BabyDragon) {
+        cr.MergeAtlas(id, base + "attack.json");
+    }
+    if (pet->GetPetType() == PetType::Ghost) {
+        cr.MergeAtlas(id, base + "healing.json");
+    }
+}
+
+void GameController::SpawnPet(PetType type) {
+    Player* player = m_gameState ? m_gameState->GetLocalPlayer() : nullptr;
+    if (!player) return;
+
+    // Ghost cannot be summoned while in combat
+    if (type == PetType::Ghost && m_inCombat) return;
+
+    DespawnPet();
+    Vector2 petPos = { player->GetPosition().x - 40.0f,
+                       player->GetPosition().y - 20.0f };
+    m_activePet = std::make_unique<Pet>(petPos, type, player->GetId());
+    RegisterPetVisuals(m_activePet.get());
+}
+
+void GameController::DespawnPet() {
+    if (m_activePet) {
+        UnregisterEntityVisuals(m_activePet->GetId());
+        m_activePet.reset();
+    }
+}
+
+void GameController::FireDragonProjectile(Pet* pet) {
+    if (!pet) return;
+    // Find target entity
+    Entity* target = m_gameState->GetEntity(pet->GetTargetId());
+    Vector2 targetPos = target ? target->GetPosition() : pet->GetPosition();
+
+    Vector2 spawnPos = { pet->GetPosition().x + pet->GetSize().x * 0.5f,
+                         pet->GetPosition().y + pet->GetSize().y * 0.5f };
+
+    auto proj = std::make_unique<Projectile>(
+        spawnPos, Vector2{16.0f, 16.0f},
+        ProjectileType::FlyingProjectile,
+        Direction::Right,
+        Pet::DRAGON_PROJECTILE_DMG,
+        pet->GetOwnerId());
+
+    proj->SetSize({20, 20});
+    proj->SetScale(1.0f / 7.0f);
+    proj->SetHoming(true);
+    proj->SetHomingTargetPos(targetPos);
+
+    // Register visuals
+    View::EntityRenderer::GetInstance().RegisterAnimated(
+        proj.get(), "assets/textures/pets/projectile_dragon/attack.json", "attack");
+
+    m_petProjectiles.push_back(std::move(proj));
+    pet->ResetFireFlag();
+}
+
+void GameController::UpdatePets(float dt, const InputCommand& cmd) {
+    Player* player = m_gameState ? m_gameState->GetLocalPlayer() : nullptr;
+    if (!player) return;
+
+    // Detect combat: any alive enemy within range
+    Vector2 pPos = { player->GetPosition().x + player->GetSize().x * 0.5f,
+                     player->GetPosition().y + player->GetSize().y * 0.5f };
+    bool anyEnemyClose = false;
+    for (const auto& e : m_gameState->GetAllEntities()) {
+        if (e->GetType() != EntityType::Enemy || !e->IsActive()) continue;
+        auto* enemy = static_cast<Enemy*>(e.get());
+        if (!enemy->IsAlive()) continue;
+        float dx = e->GetPosition().x - pPos.x;
+        float dy = e->GetPosition().y - pPos.y;
+        if (std::sqrt(dx*dx + dy*dy) < PET_COMBAT_RANGE) { anyEnemyClose = true; break; }
+    }
+
+    if (anyEnemyClose) {
+        m_inCombat = true;
+        m_combatExitTimer = COMBAT_EXIT_GRACE;
+    } else if (m_combatExitTimer > 0.0f) {
+        m_combatExitTimer -= dt;
+        if (m_combatExitTimer <= 0.0f) m_inCombat = false;
+    }
+
+    // Pet1 (1) = Dragon, Pet2 (2) = Ghost
+    if (cmd.pet1) {
+        if (m_activePet && m_activePet->GetPetType() == PetType::BabyDragon) {
+            DespawnPet();
+        } else {
+            SpawnPet(PetType::BabyDragon);
+        }
+    }
+    if (cmd.pet2) {
+        if (m_activePet && m_activePet->GetPetType() == PetType::Ghost) {
+            DespawnPet();
+        } else if (!m_inCombat) {
+            SpawnPet(PetType::Ghost);
+        }
+    }
+
+    // Auto-despawn Ghost on combat
+    if (m_activePet && m_activePet->GetPetType() == PetType::Ghost && m_inCombat) {
+        DespawnPet();
+    }
+
+    if (!m_activePet) return;
+
+    // Build enemy pointer list for Dragon targeting
+    std::vector<Entity*> enemies;
+    for (const auto& e : m_gameState->GetAllEntities()) {
+        if (e->GetType() == EntityType::Enemy && e->IsActive()) {
+            auto* enemy = static_cast<Enemy*>(e.get());
+            if (enemy->IsAlive()) enemies.push_back(e.get());
+        }
+    }
+
+    // Update homing target positions on existing projectiles
+    for (auto& proj : m_petProjectiles) {
+        if (!proj->IsHoming()) continue;
+        Entity* tgt = m_gameState->GetEntity(proj->GetOwnerId()); // reuse: we stored target id there
+        // Actually we'll just let it home wherever it last aimed; no reassignment needed
+    }
+
+    m_activePet->UpdateAI(player->GetPosition(), dt, player, enemies, m_inCombat);
+    m_activePet->Update(dt);
+
+    // Dragon fire
+    if (m_activePet->GetPetType() == PetType::BabyDragon && m_activePet->WantsToFire()) {
+        FireDragonProjectile(m_activePet.get());
+    }
+
+    // Sync animation clip based on pet state
+    PetState ps = m_activePet->GetPetState();
+    int action = View::ACTION_IDLE;
+    if (ps == PetState::Following)  action = View::ACTION_WALK; // maps to 'walk' or 'move'
+    if (ps == PetState::Charging)   action = View::ACTION_ATTACK;
+    if (ps == PetState::Healing)    action = View::ACTION_SKILL;
+    
+    View::CharacterRenderer::GetInstance().PlayAction(m_activePet->GetId(), action);
+}
+
+void GameController::UpdateProjectiles(float dt) {
+    Player* player = m_gameState ? m_gameState->GetLocalPlayer() : nullptr;
+
+    for (auto& proj : m_petProjectiles) {
+        if (!proj->IsActive()) continue;
+        proj->Update(dt);
+
+        // Check collision with enemies
+        if (player) {
+            for (const auto& e : m_gameState->GetAllEntities()) {
+                if (e->GetType() != EntityType::Enemy || !e->IsActive()) continue;
+                auto* enemy = static_cast<Enemy*>(e.get());
+                if (enemy->GetState() == EnemyState::Dead) continue;
+                if (!RectOverlap(proj->GetBoundingBox(), enemy->GetBoundingBox())) continue;
+
+                enemy->TakeDamage(proj->GetDamage());
+                SoundManager::GetInstance().PlaySound("enemy_hurt");
+                View::FloatingTextManager::GetInstance().Emit(
+                    enemy->GetPosition(), "-" + std::to_string(proj->GetDamage()), ORANGE, 1.0f);
+                if (!enemy->IsActive()) OnEntityRemoved(enemy);
+                proj->OnHit();
+                break;
+            }
+        }
+    }
+
+    // Remove expired projectiles (and unregister visuals)
+    m_petProjectiles.erase(
+        std::remove_if(m_petProjectiles.begin(), m_petProjectiles.end(),
+            [](const std::unique_ptr<Projectile>& p) {
+                if (p->HasExpired()) {
+                    View::EntityRenderer::GetInstance().Unregister(p->GetId());
+                    return true;
+                }
+                return false;
+            }),
+        m_petProjectiles.end());
 }

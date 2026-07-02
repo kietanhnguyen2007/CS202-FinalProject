@@ -1,4 +1,7 @@
 #include "Model/GameState.h"
+#include "Model/Chest.h"
+#include "Model/Checkpoint.h"
+#include "Model/Character.h"
 #include <algorithm>
 
 GameState::GameState()
@@ -89,6 +92,59 @@ BackgroundTheme GameState::GetBackgroundTheme() const { return m_backgroundTheme
 void GameState::SetBackgroundTheme(BackgroundTheme theme) { m_backgroundTheme = theme; }
 
 int GameState::GenerateEntityId() { return m_nextEntityId++; }
+
+void GameState::PlayerInteract() {
+    if (!m_localPlayer) return;
+    Rectangle playerBox = m_localPlayer->GetBoundingBox();
+    
+    std::vector<std::unique_ptr<Entity>> newEntities;
+
+    for (auto& entity : m_entities) {
+        if (entity->GetType() == EntityType::Chest) {
+            Chest* chest = static_cast<Chest*>(entity.get());
+            if (!chest->IsOpened()) {
+                Rectangle chestBox = chest->GetBoundingBox();
+                if (CheckCollisionRecs(playerBox, chestBox)) {
+                    auto loot = chest->Open();
+                    for (auto& item : loot) {
+                        newEntities.push_back(std::move(item));
+                    }
+                }
+            }
+        }
+    }
+
+    for (auto& entity : newEntities) {
+        AddEntity(std::move(entity));
+    }
+}
+
+bool GameState::IsLevelComplete() const {
+    if (!m_localPlayer) return false;
+    
+    bool enemiesAlive = false;
+    bool touchingEndCheckpoint = false;
+    Rectangle playerBox = m_localPlayer->GetBoundingBox();
+
+    for (const auto& entity : m_entities) {
+        if (entity->GetType() == EntityType::Enemy) {
+            Character* character = static_cast<Character*>(entity.get());
+            if (character->IsAlive()) {
+                enemiesAlive = true;
+            }
+        } else if (entity->GetType() == EntityType::Checkpoint) {
+            Checkpoint* cp = static_cast<Checkpoint*>(entity.get());
+            if (cp->IsEndGame()) {
+                Rectangle checkpointBox = cp->GetBoundingBox();
+                if (CheckCollisionRecs(playerBox, checkpointBox)) {
+                    touchingEndCheckpoint = true;
+                }
+            }
+        }
+    }
+
+    return (!enemiesAlive && touchingEndCheckpoint);
+}
 
 void GameState::Update(float deltaTime) {
     if (m_localPlayer) {

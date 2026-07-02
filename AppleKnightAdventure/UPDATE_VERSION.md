@@ -1,29 +1,17 @@
-﻿# UPDATE_VERSION — Background Theme Refactor
+# Cập nhật Khả năng Tấn công của Quái vật
 
-## Branch
-`feature/background-theme-refactor` (branched from `Tien`)
+## Thay đổi
+1. `include/Utils/Constants.h`: 
+   - Tăng `ENEMY_MELEE_RANGE` từ `40` lên `100` (ngang bằng với vùng di chuyển `m_patrolRange`). Trước đây tầm đánh quá ngắn khiến nhân vật và quái vật bị cản lại bởi hitbox vật lý và không bao giờ chạm tới được ngưỡng 40 pixels, khiến quái vật không bao giờ kích hoạt được trạng thái `Attack`.
 
-## Files Created / Modified
+2. `src/Model/Enemy.cpp`:
+   - **Đứng lại để tấn công**: Thêm lệnh ép vận tốc ngang về 0 (`MoveX(0, deltaTime)`) khi quái vật rơi vào trạng thái `EnemyState::Attack` hoặc `EnemyState::Hurt`. Nhờ đó, quái vật sẽ không bị trượt (slide) về phía trước khi đang phát animation vung vũ khí hoặc bị giật lùi, mang lại cảm giác chân thực hơn.
+   - **Sửa lỗi animation tuần tra**: Chuyển mapping trạng thái từ `EnemyState::Patrol` sang `Character::State::Walk` (trước đó là `Idle`), giúp quái vật hiện đúng hoạt ảnh "bước đi" khi đang đi tuần, thay vì tư thế đứng im trượt trên mặt đất.
 
-### Assets (12 files)
-- DELETED: `assets/textures/backgrounds/forest/` (7 Anokolisa layers)
-- NEW forest: back.png, middle.png, front.png (Ansimuz Parallax Forest v2)
-- NEW cold_corridor: back.png, far.png, middle.png, near.png, foreground.png (Gothicvania Cold Corridors)
-- NEW underwater: far.png, foreground_1.png, foreground_2.png, sand.png (Underwater Fantasy)
+3. `src/Controller/GameController.cpp`:
+   - Hệ thống gây sát thương tự động (`UpdateCombat`) giờ đã hoạt động chính xác vì quái vật có thể tiến vào trạng thái `Attack` đúng cách và kích hoạt đòn đánh lên Player khi khoảng cách hợp lệ.
 
-### Code
-- `include/Model/GameState.h` — Thêm enum BackgroundTheme, field + getter/setter
-- `src/Model/GameState.cpp` — Implement getter/setter
-- `include/View/GameView.h` — Đổi signature LoadBackgrounds(BackgroundTheme theme = Forest)
-- `src/View/GameView.cpp` — Xoá hardcode 7 layer, thay bằng static lookup table
-- `src/Controller/GameController.cpp` — Comment TODO cho map builder
-
-## What Changed & Why
-Root cause: LoadBackgrounds() hardcode 7 path Anokolisa, View tự quyet data — vi pham MVC.
-Fix: BackgroundTheme enum trong Model, View nhan theme qua param, dung lookup table.
-Assets: Anokolisa -> 3 pack Ansimuz CC0 (Forest v2, Cold Corridors, Underwater Fantasy).
-
-## Status
-- Code compile-ready (backward compatible — default param Forest)
-- Assets dung cho
-- Chua co mapping level -> theme (cho map builder)
+## Trạng thái hiện tại
+- Quái vật sẽ tự động lao tới và ra đòn (vung kiếm/ném bom) khi Player lọt vào vùng di chuyển (patrol range) của nó.
+- Có đầy đủ animation Attack (đã load từ các bước trước) và quái vật sẽ đứng tấn vững vàng khi vung vũ khí.
+- Trải nghiệm chiến đấu đã trở nên hoàn thiện hơn.

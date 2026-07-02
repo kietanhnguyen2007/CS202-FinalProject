@@ -12,7 +12,7 @@ TextureAtlas::~TextureAtlas() {
     if (m_texture.id != 0) ::UnloadTexture(m_texture);
 }
 
-std::unique_ptr<TextureAtlas> TextureAtlas::LoadFromJSON(const std::string& jsonPath) {
+std::shared_ptr<TextureAtlas> TextureAtlas::LoadFromJSON(const std::string& jsonPath) {
     std::ifstream f(jsonPath);
     if (!f.is_open()) return nullptr;
 
@@ -20,7 +20,7 @@ std::unique_ptr<TextureAtlas> TextureAtlas::LoadFromJSON(const std::string& json
     ss << f.rdbuf();
     std::string s = ss.str();
 
-    std::unique_ptr<TextureAtlas> atlas(new TextureAtlas());
+    auto atlas = std::make_shared<TextureAtlas>();
 
     std::string baseDir;
     size_t slash = jsonPath.find_last_of("/\\");
@@ -204,6 +204,38 @@ bool TextureAtlas::LoadTexture() {
         return false;
     }
     // Update all clips to use this texture
+    for (auto& pair : m_clips) {
+        if (pair.second) {
+            for (auto& frame : pair.second->frames) {
+                frame.texture = &m_texture;
+            }
+        }
+    }
+    return true;
+}
+
+bool TextureAtlas::LoadImageAsync() {
+    if (m_isImageLoaded) return true;
+    if (m_texturePath.empty()) return false;
+    m_image = ::LoadImage(m_texturePath.c_str());
+    if (m_image.data != nullptr) {
+        m_isImageLoaded = true;
+        return true;
+    }
+    return false;
+}
+
+bool TextureAtlas::UploadTextureFromImage() {
+    if (m_texture.id != 0) return true;
+    if (!m_isImageLoaded) return false;
+    
+    m_texture = ::LoadTextureFromImage(m_image);
+    ::UnloadImage(m_image);
+    m_image.data = nullptr;
+    m_isImageLoaded = false;
+    
+    if (m_texture.id == 0) return false;
+
     for (auto& pair : m_clips) {
         if (pair.second) {
             for (auto& frame : pair.second->frames) {

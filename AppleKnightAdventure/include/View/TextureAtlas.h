@@ -20,11 +20,16 @@ public:
 
     // Load from json path. Returns nullptr on failure.
     // Parses JSON only; call LoadTexture() separately after InitWindow().
-    static std::unique_ptr<TextureAtlas> LoadFromJSON(const std::string& jsonPath);
+    static std::shared_ptr<TextureAtlas> LoadFromJSON(const std::string& jsonPath);
 
     // Call after InitWindow() to load the texture into GPU.
     // No-op if already loaded. Returns true on success.
     bool LoadTexture();
+    
+    // Async support
+    bool LoadImageAsync();
+    bool UploadTextureFromImage();
+
     bool IsTextureLoaded() const { return m_texture.id != 0; }
 
     Texture2D* GetTexture();
@@ -38,6 +43,8 @@ public:
 
 private:
     Texture2D m_texture{};
+    Image m_image{};
+    bool m_isImageLoaded = false;
     std::string m_texturePath; // resolved image path, set by LoadFromJSON
     std::unordered_map<std::string, Rectangle> m_frames;
     std::unordered_map<std::string, std::shared_ptr<AnimationClip>> m_clips;

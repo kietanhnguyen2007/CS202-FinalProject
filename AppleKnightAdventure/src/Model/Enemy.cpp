@@ -55,9 +55,9 @@ void Enemy::Update(float deltaTime) {
 
     switch (m_state) {
         case EnemyState::Idle:
-        case EnemyState::Patrol:
             Character::SetState(State::Idle);
             break;
+        case EnemyState::Patrol:
         case EnemyState::Chase:
             Character::SetState(State::Walk);
             break;
@@ -103,6 +103,13 @@ void Enemy::UpdateAI(Vector2 playerPosition, float deltaTime) {
     float dist = std::sqrt(dx * dx + dy * dy);
 
     switch (m_state) {
+        case EnemyState::Dead:
+            m_stateTimer += deltaTime;
+            if (m_stateTimer >= 0.5f) {
+                m_active = false;
+            }
+            break;
+
         case EnemyState::Idle:
             if (dist <= m_detectionRange) {
                 SetState(EnemyState::Chase);
@@ -136,19 +143,29 @@ void Enemy::UpdateAI(Vector2 playerPosition, float deltaTime) {
         }
 
         case EnemyState::Attack: {
-            float distFromSpawn = std::abs(m_position.x - m_spawnPosition.x);
-            if (distFromSpawn > m_patrolRange * 1.5f) {
-                SetState(EnemyState::Patrol);
-            } else {
-                Chase(playerPosition, deltaTime);
-                if (dist > m_attackRange * 1.2f) {
-                    SetState(EnemyState::Chase);
+            if (m_enemyType != EnemyType::Flying) {
+                MoveX(0, deltaTime); // Stop moving while attacking for ground units
+            }
+            m_stateTimer += deltaTime;
+            if (m_stateTimer >= 0.6f) { // Attack duration
+                if (m_enemyType == EnemyType::Flying) {
+                    SetState(EnemyState::Patrol); // Force retreat up
+                } else {
+                    float distFromSpawn = std::abs(m_position.x - m_spawnPosition.x);
+                    if (distFromSpawn > m_patrolRange * 1.5f) {
+                        SetState(EnemyState::Patrol);
+                    } else if (dist > m_attackRange * 1.2f) {
+                        SetState(EnemyState::Chase);
+                    } else {
+                        SetState(EnemyState::Attack); // Restart attack
+                    }
                 }
             }
             break;
         }
 
         case EnemyState::Hurt:
+            MoveX(0, deltaTime); // Stop moving while hurt
             m_stateTimer += deltaTime;
             if (m_stateTimer >= 0.4f) {
                 SetState(EnemyState::Chase);
@@ -163,9 +180,20 @@ void Enemy::UpdateAI(Vector2 playerPosition, float deltaTime) {
 void Enemy::Patrol(float deltaTime) {
     m_stateTimer += deltaTime;
     float patrolX = m_spawnPosition.x + std::sin(m_stateTimer) * m_patrolRange;
-    float dirX = (patrolX > m_position.x) ? 1.0f : -1.0f;
-    MoveX(dirX, deltaTime); // Use MoveX to preserve gravity (vel.y)
-    m_direction = (dirX > 0) ? Direction::Right : Direction::Left;
+    float diff = patrolX - m_position.x;
+    float dirX = (diff > 0) ? 1.0f : -1.0f;
+    MoveX(dirX, deltaTime); // Use MoveX to preserve gravity (vel.y) for ground units
+    
+    if (m_enemyType == EnemyType::Flying) {
+        float dy = m_spawnPosition.y - m_position.y;
+        Vector2 vel = GetVelocity();
+        vel.y = dy * 2.0f; // Smoothly float back to spawn height
+        SetVelocity(vel);
+    }
+    
+    if (std::abs(diff) > 1.0f) {
+        m_direction = (dirX > 0) ? Direction::Right : Direction::Left;
+    }
 }
 
 void Enemy::Chase(Vector2 playerPosition, float deltaTime) {
@@ -179,7 +207,10 @@ void Enemy::Chase(Vector2 playerPosition, float deltaTime) {
     } else {
         MoveX(dirX, deltaTime); // Ground: only horizontal, preserve gravity vel.y
     }
-    m_direction = (dx > 0) ? Direction::Right : Direction::Left;
+    
+    if (std::abs(dx) > 1.0f) {
+        m_direction = (dx > 0) ? Direction::Right : Direction::Left;
+    }
 }
 
 void Enemy::Attack() {
@@ -190,6 +221,11 @@ void Enemy::TakeDamage(int damage) {
     m_health -= damage;
     if (m_health <= 0) {
         m_health = 0;
-        m_active = false;
+        if (m_state != EnemyState::Dead) {
+            SetState(EnemyState::Dead);
+            SetVelocity({0.0f, 0.0f}); // Ensure it stands still
+        }
+    } else {
+        SetState(EnemyState::Hurt);
     }
 }

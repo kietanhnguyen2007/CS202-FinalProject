@@ -13,6 +13,8 @@ public:
         Jump,
         Fall,
         Attack,
+        Attack2,
+        Attack3,
         Hurt,
         Dead,
         Skill

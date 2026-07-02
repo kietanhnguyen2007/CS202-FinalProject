@@ -56,6 +56,9 @@ public:
     void SetOnEntityRemovedCallback(uint32_t entityId, std::function<void(uint32_t)> cb);
     void ClearOnEntityRemovedCallback(uint32_t entityId);
 
+    // Switch the current animation clip for an animated entity
+    void SetClip(uint32_t entityId, const std::string& clipName);
+
     struct RenderData {
         const Entity* entity;
         Texture2D* texture;

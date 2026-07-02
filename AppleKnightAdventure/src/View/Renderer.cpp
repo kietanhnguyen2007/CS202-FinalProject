@@ -392,6 +392,7 @@ void Renderer::DrawRectangle(Vector2 pos, Vector2 wsize, Color color,
 }
 
 void Renderer::DrawText(const char* text, Vector2 pos, int fontSize, Color color) {
+    EndFrameAndFlush(); // Flush batched sprites first so immediate-mode text draws on top
     ::DrawText(text, (int)pos.x, (int)pos.y, fontSize, color);
 }
 

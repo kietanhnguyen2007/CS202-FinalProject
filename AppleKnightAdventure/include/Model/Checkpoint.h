@@ -6,6 +6,7 @@
 class Checkpoint : public Entity {
 protected:
     bool m_activated;
+    bool m_isEndGame;
 
 public:
     Checkpoint();
@@ -16,6 +17,9 @@ public:
     bool IsActivated() const;
     void Activate();
     void Deactivate();
+
+    bool IsEndGame() const;
+    void SetEndGame(bool isEndGame);
 };
 
 #endif

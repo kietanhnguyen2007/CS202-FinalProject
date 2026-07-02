@@ -1837,3 +1837,73 @@ Tất cả attack đều có hướng trùng với **facing** của entity.
 | 33 | `Utils/Types.h` | Thiếu enum | Cần thêm `PlayerRole { Solo, Guide, Warrior }` và `ReactionType { Vaporize, Conduct, Overload }`. `GameMode` cần sửa thành `{ SinglePlayer, AsymCoopHost, AsymCoopClient }`. `BossType`, `MapType` cũng thiếu. | View method `MenuView::ShowRoleSelect()` cần `PlayerRole`. `ParticleRenderer::EmitReaction()` dùng enum local tạm. |
 
 
+Hướng Dẫn Tích Hợp Background Cho Level (Map Builder)
+Tài liệu này hướng dẫn cách hệ thống hình nền (Background) hoạt động trong Apple Knight Adventure và cách người thiết kế map/viết logic load map có thể chọn hình nền theo từng level.
+---
+1. Hệ thống BackgroundTheme là gì?
+Hệ thống hình nền không còn bị "hardcode" cố định một loại nữa. Thay vào đó, nó được quản lý bởi một enum `BackgroundTheme` nằm trong Model (`GameState.h`).
+Hiện tại hệ thống đang hỗ trợ 3 loại hình nền Parallax (nhiều lớp layer di chuyển với tốc độ khác nhau):
+ID	Theme	Mô tả	Biome tương ứng
+`0`	`BackgroundTheme::Forest`	Rừng rậm (Ansimuz Parallax Forest v2)	Map rừng, khởi đầu
+`1`	`BackgroundTheme::ColdCorridor`	Lâu đài băng/Gothic (Cold Corridors)	Map lâu đài, ngục tối
+`2`	`BackgroundTheme::Underwater`	Dưới nước (Underwater Fantasy)	Map đại dương, đầm lầy
+---
+2. Cách chọn Background khi Load Level
+Khi bạn bắt tay vào lập trình chức năng đọc file `.lvl` (trong `LevelFactory.cpp` hoặc tương tự), bạn cần làm theo các bước sau để thiết lập background:
+Bước 2.1: Bổ sung dữ liệu vào file `.lvl`
+Trong file thiết kế map, hãy quy định một dòng hoặc thuộc tính lưu ID của hình nền (0, 1 hoặc 2).
+Ví dụ: file `level2.lvl` có một dòng metadata là `Theme: 2` (tức là map dưới nước).
+Bước 2.2: Thay thế đoạn code tạm thời trong `GameController`
+Hiện tại, trong `GameController::LoadTilesets()`, hệ thống đang gọi cố định:
+```cpp
+gv.LoadBackgrounds(); // Đang gọi mặc định là Forest (0)
+```
+Bạn hãy sửa lại quy trình load map như sau:
+```cpp
+// 1. Đọc thông tin từ metadata của map hiện tại (ví dụ: lấy ra được id = 2)
+int themeId = ReadThemeFromLevelMetadata(levelNumber); 
+
+// 2. Chuyển đổi (cast) số nguyên thành Enum
+BackgroundTheme selectedTheme = static_cast<BackgroundTheme>(themeId);
+
+// 3. Cập nhật thông tin vào GameState (để lưu dữ liệu của Model)
+m_gameState->SetBackgroundTheme(selectedTheme);
+
+// 4. Báo cho View biết để load đúng file ảnh lên màn hình
+View::GameView::GetInstance().LoadBackgrounds(selectedTheme);
+```
+---
+3. Hướng dẫn thêm một loại Background Mới (Dành cho Coder)
+Nếu bạn tải thêm một pack ảnh background mới trên mạng và muốn tích hợp vào game, hãy làm theo 3 bước sau:
+Bước 1: Copy file ảnh
+Tạo thư mục mới trong `assets/textures/backgrounds/` (ví dụ: `desert/`) và copy các layer file PNG vào đó.
+Bước 2: Khai báo tên Theme trong GameState.h
+Mở `include/Model/GameState.h`, tìm enum `BackgroundTheme` và thêm dòng mới:
+```cpp
+enum class BackgroundTheme : uint8_t {
+    Forest       = 0,
+    ColdCorridor = 1,
+    Underwater   = 2,
+    Desert       = 3,  // <-- Theme mới
+};
+```
+Bước 3: Khai báo danh sách file ảnh trong GameView.cpp
+Mở `src/View/GameView.cpp`, tìm hàm `void GameView::LoadBackgrounds(BackgroundTheme theme)`.
+Thêm một mảng `LayerDef` lưu đường dẫn các layer và tốc độ cuộn của theme mới:
+```cpp
+    static const LayerDef kDesert[] = {
+        {"assets/textures/backgrounds/desert/sky.png",   0.05f},
+        {"assets/textures/backgrounds/desert/dune.png",  0.20f},
+        {"assets/textures/backgrounds/desert/front.png", 0.50f},
+    };
+```
+Sau đó, thêm mảng này vào `kThemes`:
+```cpp
+    static const ThemeEntry kThemes[] = {
+        { kForest,       3 },
+        { kColdCorridor, 5 },
+        { kUnderwater,   4 },
+        { kDesert,       3 }, // <-- Đăng ký theme mới
+    };
+```
+Xong! Hệ thống bây giờ đã hỗ trợ `BackgroundTheme::Desert`.

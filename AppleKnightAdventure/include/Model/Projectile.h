@@ -7,11 +7,16 @@
 class Projectile : public Entity {
 protected:
     ProjectileType m_projectileType;
-    int m_damage;
+    int       m_damage;
     Direction m_direction;
-    float m_lifetime;
-    float m_lifeTimer;
-    int m_ownerId;
+    float     m_lifetime;
+    float     m_lifeTimer;
+    int       m_ownerId;
+
+    // Homing (dragon fireball)
+    bool      m_isHoming         = false;
+    Vector2   m_homingTargetPos  = {0, 0}; // updated each frame by controller
+    float     m_homingStrength   = 280.0f; // steering force
 
 public:
     Projectile();
@@ -24,11 +29,14 @@ public:
     int GetDamage() const;
     Direction GetDirection() const;
     int GetOwnerId() const;
-
     float GetLifetime() const;
     bool HasExpired() const;
-
     void OnHit();
+
+    // Homing
+    bool IsHoming() const { return m_isHoming; }
+    void SetHoming(bool homing) { m_isHoming = homing; }
+    void SetHomingTargetPos(Vector2 pos) { m_homingTargetPos = pos; }
 };
 
 #endif

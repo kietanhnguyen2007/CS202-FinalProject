@@ -3,12 +3,15 @@
 
 #include "Model/GameState.h"
 #include "Model/LevelScoring.h"
+#include "Model/Pet.h"
+#include "Model/Projectile.h"
 #include "Systems/CollisionSystem.h"
 #include "Systems/ParticleSystem.h"
 #include "Utils/Types.h"
 #include "raylib.h"
 #include <memory>
 #include <string>
+#include <vector>
 
 class Player;
 class Enemy;
@@ -51,6 +54,12 @@ private:
     void UpdateCombat(float dt);
     void UpdateInteractions(const struct InputCommand& cmd);
     void UpdateItems(float dt);
+    void UpdatePets(float dt, const struct InputCommand& cmd);
+    void UpdateProjectiles(float dt);
+    void SpawnPet(PetType type);
+    void DespawnPet();
+    void RegisterPetVisuals(Pet* pet);
+    void FireDragonProjectile(Pet* pet);
     void CheckLevelComplete();
     void OnEntityRemoved(Entity* entity);
     void RespawnPlayer();
@@ -65,14 +74,22 @@ private:
 
     Camera2D m_camera{};
     Vector2 m_respawnPoint{0.0f, 0.0f};
-    bool m_running = false;
-    bool m_paused = false;
-    bool m_returnToMenu = false;
-    bool m_levelComplete = false;
+    bool m_running        = false;
+    bool m_paused         = false;
+    bool m_returnToMenu   = false;
+    bool m_levelComplete  = false;
     bool m_playerOnGround = false;
-    int m_defeatedEnemies = 0;
-    int m_collectedItems = 0;
+    int  m_defeatedEnemies = 0;
+    int  m_collectedItems  = 0;
     float m_enemyAttackCooldown = 0.0f;
+
+    // Pet system
+    std::unique_ptr<Pet>               m_activePet;
+    std::vector<std::unique_ptr<Projectile>> m_petProjectiles;
+    bool  m_inCombat           = false;
+    float m_combatExitTimer    = 0.0f;  // grace period before 'out of combat'
+    static constexpr float COMBAT_EXIT_GRACE = 4.0f;
+    static constexpr float PET_COMBAT_RANGE  = 350.0f;
 };
 
 #endif

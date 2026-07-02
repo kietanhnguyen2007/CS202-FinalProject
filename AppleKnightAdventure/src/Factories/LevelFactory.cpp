@@ -90,10 +90,15 @@ std::unique_ptr<GameState> LevelFactory::LoadLevel(const std::string& filepath, 
             file >> tx >> ty;
             state->AddEntity(std::make_unique<Chest>(Vector2{tx * TILE_SIZE, ty * TILE_SIZE}));
         } else if (token == "checkpoint") {
+            std::string cpType;
             float tx = 0.0f;
             float ty = 0.0f;
-            file >> tx >> ty;
-            state->AddEntity(std::make_unique<Checkpoint>(Vector2{tx * TILE_SIZE, ty * TILE_SIZE}));
+            file >> cpType >> tx >> ty;
+            auto cp = std::make_unique<Checkpoint>(Vector2{tx * TILE_SIZE, ty * TILE_SIZE});
+            if (cpType == "end") {
+                cp->SetEndGame(true);
+            }
+            state->AddEntity(std::move(cp));
         } else if (token == "scoring") {
             int items = 0;
             int enemies = 0;

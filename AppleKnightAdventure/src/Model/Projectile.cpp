@@ -1,5 +1,6 @@
 #include "Model/Projectile.h"
 #include "Utils/Constants.h"
+#include <cmath>
 
 Projectile::Projectile()
     : Entity(EntityType::Projectile)
@@ -37,9 +38,30 @@ Projectile::Projectile(Vector2 position, Vector2 size, ProjectileType type,
 
 void Projectile::Update(float deltaTime) {
     if (!m_active) return;
+
+    // Homing: steer toward target position
+    if (m_isHoming) {
+        float dx = m_homingTargetPos.x - m_position.x;
+        float dy = m_homingTargetPos.y - m_position.y;
+        float dist = std::sqrt(dx * dx + dy * dy);
+        if (dist > 1.0f) {
+            Vector2 desired = { (dx / dist) * PROJECTILE_SPEED,
+                                (dy / dist) * PROJECTILE_SPEED };
+            // Blend current velocity toward desired direction
+            m_velocity.x += (desired.x - m_velocity.x) * m_homingStrength * deltaTime;
+            m_velocity.y += (desired.y - m_velocity.y) * m_homingStrength * deltaTime;
+            // Clamp to max speed
+            float speed = std::sqrt(m_velocity.x * m_velocity.x + m_velocity.y * m_velocity.y);
+            if (speed > PROJECTILE_SPEED) {
+                m_velocity.x = (m_velocity.x / speed) * PROJECTILE_SPEED;
+                m_velocity.y = (m_velocity.y / speed) * PROJECTILE_SPEED;
+            }
+        }
+    }
+
     m_position.x += m_velocity.x * deltaTime;
     m_position.y += m_velocity.y * deltaTime;
-    m_lifeTimer += deltaTime;
+    m_lifeTimer  += deltaTime;
     if (m_lifeTimer >= m_lifetime) {
         m_active = false;
     }

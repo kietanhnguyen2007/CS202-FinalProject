@@ -108,8 +108,11 @@ spawn_warrior 12 15
 
 # Enemies (type x y)
 enemy melee 18 15
+enemy flying 20 10
 enemy melee 22 15
+enemy flying 24 11
 enemy melee 26 15
+enemy flying 30 10
 enemy melee 32 15
 
 # Objects
@@ -117,4 +120,4 @@ chest 10 15
 checkpoint 6 15
 
 # Scoring totals (totalItems totalEnemies)
-scoring 5 4
+scoring 5 7
