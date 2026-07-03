@@ -6,6 +6,7 @@
 #include "View/HUDView.h"
 #include "View/AssetManager.h"
 #include "Utils/Constants.h"
+#include "Systems/WindowManager.h"
 #include "raylib.h"
 #include <filesystem>
 #include <vector>
@@ -13,6 +14,9 @@
 
 int main() {
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Apple Knight Adventure");
+    SetWindowState(FLAG_WINDOW_RESIZABLE);
+    SetWindowMinSize(640, 360);  // minimum 16:9 at half base resolution
+    WindowManager::GetInstance().Init(SCREEN_WIDTH, SCREEN_HEIGHT);
     SetTargetFPS(60);
 
     if (!View::Renderer::GetInstance().Init()) {
@@ -59,6 +63,7 @@ int main() {
     bool inGame = false;
 
     while (!WindowShouldClose()) {
+        WindowManager::GetInstance().Update();
         float dt = GetFrameTime();
 
         if (!inGame) {

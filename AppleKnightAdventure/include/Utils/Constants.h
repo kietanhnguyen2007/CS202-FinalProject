@@ -5,6 +5,11 @@
 
 constexpr int SCREEN_WIDTH = 1280;
 constexpr int SCREEN_HEIGHT = 720;
+
+// Base resolution used as reference for UI scaling (do not change)
+constexpr int BASE_SCREEN_WIDTH  = SCREEN_WIDTH;
+constexpr int BASE_SCREEN_HEIGHT = SCREEN_HEIGHT;
+
 constexpr int TILE_SIZE = 64;
 constexpr float GRAVITY = 980.0f;
 constexpr float PLAYER_SPEED = 200.0f;
