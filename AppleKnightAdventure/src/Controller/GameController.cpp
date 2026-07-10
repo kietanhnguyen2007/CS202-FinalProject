@@ -45,13 +45,47 @@ bool GameController::Init() {
     if (!snd.IsAudioInitialized()) {
         snd.InitAudio();
     }
-    snd.LoadSound("player_attack", "assets/sounds/sfx/player_attack.wav");
-    snd.LoadSound("player_hurt", "assets/sounds/sfx/player_hurt.wav");
-    snd.LoadSound("enemy_death", "assets/sounds/sfx/enemy_die.wav");
-    snd.LoadSound("enemy_hurt", "assets/sounds/sfx/enemy_hurt.wav");
-    snd.LoadSound("coin_pickup", "assets/sounds/sfx/coin_pickup.wav");
-    snd.LoadSound("chest_open", "assets/sounds/sfx/chest_open.wav");
-    snd.LoadMusic("bgm_gameplay", "assets/sounds/music/bgm_gameplay.wav");
+
+    // === MUSIC (loaded centrally here; MenuController chỉ cần PlayMusic) ===
+    snd.LoadMusic("bgm_menu",      "assets/sounds/music/bgm_menu.ogg");
+    snd.LoadMusic("bgm_gameplay",  "assets/sounds/music/bgm_gameplay.ogg");
+    snd.LoadMusic("bgm_boss",      "assets/sounds/music/bgm_boss.ogg");
+
+    // PLAYER SFX will be loaded dynamically by LoadPlayerSounds()
+
+    // === ENEMY SFX ===
+    snd.LoadSound("enemy_attack",  "assets/sounds/sfx/enemy_attack.wav");
+    snd.LoadSound("enemy_hurt",    "assets/sounds/sfx/enemy_hurt.wav");
+    snd.LoadSound("enemy_death",   "assets/sounds/sfx/enemy_die.wav");
+
+    // === ITEM & WORLD SFX ===
+    snd.LoadSound("coin_pickup",         "assets/sounds/sfx/coin_pickup.wav");
+    snd.LoadSound("item_pickup",         "assets/sounds/sfx/item_pickup.wav");
+    snd.LoadSound("chest_open",          "assets/sounds/sfx/chest_open.wav");
+    snd.LoadSound("checkpoint_activate", "assets/sounds/sfx/checkpoint_activate.wav");
+
+    // === GAME STATE SFX ===
+    snd.LoadSound("level_complete", "assets/sounds/sfx/level_complete.wav");
+    snd.LoadSound("game_over",      "assets/sounds/sfx/game_over.wav");
+
+    // === ELEMENTAL SFX ===
+    snd.LoadSound("fire_hit",    "assets/sounds/sfx/fire_hit.wav");
+    snd.LoadSound("water_hit",   "assets/sounds/sfx/water_hit.wav");
+    snd.LoadSound("thunder_hit", "assets/sounds/sfx/thunder_hit.wav");
+    snd.LoadSound("vaporize",    "assets/sounds/sfx/vaporize.wav");
+    snd.LoadSound("conduct",     "assets/sounds/sfx/conduct.wav");
+    snd.LoadSound("overload",    "assets/sounds/sfx/overload.wav");
+
+    // === PET SFX ===
+    snd.LoadSound("pet_summon",      "assets/sounds/sfx/pet_summon.wav");
+    snd.LoadSound("pet_dragon_fire", "assets/sounds/sfx/pet_dragon_fire.wav");
+    snd.LoadSound("pet_ghost_heal",  "assets/sounds/sfx/pet_ghost_heal.wav");
+
+    // === UI SFX ===
+    snd.LoadSound("ui_hover",           "assets/sounds/sfx/ui_hover.wav");
+    snd.LoadSound("ui_confirm",         "assets/sounds/sfx/ui_confirm.wav");
+    snd.LoadSound("ui_inventory_open",  "assets/sounds/sfx/ui_inventory_open.wav");
+    snd.LoadSound("ui_inventory_close", "assets/sounds/sfx/ui_inventory_close.wav");
 
     View::GameView::GetInstance().Init();
     View::HUDView::GetInstance().Init();
@@ -63,6 +97,68 @@ bool GameController::Init() {
     LoadTilesets();
 
     return true;
+}
+
+void GameController::LoadPlayerSounds(CharacterClass playerClass) {
+    auto& snd = SoundManager::GetInstance();
+    std::string prefix = "assets/sounds/sfx/";
+    
+    // We can map all class-specific sound files to the same "player_xxx" keys
+    // so the rest of the game code doesn't need to check the class everywhere.
+    switch (playerClass) {
+        case CharacterClass::Fighter:
+            snd.LoadSound("player_attack1", prefix + "fighter_attack1.wav");
+            snd.LoadSound("player_attack2", prefix + "fighter_attack2.wav");
+            snd.LoadSound("player_attack3", prefix + "fighter_attack3.wav");
+            snd.LoadSound("player_ultimate", prefix + "fighter_ultimate.wav");
+            snd.LoadSound("player_ultimate_projectile", prefix + "fighter_ultimate_projectile.wav");
+            snd.LoadSound("player_parry", prefix + "fighter_parry.wav");
+            snd.LoadSound("player_hurt", prefix + "fighter_hurt.wav");
+            snd.LoadSound("player_die", prefix + "fighter_dead.wav");
+            snd.LoadSound("player_jump", prefix + "fighter_jump.wav");
+            snd.LoadSound("player_dash", prefix + "fighter_dash.wav");
+            break;
+        case CharacterClass::Knight:
+            snd.LoadSound("player_attack1", prefix + "knight_attack1.wav");
+            snd.LoadSound("player_attack2", prefix + "knight_attack2.wav");
+            snd.LoadSound("player_attack3", prefix + "knight_attack3.wav");
+            snd.LoadSound("player_ultimate", prefix + "knight_ultimate.wav");
+            snd.LoadSound("player_parry", prefix + "knight_parry.wav");
+            snd.LoadSound("player_hurt", prefix + "knight_hurt.wav");
+            snd.LoadSound("player_die", prefix + "knight_dead.wav");
+            snd.LoadSound("player_jump", prefix + "knight_jump.wav");
+            snd.LoadSound("player_dash", prefix + "knight_dash.wav");
+            break;
+        case CharacterClass::MagicCaster:
+            snd.LoadSound("player_attack1", prefix + "magic_caster_attack1.wav");
+            snd.LoadSound("player_attack2", prefix + "magic_caster_attack2.wav");
+            snd.LoadSound("player_attack3", prefix + "magic_caster_attack3.wav");
+            snd.LoadSound("player_projectile1", prefix + "magic_caster_projectile1.wav");
+            snd.LoadSound("player_projectile2", prefix + "magic_caster_projectile2.wav");
+            snd.LoadSound("player_projectile3", prefix + "magic_caster_projectile3.wav");
+            snd.LoadSound("player_ultimate", prefix + "magic_caster_ultimate.wav");
+            snd.LoadSound("player_ultimate_projectile", prefix + "magic_caster_ultimate_projectile.wav");
+            snd.LoadSound("player_parry", prefix + "magic_caster_parry.wav");
+            snd.LoadSound("player_hurt", prefix + "magic_caster_hurt.wav");
+            snd.LoadSound("player_die", prefix + "magic_caster_dead.wav");
+            snd.LoadSound("player_jump", prefix + "magic_caster_jump.wav");
+            snd.LoadSound("player_dash", prefix + "magic_caster_dash.wav");
+            break;
+        case CharacterClass::Ninja:
+            snd.LoadSound("player_attack1", prefix + "ninja_attack1.wav");
+            snd.LoadSound("player_attack2", prefix + "ninja_attack2.wav");
+            snd.LoadSound("player_projectile2", prefix + "ninja_projectile2.wav");
+            snd.LoadSound("player_ultimate", prefix + "ninja_ultimate.wav");
+            snd.LoadSound("player_ultimate_projectile", prefix + "ninja_ultimate_projectile.wav");
+            snd.LoadSound("player_teleport_start", prefix + "ninja_teleport_start.wav");
+            snd.LoadSound("player_teleport_end", prefix + "ninja_teleport_end.wav");
+            snd.LoadSound("player_parry", prefix + "ninja_parry.wav");
+            snd.LoadSound("player_hurt", prefix + "ninja_hurt.wav");
+            snd.LoadSound("player_die", prefix + "ninja_dead.wav");
+            snd.LoadSound("player_jump", prefix + "ninja_jump.wav");
+            snd.LoadSound("player_dash", prefix + "ninja_dash.wav");
+            break;
+    }
 }
 
 void GameController::LoadTilesets() {
@@ -232,6 +328,7 @@ void GameController::StartLevel(int levelNumber) {
 
     if (Player* player = m_gameState->GetLocalPlayer()) {
         RegisterPlayerVisuals(player, m_gameState->GetPlayerClass());
+        LoadPlayerSounds(m_gameState->GetPlayerClass());
         m_respawnPoint = player->GetPosition();
     }
 
@@ -396,6 +493,7 @@ void GameController::HandlePlayerInput(const InputCommand& cmd, float /*dt*/) {
     m_playerOnGround = IsOnGround(player);
     if (cmd.jump && m_playerOnGround && !player->IsDashing()) {
         vel.y = PLAYER_JUMP_FORCE;
+        SoundManager::GetInstance().PlaySound("player_jump");
     }
     player->SetVelocity(vel);
 
@@ -404,6 +502,7 @@ void GameController::HandlePlayerInput(const InputCommand& cmd, float /*dt*/) {
         bool isMoving = (cmd.moveLeft || cmd.moveRight);
         float dirX    = (player->GetDirection() == Direction::Right) ? 1.0f : -1.0f;
         player->StartDash(isMoving, dirX);
+        SoundManager::GetInstance().PlaySound("player_dash");
     }
 
     // --- Knight Skills ---
@@ -413,17 +512,17 @@ void GameController::HandlePlayerInput(const InputCommand& cmd, float /*dt*/) {
         // Attack1 (J) — quick slash
         if (cmd.attack && skills->TryAttack1()) {
             player->Attack();  // syncs m_attackTimer for animation state
-            SoundManager::GetInstance().PlaySound("player_attack");
+            SoundManager::GetInstance().PlaySound("player_attack1");
         }
         // Attack2 (K) — heavy strike (starts charging)
         if (cmd.parry && skills->TryAttack2()) {
             player->Attack2();
-            SoundManager::GetInstance().PlaySound("player_attack");
+            SoundManager::GetInstance().PlaySound("player_attack2");
         }
         // Attack3 (U) — lunge thrust
         if (cmd.skill1 && skills->TryAttack3()) {
             player->Attack3();
-            SoundManager::GetInstance().PlaySound("player_attack");
+            SoundManager::GetInstance().PlaySound("player_attack3");
             // Apply lunge velocity (overrides current vel.x)
             float lDir = 0.0f;
             if (cmd.moveRight && !cmd.moveLeft) {
@@ -444,7 +543,7 @@ void GameController::HandlePlayerInput(const InputCommand& cmd, float /*dt*/) {
         if (cmd.attack && player->CanAttack()) {
             player->Attack();
             View::CharacterRenderer::GetInstance().PlayAction(pid, View::ACTION_ATTACK);
-            SoundManager::GetInstance().PlaySound("player_attack");
+            SoundManager::GetInstance().PlaySound("player_attack1");
         }
     }
 }
@@ -570,6 +669,7 @@ void GameController::UpdateCombat(float dt) {
         if (!enemy->CanAttack()) continue;
 
         enemy->Attack();
+        SoundManager::GetInstance().PlaySound("enemy_attack");
         // Invincibility from dash blocks all damage
         if (!player->IsInvincible()) {
             player->TakeDamage(enemy->GetDamage());
@@ -581,6 +681,7 @@ void GameController::UpdateCombat(float dt) {
         m_enemyAttackCooldown = 0.4f;
 
         if (!player->IsAlive()) {
+            SoundManager::GetInstance().PlaySound("player_die");
             RespawnPlayer();
         }
         break;
@@ -600,6 +701,7 @@ void GameController::UpdateItems(float dt) {
         auto* item = static_cast<Item*>(entity.get());
         if (!RectOverlap(playerBox, item->GetBoundingBox())) continue;
 
+        bool isCoin = (item->GetItemType() == ItemType::Coin);
         switch (item->GetItemType()) {
             case ItemType::Coin:
                 player->GetInventory().AddCoins(item->GetAmount());
@@ -620,7 +722,12 @@ void GameController::UpdateItems(float dt) {
 
         m_collectedItems++;
         m_scoring.CollectItem();
-        SoundManager::GetInstance().PlaySound("coin_pickup");
+        // Coin vs other items use distinct sounds
+        if (isCoin) {
+            SoundManager::GetInstance().PlaySound("coin_pickup");
+        } else {
+            SoundManager::GetInstance().PlaySound("item_pickup");
+        }
         View::FloatingTextManager::GetInstance().Emit(
             item->GetPosition(), item->GetItemName(), YELLOW, 1.0f);
         collectedIds.push_back(item->GetId());
@@ -664,8 +771,11 @@ void GameController::UpdateInteractions(const InputCommand& cmd) {
 
         if (entity->GetType() == EntityType::Checkpoint) {
             auto* checkpoint = static_cast<Checkpoint*>(entity.get());
-            checkpoint->Activate();
-            m_respawnPoint = checkpoint->GetPosition();
+            if (!checkpoint->IsActivated()) {
+                checkpoint->Activate();
+                m_respawnPoint = checkpoint->GetPosition();
+                SoundManager::GetInstance().PlaySound("checkpoint_activate");
+            }
             return;
         }
     }
@@ -702,6 +812,7 @@ void GameController::CheckLevelComplete() {
         m_scoring.SetClearTime(m_gameState->GetClearTime());
         m_scoring.CalculateStars();
         SoundManager::GetInstance().StopMusic("bgm_gameplay");
+        SoundManager::GetInstance().PlaySound("level_complete");
     }
 }
 
@@ -860,6 +971,7 @@ void GameController::SpawnPet(PetType type) {
                        player->GetPosition().y - 20.0f };
     m_activePet = std::make_unique<Pet>(petPos, type, player->GetId());
     RegisterPetVisuals(m_activePet.get());
+    SoundManager::GetInstance().PlaySound("pet_summon");
 }
 
 void GameController::DespawnPet() {
@@ -896,6 +1008,7 @@ void GameController::FireDragonProjectile(Pet* pet) {
 
     m_petProjectiles.push_back(std::move(proj));
     pet->ResetFireFlag();
+    SoundManager::GetInstance().PlaySound("pet_dragon_fire");
 }
 
 void GameController::UpdatePets(float dt, const InputCommand& cmd) {

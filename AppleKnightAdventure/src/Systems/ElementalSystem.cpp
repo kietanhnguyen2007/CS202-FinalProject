@@ -1,4 +1,5 @@
 #include "Systems/ElementalSystem.h"
+#include "Systems/SoundManager.h"
 #include <algorithm>
 #include <cmath>
 
@@ -120,6 +121,13 @@ ReactionResult ElementalSystem::ApplyReaction(int entityId, const DamagePacket& 
             ApplyStatusEffect(entityId, packet.statusEffect, packet.effectDuration);
         }
     } else {
+        if (result.reactionName == "Vaporize") {
+            SoundManager::GetInstance().PlaySound("vaporize");
+        } else if (result.reactionName == "Conduct") {
+            SoundManager::GetInstance().PlaySound("conduct");
+        } else if (result.reactionName == "Overload") {
+            SoundManager::GetInstance().PlaySound("overload");
+        }
         ClearEffects(entityId);
         if (result.resultingEffect != StatusEffect::None) {
             ApplyStatusEffect(entityId, result.resultingEffect, result.effectDuration);

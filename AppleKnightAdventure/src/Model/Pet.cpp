@@ -1,6 +1,7 @@
 #include "Model/Pet.h"
 #include "Model/Player.h"
 #include "Model/Entity.h"
+#include "Systems/SoundManager.h"
 #include <cmath>
 #include <limits>
 
@@ -69,6 +70,7 @@ void Pet::HealPlayer(Player* player, float dt) {
     if (healAmount > m_healBudget) healAmount = m_healBudget;
 
     player->Heal(healAmount);
+    SoundManager::GetInstance().PlaySound("pet_ghost_heal");
     m_healBudget -= healAmount;
 
     if (player->GetHealth() >= player->GetMaxHealth()) {
