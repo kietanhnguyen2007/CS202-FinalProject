@@ -37,7 +37,7 @@ target_link_directories(AppleKnightAdventure PRIVATE raylib/lib)
 # 8. Link your libraries (JSON, Local Raylib, and required Windows libraries)
 target_link_libraries(AppleKnightAdventure PRIVATE 
     nlohmann_json::nlohmann_json 
-    "${CMAKE_CURRENT_SOURCE_DIR}/raylib/lib/libraylibdll.a"
+    raylib 
     opengl32 
     gdi32 
     winmm
@@ -46,9 +46,6 @@ target_link_libraries(AppleKnightAdventure PRIVATE
 
 # 9. Copy assets to the build folder after building
 add_custom_command(TARGET AppleKnightAdventure POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-    "${CMAKE_CURRENT_SOURCE_DIR}/raylib/lib/raylib.dll"
-    $<TARGET_FILE_DIR:AppleKnightAdventure>
     COMMAND ${CMAKE_COMMAND} -E copy_directory
     "${CMAKE_CURRENT_SOURCE_DIR}/../assets"
     "$<TARGET_FILE_DIR:AppleKnightAdventure>/assets"

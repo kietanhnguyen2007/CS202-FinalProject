@@ -1,52 +1,17 @@
-# UPDATE_VERSION — Sound Asset Overhaul
+# Cập nhật Khả năng Tấn công của Quái vật
 
-## Files Modified
-- `src/Controller/GameController.cpp`
-- `src/Controller/MenuController.cpp`
+## Thay đổi
+1. `include/Utils/Constants.h`: 
+   - Tăng `ENEMY_MELEE_RANGE` từ `40` lên `100` (ngang bằng với vùng di chuyển `m_patrolRange`). Trước đây tầm đánh quá ngắn khiến nhân vật và quái vật bị cản lại bởi hitbox vật lý và không bao giờ chạm tới được ngưỡng 40 pixels, khiến quái vật không bao giờ kích hoạt được trạng thái `Attack`.
 
-## Files Created
-- `AppleKnightAdventure/SOUND_ASSET_GUIDE.md` — hướng dẫn tải sound asset
+2. `src/Model/Enemy.cpp`:
+   - **Đứng lại để tấn công**: Thêm lệnh ép vận tốc ngang về 0 (`MoveX(0, deltaTime)`) khi quái vật rơi vào trạng thái `EnemyState::Attack` hoặc `EnemyState::Hurt`. Nhờ đó, quái vật sẽ không bị trượt (slide) về phía trước khi đang phát animation vung vũ khí hoặc bị giật lùi, mang lại cảm giác chân thực hơn.
+   - **Sửa lỗi animation tuần tra**: Chuyển mapping trạng thái từ `EnemyState::Patrol` sang `Character::State::Walk` (trước đó là `Idle`), giúp quái vật hiện đúng hoạt ảnh "bước đi" khi đang đi tuần, thay vì tư thế đứng im trượt trên mặt đất.
 
-## Files Deleted
-- `assets/sounds/sfx/*.wav` (23 dummy files — tất cả cùng kích thước 121 946 bytes)
-- `assets/sounds/music/*.wav` (3 dummy files)
+3. `src/Controller/GameController.cpp`:
+   - Hệ thống gây sát thương tự động (`UpdateCombat`) giờ đã hoạt động chính xác vì quái vật có thể tiến vào trạng thái `Attack` đúng cách và kích hoạt đòn đánh lên Player khi khoảng cách hợp lệ.
 
-## What Changed and Why
-
-### 1. Xóa dummy sound files
-Toàn bộ 26 file `.wav` trong `assets/sounds/` là placeholder rỗng (cùng kích thước 121 946 bytes).
-Đã xóa để tránh nhầm lẫn và chuẩn bị chỗ cho sound asset thật.
-
-### 2. Rewrite toàn bộ sound wiring trong `GameController::Init()`
-- **Cũ:** 6 LoadSound + 1 LoadMusic (WAV)
-- **Mới:** 26 LoadSound + 3 LoadMusic (BGM dùng .ogg, centralized)
-- Music load tập trung tại đây thay vì phân tán (MenuController không còn LoadMusic)
-- Thêm đủ 6 nhóm: Player, Enemy, Item/World, GameState, Elemental, Pet, UI
-
-### 3. Thêm PlaySound calls còn thiếu trong `GameController`
-| Hàm | Call thêm |
-|-----|-----------|
-| `HandlePlayerInput()` | `player_jump` khi jump, `player_dash` khi dash |
-| `UpdateCombat()` | `player_die` khi player hết máu |
-| `UpdateItems()` | Tách `item_pickup` (Apple/Key/...) khỏi `coin_pickup` (Coin) |
-| `UpdateInteractions()` | `checkpoint_activate` (chỉ khi chưa active, tránh spam) |
-| `CheckLevelComplete()` | `level_complete` |
-| `SpawnPet()` | `pet_summon` |
-| `FireDragonProjectile()` | `pet_dragon_fire` |
-
-### 4. Rewrite `MenuController`
-- Xóa `LoadMusic` duplicate (nay tập trung ở GameController)
-- Thêm `ui_hover` khi navigate menu
-- Thêm `ui_confirm` khi chọn menu item
-
-### 5. Tạo SOUND_ASSET_GUIDE.md
-Hướng dẫn chi tiết từng file: link tải, tên file cần chọn, tên đặt lại.
-Sources: Kenney.nl (CC0), Incompetech (CC-BY), Freesound, OpenGameArt, Pixabay.
-
-## Current Status
-- ✅ Code wiring hoàn chỉnh — 29 sound keys được định nghĩa
-- ✅ Không còn wire cũ/dummy
-- ⏳ Cần tải sound asset thật theo `SOUND_ASSET_GUIDE.md`
-- ⏳ `game_over` chưa có trigger trong code (cần thêm khi ResultView::ShowGameOver được implement)
-- ⏳ `pet_ghost_heal` chưa có trigger (cần thêm trong Pet heal tick logic)
-- ⏳ BGM Boss chưa có trigger (cần thêm khi Boss spawn/detect)
+## Trạng thái hiện tại
+- Quái vật sẽ tự động lao tới và ra đòn (vung kiếm/ném bom) khi Player lọt vào vùng di chuyển (patrol range) của nó.
+- Có đầy đủ animation Attack (đã load từ các bước trước) và quái vật sẽ đứng tấn vững vàng khi vung vũ khí.
+- Trải nghiệm chiến đấu đã trở nên hoàn thiện hơn.

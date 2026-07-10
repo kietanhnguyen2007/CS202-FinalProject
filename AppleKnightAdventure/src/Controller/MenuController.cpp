@@ -14,13 +14,11 @@ bool MenuController::Init() {
     menuView.LoadResources("assets/ui/ui_atlas.json");
     menuView.ShowMainMenu();
 
-    // Audio đã được init và load tập trung bởi GameController::Init().
-    // Ở đây chỉ cần phát nhạc menu.
     auto& snd = SoundManager::GetInstance();
-    if (!snd.IsAudioInitialized()) {
-        snd.InitAudio();
+    if (snd.InitAudio()) {
+        snd.LoadMusic("bgm_menu", "assets/sounds/music/bgm_menu.wav");
+        snd.PlayMusic("bgm_menu");
     }
-    snd.PlayMusic("bgm_menu");
 
     m_selected = 0;
     m_startGame = false;
@@ -47,11 +45,9 @@ void MenuController::HandleMainMenuInput() {
         m_selected += cmd.menuDelta;
         if (m_selected < 0) m_selected = 2;
         if (m_selected > 2) m_selected = 0;
-        SoundManager::GetInstance().PlaySound("ui_hover");
     }
 
     if (cmd.menuConfirm) {
-        SoundManager::GetInstance().PlaySound("ui_confirm");
         switch (m_selected) {
             case 0:
                 m_startGame = true;

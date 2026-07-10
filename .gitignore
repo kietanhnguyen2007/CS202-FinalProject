@@ -1,12 +1,38 @@
-# Ignore everything
-*
+# Build
+build/
+*.exe
+*.o
+*.obj
+*.out
+AppleKnightAdventure.exe
 
-# But do not ignore directories (so we can traverse them to find files)
-!*/
+# IDE
+.vs/
+.vscode/
+.idea/
+*.sln
+*.suo
+*.user
+CMakeUserPresets.json
 
-# Do not ignore pdf and md files
-!*.pdf
-!*.md
+# Agent config
+.agents/
+skills-lock.json
 
-# Do not ignore this .gitignore file itself
-!.gitignore
+# OS
+Thumbs.db
+.DS_Store
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake-build-*/
+
+# Agent update log
+AppleKnightAdventure/UPDATE_VERSION
+
+AppleKnightAdventure/plan-backend.md
+AppleKnightAdventure/AGENTS.md
+AppleKnightAdventure/VIEW_NEEDED_UPDATE.md
+VIEW_API_GUIDE.md
+upgrade.md
