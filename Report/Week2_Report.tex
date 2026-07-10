@@ -29,16 +29,20 @@ While our Markdown report provides a high-level summary of the week's progress, 
     
     \item \textbf{Dynamic Sound Loading System:} Refactored \texttt{GameController::Init()} and implemented \texttt{LoadPlayerSounds(CharacterClass)} to dynamically load class-specific audio (Fighter, Knight, MagicCaster, Ninja) into generic internal keys (e.g., \texttt{player\_attack1}). This successfully eliminated hardcoded class-checking logic inside the combat loops, maintaining the engine's speed and cleanliness.
     
-    \item \textbf{Backend Event Hookups:} Successfully integrated sound triggers into the core engine without altering existing physics or combat logic. Hooked up Player inputs (attacks, dash, ultimate), Enemy/Boss states, Pet actions (summon, dragon fire, ghost heal), and the \texttt{ElementalSystem} reactions (Vaporize, Conduct, Overload).
+    \item \textbf{Backend \& UI Event Hookups:} Successfully integrated sound triggers into the core engine without altering existing physics or combat logic. Hooked up Player inputs (attacks, dash, ultimate), Enemy/Boss states, Pet actions (summon, dragon fire, ghost heal), and the \texttt{ElementalSystem} reactions (Vaporize, Conduct, Overload). Also added UI sound triggers for game states in \texttt{ResultView} and \texttt{MenuController}.
+    
+    \item \textbf{Repository Optimization:} Conducted a cleanup pass to remove multiple heavy, unused dummy \texttt{.wav} files from the repository. Updated \texttt{CMakeLists.txt} and \texttt{.gitignore} to manage audio assets effectively.
 \end{itemize}
 
 \subsection*{25125037 -- Nguyen Trong Tien}
 \begin{itemize}
-    \item \textbf{UI \& View Audio Integration:} Connected interface and game state audio triggers (e.g., Level Complete, Game Over) within \texttt{ResultView} and \texttt{MenuController} to provide immediate and satisfying feedback to the player without coupling the View to the Controller's business logic.
+    \item \textbf{Demo Game Rendering \& Interaction:} Implemented core rendering routines and interactions to create a fully playable demo level for testing mechanics.
     
-    \item \textbf{Repository Optimization:} Conducted a cleanup pass to remove multiple heavy, unused dummy \texttt{.wav} files from the repository. This drastically reduced the project footprint and optimized git clone times for the team.
+    \item \textbf{Player Combat Mechanics:} Added specific attack combos (\texttt{attack1} on J, \texttt{attack2} on K, \texttt{attack3} on U) specifically tailored for the Knight mode.
     
-    \item \textbf{Build System Updates:} Updated \texttt{CMakeLists.txt} and \texttt{.gitignore} to seamlessly accommodate the new structured audio directories and prevent massive binary assets from clogging the source control in the future.
+    \item \textbf{Pet Support System:} Developed the pet companion system to assist the player in combat. Implemented Pet 1 (Dragon) to provide active attack assistance and Pet 2 (Ghost) to act as a healer. The Ghost healer includes specific balancing logic, such as a 70hp heal limit per level and a condition that it can only be used when the player is safely out of enemy attack range.
+    
+    \item \textbf{Visual Fixes:} Corrected pixel placement issues and rendering offsets for enemies within the demo level environment.
 \end{itemize}
 
 \section*{AI Usage Declaration}
