@@ -36,13 +36,11 @@ While our Markdown report provides a high-level summary of the week's progress, 
 
 \subsection*{25125037 -- Nguyen Trong Tien}
 \begin{itemize}
-    \item \textbf{Demo Game Rendering \& Interaction:} Implemented core rendering routines and interactions to create a fully playable demo level for testing mechanics.
+    \item \textbf{Enemy Combat Animations:} Developed and integrated robust attack animations for enemy entities within the main combat loop, modifying \texttt{Enemy.cpp} and \texttt{GameController.cpp} to ensure smooth visual feedback during monster strikes.
     
-    \item \textbf{Player Combat Mechanics:} Added specific attack combos (\texttt{attack1} on J, \texttt{attack2} on K, \texttt{attack3} on U) specifically tailored for the Knight mode.
+    \item \textbf{End Game Checkpoint Flag:} Implemented the final checkpoint logic and interaction flags. Updated \texttt{Item.h} and \texttt{Types.h} to properly trigger the end game sequence when the player successfully navigates the level and reaches the final goal.
     
-    \item \textbf{Pet Support System:} Developed the pet companion system to assist the player in combat. Implemented Pet 1 (Dragon) to provide active attack assistance and Pet 2 (Ghost) to act as a healer. The Ghost healer includes specific balancing logic, such as a 70hp heal limit per level and a condition that it can only be used when the player is safely out of enemy attack range.
-    
-    \item \textbf{Visual Fixes:} Corrected pixel placement issues and rendering offsets for enemies within the demo level environment.
+    \item \textbf{Demo Game Polish \& Interaction (Carried over):} Finalized the playable demo level rendering, added specific attack combos (\texttt{attack1} on J, \texttt{attack2} on K, \texttt{attack3} on U) tailored for the Knight mode, and constrained Pet support mechanics (Ghost heal range and limits).
 \end{itemize}
 
 \section*{AI Usage Declaration}

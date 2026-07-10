@@ -15,12 +15,9 @@
 - **Repository Optimization & Build System:** Removed multiple heavy, unused dummy `.wav` files to reduce project footprint. Updated `CMakeLists.txt` and `.gitignore` to manage audio assets effectively.
 
 **25125037 – Nguyen Trong Tien**
-- **Demo Game Rendering & Interaction:** Implemented core rendering routines and interactions for the playable demo level.
-- **Player Combat Mechanics (Knight Mode):** Added specific attack combos (`attack1` on J, `attack2` on K, `attack3` on U) for the Knight mode in the demo level.
-- **Pet Support System:** Developed the pet companion system to assist the player in combat:
-  - **Pet 1 (Dragon):** Provides attack assistance (called by pressing 1).
-  - **Pet 2 (Ghost):** Acts as a healer (heals up to 70hp per level, usable only when safely out of enemy attack range) (called by pressing 2).
-- **Fixes:** Corrected pixel placement issues for enemies in the demo level.
+- **Enemy Combat Animations:** Developed and integrated attack animations for enemy entities within the main combat loop, ensuring smooth visual feedback during monster strikes.
+- **End Game Checkpoint Flag:** Implemented the final checkpoint logic and interaction flags (`Item.h`, `Types.h`, `GameController.cpp`) to successfully trigger the end game sequence when the player reaches the goal.
+- **Demo Game Polish & Interaction (carried over from late Week 1):** Finalized the playable demo level rendering, Knight combat combos (J, K, U keys), and Pet support constraints (Dragon assist, Ghost heal range).
 
 ## AI Usage Declaration
 - **Using to fix error:** AI was used to verify that inserting `PlaySound` calls into the high-frequency fixed-timestep loops (like `UpdateCombat` and `HandlePlayerInput`) did not introduce dynamic allocation or violate the strict Zero-Allocation rule.
