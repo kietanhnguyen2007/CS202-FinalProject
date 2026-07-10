@@ -38,6 +38,7 @@ private:
     GameController() = default;
 
     void LoadTilesets();
+    void LoadPlayerSounds(CharacterClass playerClass);
     void RegisterEntityVisuals(Entity* entity);
     void RegisterPlayerVisuals(Player* player, CharacterClass playerClass);
     void RegisterEnemyVisuals(Enemy* enemy);

@@ -1,6 +1,7 @@
 #include "View/ResultView.h"
 #include "View/Renderer.h"
 #include "View/UIResourceManager.h"
+#include "Systems/SoundManager.h"
 #include <cstdio>
 
 namespace View {
@@ -33,6 +34,7 @@ void ResultView::Show(const LevelResultSnapshot& snap) {
     m_visible  = true;
     m_gameOver = false;
     m_anim     = 0.0f;
+    SoundManager::GetInstance().PlaySound("level_complete");
 }
 
 void ResultView::ShowGameOver(const LevelResultSnapshot& snap) {
@@ -40,6 +42,7 @@ void ResultView::ShowGameOver(const LevelResultSnapshot& snap) {
     m_visible  = true;
     m_gameOver = true;
     m_anim     = 0.0f;
+    SoundManager::GetInstance().PlaySound("game_over");
 }
 
 void ResultView::Update(float dt) {
