@@ -10,6 +10,7 @@ protected:
     ItemType m_itemType;
     int m_amount;
     std::string m_name;
+    bool m_physicsEnabled = false;  // true khi coin được tung ra từ rương
 
 public:
     Item();
@@ -21,6 +22,8 @@ public:
     int GetAmount() const;
     void SetAmount(int amount);
     const std::string& GetItemName() const;
+    bool IsPhysicsEnabled() const { return m_physicsEnabled; }
+    void SetPhysicsEnabled(bool v) { m_physicsEnabled = v; }
 };
 
 #endif

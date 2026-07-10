@@ -61,6 +61,9 @@ void Enemy::Update(float deltaTime) {
         case EnemyState::Chase:
             Character::SetState(State::Walk);
             break;
+        case EnemyState::WindUp:  // Telegraph animation — same clip as attack but no damage yet
+            Character::SetState(State::Attack);
+            break;
         case EnemyState::Attack:
             Character::SetState(State::Attack);
             break;
@@ -102,6 +105,12 @@ void Enemy::UpdateAI(Vector2 playerPosition, float deltaTime) {
     float dy = playerPosition.y - m_position.y;
     float dist = std::sqrt(dx * dx + dy * dy);
 
+    // Keep enemy facing player whenever it is aware of the player
+    if (m_state == EnemyState::Chase || m_state == EnemyState::WindUp || m_state == EnemyState::Attack) {
+        if (std::abs(dx) > 1.0f)
+            m_direction = (dx > 0) ? Direction::Right : Direction::Left;
+    }
+
     switch (m_state) {
         case EnemyState::Dead:
             m_stateTimer += deltaTime;
@@ -133,11 +142,31 @@ void Enemy::UpdateAI(Vector2 playerPosition, float deltaTime) {
             if (distFromSpawn > m_patrolRange * 1.5f) {
                 SetState(EnemyState::Patrol);
             } else if (dist <= m_attackRange) {
-                SetState(EnemyState::Attack);
+                // Flying enemies attack immediately; ground enemies wind up first
+                if (m_enemyType == EnemyType::Flying) {
+                    SetState(EnemyState::Attack);
+                } else {
+                    SetState(EnemyState::WindUp);
+                }
             } else if (dist > m_detectionRange * 1.5f) {
                 SetState(EnemyState::Patrol);
             } else {
                 Chase(playerPosition, deltaTime);
+            }
+            break;
+        }
+
+        // ── Wind-up (telegraph, no damage) ───────────────────────────────
+        case EnemyState::WindUp: {
+            MoveX(0, deltaTime);  // Stop moving while winding up
+            m_stateTimer += deltaTime;
+            // If player escapes during wind-up, cancel and chase
+            if (dist > m_attackRange * 1.5f) {
+                SetState(EnemyState::Chase);
+                break;
+            }
+            if (m_stateTimer >= 0.75f) {  // 0.75s telegraph window
+                SetState(EnemyState::Attack);
             }
             break;
         }
@@ -147,7 +176,7 @@ void Enemy::UpdateAI(Vector2 playerPosition, float deltaTime) {
                 MoveX(0, deltaTime); // Stop moving while attacking for ground units
             }
             m_stateTimer += deltaTime;
-            if (m_stateTimer >= 0.6f) { // Attack duration
+            if (m_stateTimer >= 0.6f) { // Attack damage duration
                 if (m_enemyType == EnemyType::Flying) {
                     SetState(EnemyState::Patrol); // Force retreat up
                 } else {
@@ -157,7 +186,7 @@ void Enemy::UpdateAI(Vector2 playerPosition, float deltaTime) {
                     } else if (dist > m_attackRange * 1.2f) {
                         SetState(EnemyState::Chase);
                     } else {
-                        SetState(EnemyState::Attack); // Restart attack
+                        SetState(EnemyState::WindUp); // Restart with wind-up
                     }
                 }
             }

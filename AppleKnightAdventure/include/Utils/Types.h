@@ -19,6 +19,7 @@ enum class EnemyState {
     Idle,
     Patrol,
     Chase,
+    WindUp,   // 0.75s telegraph before damage window
     Attack,
     Hurt,
     Dead
