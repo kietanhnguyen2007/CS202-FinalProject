@@ -1,0 +1,52 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\usepackage{geometry}
+\geometry{margin=1in}
+
+\begin{document}
+
+\begin{center}
+    \LARGE \textbf{Weekly Report (Week 6)} \\
+    \vspace{0.5cm}
+\end{center}
+
+\section*{General Information}
+\begin{itemize}
+    \item \textbf{Group ID:} 55
+    \item \textbf{Project Name:} CS202 - Apple Knight
+    \item \textbf{GitHub Repository:} \url{https://github.com/kietanhnguyen2007/CS202-FinalProject}
+    \item \textbf{Date range:} 31/7/2026 - 7/8/2026
+\end{itemize}
+
+\section*{Detailed Tasks Completed This Week}
+While our Markdown report provides a high-level summary of the week's progress, this document elaborates on the technical implementations and architectural decisions made by each member.
+
+\subsection*{25125074 -- Nguyen Anh Kiet \& 25125037 -- Nguyen Trong Tien}
+\begin{itemize}
+    \item \textbf{Code Review:} We reviewed each other's code to ensure code quality, maintainability, and alignment with our project's architecture guidelines. Specifically, we verified adherence to the Zero Allocation rule within the main game loop, proper usage of Object Pooling for repetitive entities, and correct integration of Spatial Partitioning for collision detection.
+    
+    \item \textbf{Theory Review for Map Building:} We revisited the theoretical foundations required for building the game map. This included studying tilemap structures, reading up on spatial partitioning techniques (Quadtree) in the context of level design, and planning the layout for the DualWorld layers (Light/Shadow). We aligned on the data structures required for storing and rendering these layers efficiently in Raylib.
+\end{itemize}
+
+\section*{AI Usage Declaration}
+\begin{itemize}
+    \item \textbf{Code Review Assistance:} Used AI to help explain complex segments of each other's code and identify potential bottlenecks or rule violations.
+    \item \textbf{Map Generation Theory:} Consulted AI to summarize best practices for tilemap processing and optimal data structures for map rendering in Raylib.
+\end{itemize}
+
+\section*{Tasks Planned for Next Week}
+\begin{itemize}
+    \item Begin actual implementation and construction of the game map based on the theory reviewed this week.
+    \item Integrate the collision map and ensure smooth interactions with the player's movement system.
+    \item Start plotting out initial enemy and item spawn points in the newly built map.
+\end{itemize}
+
+\section*{Issues \& Resolutions}
+\begin{itemize}
+    \item \textbf{Issue 1:} Aligning on a unified approach for handling the DualWorld map layers required resolving conflicting design ideas regarding rendering performance. \\
+    \textbf{Resolution:} Dedicated time to thoroughly review the theory and discuss architectural choices, leading to a consensus on the map data structure and rendering approach.
+\end{itemize}
+
+\end{document}
