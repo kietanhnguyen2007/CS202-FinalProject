@@ -15,6 +15,7 @@
 
 class Player;
 class Enemy;
+class Boss;
 class Chest;
 class Checkpoint;
 class Item;
@@ -41,6 +42,7 @@ private:
     void RegisterEntityVisuals(Entity* entity);
     void RegisterPlayerVisuals(Player* player, CharacterClass playerClass);
     void RegisterEnemyVisuals(Enemy* enemy);
+    void RegisterBossVisuals(Boss* boss);          // NEW — LDtk boss spawn
     void RegisterChestVisuals(Chest* chest);
     void RegisterCheckpointVisuals(Checkpoint* checkpoint);
     void RegisterItemVisuals(Item* item);

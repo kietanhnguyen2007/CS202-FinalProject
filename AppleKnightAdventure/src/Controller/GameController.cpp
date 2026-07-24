@@ -1,6 +1,7 @@
 #include "Controller/GameController.h"
 #include "Controller/InputController.h"
 #include "Factories/LevelFactory.h"
+#include "Model/Boss.h"
 #include "Model/Enemy.h"
 #include "Model/Chest.h"
 #include "Model/Checkpoint.h"
@@ -19,6 +20,7 @@
 #include <cmath>
 #include <algorithm>
 #include <iostream>
+#include <filesystem>
 
 namespace {
 bool RectOverlap(const Rectangle& a, const Rectangle& b) {
@@ -73,18 +75,13 @@ void GameController::LoadTilesets() {
     gv.LoadTileset(4, "assets/textures/tiles/Interior-01.png", 25);
     gv.LoadTileset(5, "assets/textures/tiles/Props-Rocks.png", 18);
     gv.LoadTileset(6, "assets/textures/tiles/Tree-Assets.png", 21);
-    // TODO(map-builder): chọn BackgroundTheme dựa theo level/biome của map.
-    // Ví dụ:
-    //   BackgroundTheme theme = BackgroundTheme::Forest;       // level rừng
-    //   BackgroundTheme theme = BackgroundTheme::ColdCorridor; // level lâu đài
-    //   BackgroundTheme theme = BackgroundTheme::Underwater;   // level nước
-    // Sau đó:
-    //   m_gameState->SetBackgroundTheme(theme);
-    //   gv.LoadBackgrounds(theme);
-    gv.LoadBackgrounds(); // tạm dùng Forest mặc định
+    // Background sẽ được load tại StartLevel() dựa theo BackgroundTheme của map
 }
 
 std::string GameController::GetLevelPath(int levelNumber) const {
+    // Ưu tiên LDtk single-world file nếu tồn tại
+    const std::string ldtkPath = "assets/levels/world.ldtk";
+    if (std::filesystem::exists(ldtkPath)) return ldtkPath;
     return "assets/levels/level" + std::to_string(levelNumber) + ".lvl";
 }
 
@@ -174,6 +171,28 @@ void GameController::RegisterItemVisuals(Item* item) {
     View::EntityRenderer::GetInstance().RegisterAnimated(item, atlasPath, "default");
 }
 
+void GameController::RegisterBossVisuals(Boss* boss) {
+    if (!boss) return;
+    auto& cr = View::CharacterRenderer::GetInstance();
+    const uint32_t id = static_cast<uint32_t>(boss->GetId());
+
+    // Determine boss tier by entity size set during LDtk load:
+    // 128×128 → Boss3,  96×96 → Boss1 or Boss2
+    Vector2 sz = boss->GetSize();
+    std::string root;
+    if (sz.x >= 127.0f) {
+        root = "assets/textures/boss/boss3/phase1/";
+    } else {
+        root = "assets/textures/boss/boss1/phase1/";
+    }
+
+    cr.Register(boss, root + "idle.json", "idle");
+    cr.MergeAtlas(id,  root + "walk.json");
+    cr.MergeAtlas(id,  root + "attack_1.json");
+    if (std::filesystem::exists(root + "hurt.json"))
+        cr.MergeAtlas(id, root + "hurt.json");
+}
+
 void GameController::RegisterEntityVisuals(Entity* entity) {
     if (!entity) return;
     switch (entity->GetType()) {
@@ -183,6 +202,9 @@ void GameController::RegisterEntityVisuals(Entity* entity) {
         case EntityType::Enemy:
             RegisterEnemyVisuals(static_cast<Enemy*>(entity));
             break;
+        case EntityType::Boss:
+            RegisterBossVisuals(static_cast<Boss*>(entity));
+            break;
         case EntityType::Chest:
             RegisterChestVisuals(static_cast<Chest*>(entity));
             break;
@@ -191,6 +213,9 @@ void GameController::RegisterEntityVisuals(Entity* entity) {
             break;
         case EntityType::Item:
             RegisterItemVisuals(static_cast<Item*>(entity));
+            break;
+        case EntityType::FakeWall:
+            // FakeWall trông như tile thường — không cần Register visuals riêng
             break;
         default:
             break;
@@ -211,7 +236,11 @@ void GameController::StartLevel(int levelNumber) {
     m_activePet.reset();
     m_petProjectiles.clear();
 
-    m_gameState = LevelFactory::LoadLevel(GetLevelPath(levelNumber), GameMode::SinglePlayer);
+    const std::string path = GetLevelPath(levelNumber);
+    const bool isLDtk = (path.size() >= 5 &&
+                         path.substr(path.size() - 5) == ".ldtk");
+    const int ldtkIdx = isLDtk ? (levelNumber - 1) : 0;
+    m_gameState = LevelFactory::LoadLevel(path, GameMode::SinglePlayer, ldtkIdx);
     if (!m_gameState) {
         m_gameState = LevelFactory::CreateDefaultLevel(levelNumber);
     }
@@ -229,6 +258,9 @@ void GameController::StartLevel(int levelNumber) {
     m_enemyAttackCooldown = 0.0f;
 
     View::GameView::GetInstance().SetTiles(&m_gameState->GetTiles());
+
+    // Load background based on the theme set by LDtk level field (or default Forest)
+    View::GameView::GetInstance().LoadBackgrounds(m_gameState->GetBackgroundTheme());
 
     if (Player* player = m_gameState->GetLocalPlayer()) {
         RegisterPlayerVisuals(player, m_gameState->GetPlayerClass());

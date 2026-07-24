@@ -340,7 +340,6 @@ void GameView::LoadTileset(int tileType, const std::string& texturePath, int col
 }
 
 void GameView::RenderTilemap(const std::vector<Tile>& tiles) {
-    Renderer& r = Renderer::GetInstance();
     const float ts = (float)TILE_SIZE;
 
     for (const auto& tile : tiles) {
@@ -349,15 +348,27 @@ void GameView::RenderTilemap(const std::vector<Tile>& tiles) {
         TilesetInfo& tsi = it->second;
         if (tsi.texture.id == 0) continue;
 
-        float srcTileSize = (float)tsi.texture.width / (float)tsi.gridCols;
+        float srcSize = (float)tsi.texture.width / (float)tsi.gridCols;
         float col = (float)(tile.tileId % tsi.gridCols);
         float row = (float)(tile.tileId / tsi.gridCols);
-        Rectangle src = { col * srcTileSize, row * srcTileSize, srcTileSize, srcTileSize };
-        Vector2 pos = { (float)tile.x * ts, (float)tile.y * ts };
-        float scale = ts / srcTileSize;
 
-        r.SubmitSprite(&tsi.texture, src, pos, {scale, scale}, 0.0f, {0,0},
-                       WHITE, Layer::World, 0.0f, false, 0);
+        // Apply LDtk flip flags ("f" field): bit0=flipX, bit1=flipY
+        float srcW = srcSize * ((tile.flipFlags & 1) ? -1.0f : 1.0f);
+        float srcH = srcSize * ((tile.flipFlags & 2) ? -1.0f : 1.0f);
+
+        Rectangle src = {
+            col * srcSize + (srcW < 0 ? srcSize : 0.0f),
+            row * srcSize + (srcH < 0 ? srcSize : 0.0f),
+            srcW,
+            srcH
+        };
+        Rectangle dest = {
+            (float)tile.x * ts,
+            (float)tile.y * ts,
+            ts,
+            ts
+        };
+        DrawTexturePro(tsi.texture, src, dest, {0.0f, 0.0f}, 0.0f, WHITE);
     }
 }
 
