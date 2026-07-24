@@ -8,8 +8,7 @@
 #include <memory>
 #include <unordered_map>
 
-// Forward-declare so header doesn't pull in nlohmann headers
-namespace nlohmann { template<typename,typename> class basic_json; }
+
 
 class LevelFactory {
 public:
