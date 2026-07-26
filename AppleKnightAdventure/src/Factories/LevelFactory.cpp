@@ -278,9 +278,15 @@ std::unique_ptr<GameState> LevelFactory::LoadLDtkLevel(const std::string& filepa
     auto& lvl = levels[levelIndex];
 
     // --- Map size ---
-    int pxWid = lvl.value("pxWid", 2560);
-    int pxHei = lvl.value("pxHei", 1152);
-    state->SetMapSize(pxWid / TILE_SIZE, pxHei / TILE_SIZE);
+    // Read ldtkGs from first layer so this works with any gridSize (16 or 64)
+    int pxWid   = lvl.value("pxWid", 2560);
+    int pxHei   = lvl.value("pxHei", 1152);
+    int ldtkGs  = 16; // default: tileset native size
+    if (lvl.contains("layerInstances") && !lvl["layerInstances"].empty())
+        ldtkGs = lvl["layerInstances"][0].value("__gridSize", 16);
+    // Map size in game tiles: (map pixels / ldtk grid) gives cell count,
+    // which equals game-tile count because 1 LDtk cell = 1 game tile.
+    state->SetMapSize(pxWid / ldtkGs, pxHei / ldtkGs);
 
     // --- TilesetUid → tileType map (based on import order in LDtk) ---
     std::unordered_map<int,int> uidToTileType;
@@ -469,9 +475,12 @@ std::unique_ptr<DualWorld> LevelFactory::LoadLDtkDualWorld(const std::string& fi
         return std::make_unique<DualWorld>();
     auto& lvl = levels[levelIndex];
 
-    int pxWid = lvl.value("pxWid", 2560);
-    int pxHei = lvl.value("pxHei", 1152);
-    auto world = std::make_unique<DualWorld>(pxWid / TILE_SIZE, pxHei / TILE_SIZE);
+    int pxWid  = lvl.value("pxWid", 2560);
+    int pxHei  = lvl.value("pxHei", 1152);
+    int ldtkGs = 16;
+    if (lvl.contains("layerInstances") && !lvl["layerInstances"].empty())
+        ldtkGs = lvl["layerInstances"][0].value("__gridSize", 16);
+    auto world = std::make_unique<DualWorld>(pxWid / ldtkGs, pxHei / ldtkGs);
 
     if (!lvl.contains("layerInstances")) return world;
 
