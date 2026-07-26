@@ -12,6 +12,8 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <set>
+#include <unordered_map>
 
 class Player;
 class Enemy;
@@ -52,10 +54,13 @@ private:
     void ApplyGravity(Character* character, float dt);
     void ResolveTileCollisions(Character* character, float dt);
     bool IsOnGround(const Character* character) const;
+    bool IsRectOnGround(Rectangle box) const;  // item/entity ground check
     void UpdateEnemyAI(float dt);
     void UpdateCombat(float dt);
     void UpdateInteractions(const struct InputCommand& cmd);
     void UpdateItems(float dt);
+    void UpdateItemPhysics(float dt);           // gravity + tile collision for coin scatter
+    void UpdateEndgameCheckpoints();            // viewport reveal + flag animation state machine
     void UpdatePets(float dt, const struct InputCommand& cmd);
     void UpdateProjectiles(float dt);
     void SpawnPet(PetType type);
@@ -92,6 +97,13 @@ private:
     float m_combatExitTimer    = 0.0f;  // grace period before 'out of combat'
     static constexpr float COMBAT_EXIT_GRACE = 4.0f;
     static constexpr float PET_COMBAT_RANGE  = 350.0f;
+
+    // Endgame checkpoint animation state machine
+    // Phase: uncaptured -> flag_out playing -> captured (loop)
+    std::set<int> m_endgameFlagRevealedIds;  // IDs where flag_out has been triggered
+    std::set<int> m_endgameFlagCapturedIds;  // IDs now showing checkpoint_captured loop
+    std::unordered_map<int, float> m_flagOutTimers; // tracks time since flag_out started
+    static constexpr float FLAG_OUT_DURATION = 1.35f; // 27 frames x 0.05s
 };
 
 #endif

@@ -190,6 +190,7 @@ bool GameView::Init() {
     // Preload Objects
     cr.PreloadAtlas("assets/textures/objects/checkpoint_captured.json");
     cr.PreloadAtlas("assets/textures/objects/checkpoint_uncaptured.json");
+    cr.PreloadAtlas("assets/textures/objects/checkpoint_flag_out.json");
     cr.PreloadAtlas("assets/textures/objects/chest.json");
     cr.PreloadAtlas("assets/textures/objects/chest_closed.json");
     cr.PreloadAtlas("assets/textures/objects/chest_open.json");

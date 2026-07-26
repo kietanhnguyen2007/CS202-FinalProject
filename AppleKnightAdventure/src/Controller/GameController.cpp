@@ -149,13 +149,11 @@ void GameController::RegisterChestVisuals(Chest* chest) {
 
 void GameController::RegisterCheckpointVisuals(Checkpoint* checkpoint) {
     if (!checkpoint) return;
-    if (checkpoint->IsEndGame()) {
-        View::EntityRenderer::GetInstance().RegisterAnimated(
-            checkpoint, "assets/textures/objects/checkpoint_captured.json", "default");
-    } else {
-        View::EntityRenderer::GetInstance().RegisterAnimated(
-            checkpoint, "assets/textures/objects/checkpoint_uncaptured.json", "default");
-    }
+    // Endgame checkpoint: always start as uncaptured (hidden flag pole).
+    // The flag_out -> captured transition is driven by UpdateEndgameCheckpoints().
+    // Regular checkpoint: uncaptured until activated, then flag_out.
+    View::EntityRenderer::GetInstance().RegisterAnimated(
+        checkpoint, "assets/textures/objects/checkpoint_uncaptured.json", "default");
 }
 
 void GameController::RegisterItemVisuals(Item* item) {
@@ -289,11 +287,21 @@ void GameController::StartLevel(int levelNumber) {
 
     SoundManager::GetInstance().StopMusic("bgm_menu");
     SoundManager::GetInstance().PlayMusic("bgm_gameplay");
+
+    // Reset endgame checkpoint animation tracking
+    m_endgameFlagRevealedIds.clear();
+    m_endgameFlagCapturedIds.clear();
+    m_flagOutTimers.clear();
 }
 
 bool GameController::IsOnGround(const Character* character) const {
     if (!character || !m_gameState) return false;
     Rectangle box = character->GetBoundingBox();
+    return IsRectOnGround(box);
+}
+
+bool GameController::IsRectOnGround(Rectangle box) const {
+    if (!m_gameState) return false;
     Rectangle probe = {box.x, box.y + box.height, box.width, 2.0f};
     for (const auto& tile : m_gameState->GetTiles()) {
         if (!tile.solid) continue;
@@ -665,7 +673,7 @@ void GameController::UpdateItems(float dt) {
 }
 
 void GameController::UpdateInteractions(const InputCommand& cmd) {
-    Player* player = m_gameState->GetLocalPlayer();
+    Player* player = m_gameState ? m_gameState->GetLocalPlayer() : nullptr;
     if (!player || !cmd.interact) return;
 
     Rectangle playerBox = player->GetBoundingBox();
@@ -683,11 +691,28 @@ void GameController::UpdateInteractions(const InputCommand& cmd) {
             if (chest->IsOpened()) continue;
             auto loot = chest->Open();
             SoundManager::GetInstance().PlaySound("chest_open");
-            for (auto& item : loot) {
-                item->SetPosition({
-                    chest->GetPosition().x,
-                    chest->GetPosition().y - TILE_SIZE * 0.5f
-                });
+
+            // Switch chest visual to open state
+            uint32_t chestUid = static_cast<uint32_t>(chest->GetId());
+            View::EntityRenderer::GetInstance().Unregister(chestUid);
+            View::EntityRenderer::GetInstance().RegisterAnimated(
+                chest, "assets/textures/objects/chest_open.json", "default");
+
+            // Scatter coins in an upward arc
+            int count = static_cast<int>(loot.size());
+            float chestCenterX = chest->GetPosition().x + chest->GetSize().x * 0.5f;
+            float chestTopY    = chest->GetPosition().y;
+            for (int i = 0; i < count; ++i) {
+                // Spread angles: fan from -120deg to -60deg (upward cone)
+                float t     = (count > 1) ? (float)i / (float)(count - 1) : 0.5f;
+                float angle = (-120.0f + t * 60.0f) * 3.14159f / 180.0f; // radians
+                float speed = 280.0f + static_cast<float>(std::rand() % 80);
+                Vector2 vel = { std::cos(angle) * speed, std::sin(angle) * speed };
+
+                auto& item = loot[i];
+                item->SetPosition({ chestCenterX - item->GetSize().x * 0.5f, chestTopY });
+                item->SetVelocity(vel);
+                item->SetPhysicsEnabled(true);
                 RegisterItemVisuals(item.get());
                 m_gameState->AddEntity(std::move(item));
             }
@@ -696,8 +721,16 @@ void GameController::UpdateInteractions(const InputCommand& cmd) {
 
         if (entity->GetType() == EntityType::Checkpoint) {
             auto* checkpoint = static_cast<Checkpoint*>(entity.get());
+            if (checkpoint->IsEndGame() || checkpoint->IsActivated()) continue;
+
             checkpoint->Activate();
             m_respawnPoint = checkpoint->GetPosition();
+
+            // Switch visual: uncaptured -> flag_out animation
+            uint32_t cpUid = static_cast<uint32_t>(checkpoint->GetId());
+            View::EntityRenderer::GetInstance().Unregister(cpUid);
+            View::EntityRenderer::GetInstance().RegisterAnimated(
+                checkpoint, "assets/textures/objects/checkpoint_flag_out.json", "flag_out");
             return;
         }
     }
@@ -796,9 +829,11 @@ void GameController::Update(float dt) {
     }
 
     UpdateCombat(dt);
+    UpdateItemPhysics(dt);
     UpdateItems(dt);
     UpdatePets(dt, cmd);
     UpdateProjectiles(dt);
+    UpdateEndgameCheckpoints();
     m_particles.Update(dt);
     m_gameState->TickTimer(dt);
 
@@ -849,6 +884,160 @@ void GameController::Shutdown() {
     SoundManager::GetInstance().StopMusic("bgm_gameplay");
     m_gameState.reset();
     m_running = false;
+}
+
+// ============================================================
+// Item Physics (coin scatter from chests)
+// ============================================================
+
+void GameController::UpdateItemPhysics(float dt) {
+    if (!m_gameState) return;
+
+    const float mapHeight = std::max(1, m_gameState->GetMapHeight()) * (float)TILE_SIZE;
+    const float mapWidth  = std::max(1, m_gameState->GetMapWidth())  * (float)TILE_SIZE;
+    constexpr float COIN_GRAVITY    = 800.0f;   // px/s²
+    constexpr float COIN_BOUNCE_Y   = -120.0f;  // small bounce on first land
+    constexpr float FRICTION        = 0.82f;    // horizontal friction on ground
+    constexpr float REST_THRESHOLD  = 30.0f;    // vel.y below this = settled on ground
+
+    std::vector<int> despawnIds;
+
+    for (const auto& entity : m_gameState->GetAllEntities()) {
+        if (entity->GetType() != EntityType::Item || !entity->IsActive()) continue;
+        auto* item = static_cast<Item*>(entity.get());
+        if (!item->IsPhysicsEnabled()) continue;
+
+        Vector2 vel = item->GetVelocity();
+        Vector2 pos = item->GetPosition();
+        Rectangle box = item->GetBoundingBox();
+
+        // --- Apply gravity ---
+        if (!IsRectOnGround(box)) {
+            vel.y += COIN_GRAVITY * dt;
+        } else if (vel.y > REST_THRESHOLD) {
+            // Bounce once
+            vel.y = COIN_BOUNCE_Y;
+            vel.x *= FRICTION;
+        } else if (vel.y > 0.0f) {
+            // Settled — stop vertical movement and apply friction
+            vel.y = 0.0f;
+            vel.x *= (1.0f - dt * 4.0f); // gentle slide-to-stop
+            if (std::abs(vel.x) < 2.0f) vel.x = 0.0f;
+        }
+
+        // --- Move and resolve tile collisions ---
+        pos.x += vel.x * dt;
+        pos.y += vel.y * dt;
+        item->SetPosition(pos);
+        item->SetVelocity(vel);
+
+        // Simple vertical tile push-out (land on tiles)
+        box = item->GetBoundingBox();
+        for (const auto& tile : m_gameState->GetTiles()) {
+            if (!tile.solid) continue;
+            Rectangle tileRect = {
+                (float)tile.x * TILE_SIZE, (float)tile.y * TILE_SIZE,
+                (float)TILE_SIZE, (float)TILE_SIZE
+            };
+            if (!RectOverlap(box, tileRect)) continue;
+
+            float overlapTop    = (box.y + box.height) - tileRect.y;
+            float overlapBottom = (tileRect.y + tileRect.height) - box.y;
+            float overlapLeft   = (box.x + box.width) - tileRect.x;
+            float overlapRight  = (tileRect.x + tileRect.width) - box.x;
+
+            float minY = std::min(overlapTop, overlapBottom);
+            float minX = std::min(overlapLeft, overlapRight);
+
+            if (minY <= minX) {
+                // Resolve vertical
+                if (overlapTop < overlapBottom) {
+                    pos.y -= overlapTop;
+                    vel.y = 0.0f;
+                } else {
+                    pos.y += overlapBottom;
+                    if (vel.y < 0.0f) vel.y = 0.0f;
+                }
+            } else {
+                // Resolve horizontal
+                if (overlapLeft < overlapRight) pos.x -= overlapLeft;
+                else pos.x += overlapRight;
+                vel.x = 0.0f;
+            }
+            item->SetPosition(pos);
+            item->SetVelocity(vel);
+            box = item->GetBoundingBox();
+        }
+
+        // --- Despawn if fell out of world (no ground below) ---
+        if (pos.y > mapHeight + (float)TILE_SIZE * 3.0f ||
+            pos.x < -(float)TILE_SIZE * 2.0f ||
+            pos.x > mapWidth + (float)TILE_SIZE * 2.0f) {
+            despawnIds.push_back(item->GetId());
+        }
+    }
+
+    // Safe removal — no memory leak: visual unregistered then entity destroyed
+    for (int id : despawnIds) {
+        UnregisterEntityVisuals(id);
+        m_gameState->RemoveEntity(id);
+    }
+}
+
+// ============================================================
+// Endgame Checkpoint — Viewport-triggered flag animation
+// ============================================================
+
+void GameController::UpdateEndgameCheckpoints() {
+    if (!m_gameState) return;
+
+    // Camera viewport in world space
+    float halfW = (SCREEN_WIDTH  * 0.5f) / m_camera.zoom;
+    float halfH = (SCREEN_HEIGHT * 0.5f) / m_camera.zoom;
+    Rectangle viewport = {
+        m_camera.target.x - halfW,
+        m_camera.target.y - halfH,
+        halfW * 2.0f,
+        halfH * 2.0f
+    };
+
+    float dt = GetFrameTime();
+
+    for (const auto& entity : m_gameState->GetAllEntities()) {
+        if (entity->GetType() != EntityType::Checkpoint || !entity->IsActive()) continue;
+        auto* cp = static_cast<Checkpoint*>(entity.get());
+        if (!cp->IsEndGame()) continue;
+
+        int  id  = cp->GetId();
+        uint32_t uid = static_cast<uint32_t>(id);
+
+        bool revealed  = (m_endgameFlagRevealedIds.find(id)  != m_endgameFlagRevealedIds.end());
+        bool captured  = (m_endgameFlagCapturedIds.find(id)  != m_endgameFlagCapturedIds.end());
+
+        if (!revealed) {
+            // Phase 1 — wait until the checkpoint enters the player's viewport
+            if (RectOverlap(cp->GetBoundingBox(), viewport)) {
+                // Trigger flag-raise animation
+                View::EntityRenderer::GetInstance().Unregister(uid);
+                View::EntityRenderer::GetInstance().RegisterAnimated(
+                    cp, "assets/textures/objects/checkpoint_flag_out.json", "flag_out");
+                m_endgameFlagRevealedIds.insert(id);
+                m_flagOutTimers[id] = 0.0f;
+            }
+        } else if (!captured) {
+            // Phase 2 — flag_out is playing; count down and then switch to captured loop
+            m_flagOutTimers[id] += dt;
+            if (m_flagOutTimers[id] >= FLAG_OUT_DURATION) {
+                // Switch to the waving captured loop
+                View::EntityRenderer::GetInstance().Unregister(uid);
+                View::EntityRenderer::GetInstance().RegisterAnimated(
+                    cp, "assets/textures/objects/checkpoint_captured.json", "idle");
+                m_endgameFlagCapturedIds.insert(id);
+                m_flagOutTimers.erase(id);
+            }
+        }
+        // Phase 3 (captured) — nothing more to do, animation loops on its own
+    }
 }
 
 // ============================================================
