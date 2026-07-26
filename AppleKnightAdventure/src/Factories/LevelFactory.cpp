@@ -51,9 +51,15 @@ void LevelFactory::BuildTileTypeMap(const std::string& ldtkJson,
     json root;
     try { f >> root; } catch (...) { return; }
     if (!root.contains("defs") || !root["defs"].contains("tilesets")) return;
-    int idx = 1;
+    // Bug 3 fix: guard against null uid entries in the tileset defs array.
+    // Bug 4 fix: map UID directly as tileType (UID 1=Tiles.png…6=Tree-Assets.png)
+    //            rather than by positional index, so thumbnail tilesets (uid 7+)
+    //            don't corrupt the mapping.
     for (auto& ts : root["defs"]["tilesets"]) {
-        out[ts["uid"].get<int>()] = idx++;
+        if (!ts.contains("uid") || ts["uid"].is_null()) continue;
+        int uid = ts["uid"].get<int>();
+        if (uid >= 1 && uid <= 6)
+            out[uid] = uid; // UID 1-6 map directly to GameView tileType 1-6
     }
 }
 
@@ -282,12 +288,19 @@ std::unique_ptr<GameState> LevelFactory::LoadLDtkLevel(const std::string& filepa
     int pxHei = lvl.value("pxHei", 1152);
     state->SetMapSize(pxWid / TILE_SIZE, pxHei / TILE_SIZE);
 
-    // --- TilesetUid → tileType map (based on import order in LDtk) ---
+    // --- TilesetUid → tileType map ---
+    // Bug 3 & 4 fix: guard null uid entries and map UID directly as tileType.
+    // GameView is pre-loaded with LoadTileset(N, ...) where N == LDtk UID for
+    // the six gameplay tilesets (UID 1=Tiles.png … UID 6=Tree-Assets.png).
+    // Thumbnail/preview tilesets (uid 7+) are ignored.
     std::unordered_map<int,int> uidToTileType;
     if (root.contains("defs") && root["defs"].contains("tilesets")) {
-        int idx = 1;
-        for (auto& ts : root["defs"]["tilesets"])
-            uidToTileType[ts["uid"].get<int>()] = idx++;
+        for (auto& ts : root["defs"]["tilesets"]) {
+            if (!ts.contains("uid") || ts["uid"].is_null()) continue;
+            int uid = ts["uid"].get<int>();
+            if (uid >= 1 && uid <= 6)
+                uidToTileType[uid] = uid;
+        }
     }
 
     // --- Level fieldInstances ---
@@ -318,9 +331,14 @@ std::unique_ptr<GameState> LevelFactory::LoadLDtkLevel(const std::string& filepa
         if (layer["__type"] != "IntGrid" || layer["__identifier"] != "Collision") continue;
         int gs = layer.value("__gridSize", TILE_SIZE);
         int cols = std::max(1, pxWid / gs);
+        if (!layer.contains("intGridCsv")) continue;
         auto& csv = layer["intGridCsv"];
-        for (int i = 0; i < (int)csv.size(); ++i)
-            if (csv[i].get<int>() != 0) solidMap[i] = csv[i].get<int>();
+        for (int i = 0; i < (int)csv.size(); ++i) {
+            // Bug 2 fix: LDtk can emit null for empty intgrid cells.
+            if (csv[i].is_null()) continue;
+            int v = csv[i].get<int>();
+            if (v != 0) solidMap[i] = v;
+        }
     }
 
     // --- Pass 2: Tile layers + Entities ---
@@ -331,9 +349,14 @@ std::unique_ptr<GameState> LevelFactory::LoadLDtkLevel(const std::string& filepa
         std::string ltype = layer["__type"];
         std::string lid   = layer["__identifier"];
         int gs            = layer.value("__gridSize", TILE_SIZE);
-        int tilesetUid    = layer.value("__tilesetDefUid", -1);
-        int tileType      = (uidToTileType.count(tilesetUid)) ? uidToTileType[tilesetUid] : 1;
-        int cols          = std::max(1, pxWid / gs);
+        // Bug 1 fix: __tilesetDefUid is JSON null on Entities/IntGrid layers.
+        // nlohmann::json::value() throws type_error.302 when the key exists but
+        // is null — it only falls back for absent keys. Use explicit null-check.
+        int tilesetUid = -1;
+        if (layer.contains("__tilesetDefUid") && !layer["__tilesetDefUid"].is_null())
+            tilesetUid = layer["__tilesetDefUid"].get<int>();
+        int tileType = (uidToTileType.count(tilesetUid)) ? uidToTileType[tilesetUid] : 1;
+        int cols     = std::max(1, pxWid / gs);
 
         // ── Tile layers ──────────────────────────────────────────
         if (ltype == "Tiles" && (lid == "Tiles" || lid == "BG_Tiles")) {
@@ -452,7 +475,16 @@ std::unique_ptr<GameState> LevelFactory::LoadLDtkLevel(const std::string& filepa
     state->SetTotalItems(totalItems > 0 ? totalItems : autoItems);
     state->SetTotalEnemies(totalEnemies > 0 ? totalEnemies : autoEnemies);
 
-    if (!hasLocalSpawn) return CreateDefaultLevel(1);
+    // Bug 5 fix: warn loudly instead of silently discarding all LDtk tile data.
+    // The caller will still get a playable level, but the missing spawn entity in
+    // LDtk must be fixed (place a SpawnSolo entity on the Entities layer).
+    if (!hasLocalSpawn) {
+        TraceLog(LOG_WARNING,
+            "LDtk: Level %d has no SpawnSolo/SpawnGuide/SpawnWarrior entity. "
+            "Falling back to default level. Add a spawn entity in the LDtk editor.",
+            levelIndex);
+        return CreateDefaultLevel(1);
+    }
     return state;
 }
 
