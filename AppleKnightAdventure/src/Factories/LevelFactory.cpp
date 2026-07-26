@@ -386,8 +386,11 @@ std::unique_ptr<GameState> LevelFactory::LoadLDtkLevel(const std::string& filepa
 
         for (auto& ei : layer["entityInstances"]) {
             std::string eid = ei["__identifier"];
-            float wx = ei["px"][0].get<float>();
-            float wy = ei["px"][1].get<float>();
+            // LDtk px is in ldtk-pixel space (gs=16). Tiles render at gx*TILE_SIZE.
+            // Must apply the same scale: gamePos = (ldtkPx / gs) * TILE_SIZE
+            const float scale = (float)TILE_SIZE / (float)gs;
+            float wx = ei["px"][0].get<float>() * scale;
+            float wy = ei["px"][1].get<float>() * scale;
             Vector2 pos{wx, wy};
 
             // ── Spawn points ──────────────────────────────────────
