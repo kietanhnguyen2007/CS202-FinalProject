@@ -17,11 +17,12 @@ enum class BackgroundTheme : uint8_t {
 };
 
 struct Tile {
-    int x = 0;
-    int y = 0;
-    int tileType = 1;
-    int tileId = -1;
-    bool solid = true;
+    int x        = 0;
+    int y        = 0;
+    int tileType = 1;   // tilesheet index (1=Tiles.png … 6=Tree-Assets.png)
+    int tileId   = -1;  // linear index trong tilesheet (LDtk field "t")
+    bool solid   = true;
+    int flipFlags = 0;  // LDtk "f": 0=none, 1=flipX, 2=flipY, 3=flipXY
 };
 
 class GameState {

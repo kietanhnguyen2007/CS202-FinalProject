@@ -1,17 +1,36 @@
-# Cập nhật Khả năng Tấn công của Quái vật
+# UPDATE_VERSION — LDtk Integration
 
-## Thay đổi
-1. `include/Utils/Constants.h`: 
-   - Tăng `ENEMY_MELEE_RANGE` từ `40` lên `100` (ngang bằng với vùng di chuyển `m_patrolRange`). Trước đây tầm đánh quá ngắn khiến nhân vật và quái vật bị cản lại bởi hitbox vật lý và không bao giờ chạm tới được ngưỡng 40 pixels, khiến quái vật không bao giờ kích hoạt được trạng thái `Attack`.
+## Files Modified
 
-2. `src/Model/Enemy.cpp`:
-   - **Đứng lại để tấn công**: Thêm lệnh ép vận tốc ngang về 0 (`MoveX(0, deltaTime)`) khi quái vật rơi vào trạng thái `EnemyState::Attack` hoặc `EnemyState::Hurt`. Nhờ đó, quái vật sẽ không bị trượt (slide) về phía trước khi đang phát animation vung vũ khí hoặc bị giật lùi, mang lại cảm giác chân thực hơn.
-   - **Sửa lỗi animation tuần tra**: Chuyển mapping trạng thái từ `EnemyState::Patrol` sang `Character::State::Walk` (trước đó là `Idle`), giúp quái vật hiện đúng hoạt ảnh "bước đi" khi đang đi tuần, thay vì tư thế đứng im trượt trên mặt đất.
+| File | Thay đổi |
+|---|---|
+| `include/Model/GameState.h` | Thêm `flipFlags` vào `struct Tile` |
+| `include/Factories/LevelFactory.h` | Thêm `LoadLDtkLevel()`, `LoadLDtkDualWorld()`, `ParseBackgroundTheme()`, `BuildTileTypeMap()`; cập nhật `LoadLevel()` signature |
+| `src/Factories/LevelFactory.cpp` | Implement toàn bộ: `ParseBackgroundTheme`, `BuildTileTypeMap`, LDtk auto-detect trong `LoadLevel()`, `LoadLDtkLevel()` (full entity parser), `LoadLDtkDualWorld()` |
+| `include/Controller/GameController.h` | Thêm `class Boss` forward decl + `RegisterBossVisuals()` |
+| `src/Controller/GameController.cpp` | `GetLevelPath()` ưu tiên `world.ldtk`; `StartLevel()` dùng ldtkLevelIndex; `LoadTilesets()` xóa hardcode background; `RegisterBossVisuals()` mới; `RegisterEntityVisuals()` thêm case Boss/FakeWall |
+| `src/View/GameView.cpp` | `RenderTilemap()` dùng `DrawTexturePro` với flip flags thay `SubmitSprite` |
 
-3. `src/Controller/GameController.cpp`:
-   - Hệ thống gây sát thương tự động (`UpdateCombat`) giờ đã hoạt động chính xác vì quái vật có thể tiến vào trạng thái `Attack` đúng cách và kích hoạt đòn đánh lên Player khi khoảng cách hợp lệ.
+## Files Created
 
-## Trạng thái hiện tại
-- Quái vật sẽ tự động lao tới và ra đòn (vung kiếm/ném bom) khi Player lọt vào vùng di chuyển (patrol range) của nó.
-- Có đầy đủ animation Attack (đã load từ các bước trước) và quái vật sẽ đứng tấn vững vàng khi vung vũ khí.
-- Trải nghiệm chiến đấu đã trở nên hoàn thiện hơn.
+*(Không có file mới — `world.ldtk` cần tạo bằng LDtk editor)*
+
+## What Changed & Why
+
+- **LDtk auto-detect**: `LoadLevel()` kiểm tra extension `.ldtk` → gọi `LoadLDtkLevel()`, ngược lại fallback sang `.lvl` cũ — **backward compatible 100%**
+- **Entity parser đầy đủ**: Xử lý 19 entity identifier: SpawnSolo/Guide/Warrior/DualLight/DualShadow, EnemyMelee/Ranged/Flying, Boss1/Boss2/Boss3, Chest, CheckpointMid/End, FakeWall, ItemCoin/Apple/Key/Potion/Equipment
+- **Auto-count**: Nếu `TotalItems/TotalEnemies = 0` trong LDtk field → đếm tự động từ entity list
+- **Background từ theme**: `StartLevel()` gọi `LoadBackgrounds(theme)` từ `GameState.GetBackgroundTheme()` — xóa hardcode và TODO comment cũ
+- **Flip flags**: `RenderTilemap()` dùng `DrawTexturePro` với `src.width/height` âm để flip, hỗ trợ LDtk `"f"` field
+
+## Current Status
+
+✅ **Code hoàn chỉnh, sẵn sàng build**
+
+**Bước tiếp theo (do Designer):**
+1. Tải LDtk editor: https://ldtk.io
+2. Tạo project `assets/levels/world.ldtk`
+3. Import tileset theo đúng thứ tự (Tiles → Buildings → Hive → Interior-01 → Props-Rocks → Tree-Assets)
+4. Tạo layer: BG_Tiles, Collision (IntGrid), Tiles, Entities
+5. Tạo entity definitions: 19 entities + level fields
+6. Vẽ Level 1 (40×18 tiles = 2560×1152 px)

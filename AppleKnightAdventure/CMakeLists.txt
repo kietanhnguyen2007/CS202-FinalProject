@@ -44,6 +44,11 @@ target_link_libraries(AppleKnightAdventure PRIVATE
     ws2_32
 )
 
+# Fix for MinGW 14.2.0 / UCRT stat64i32 linking error with older raylib binary
+if(MINGW)
+    target_link_options(AppleKnightAdventure PRIVATE "-Wl,--defsym,stat64i32=_stat64i32")
+endif()
+
 # 9. Copy assets to the build folder after building
 add_custom_command(TARGET AppleKnightAdventure POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory

@@ -1,19 +1,71 @@
 #include "Factories/LevelFactory.h"
 #include "Factories/EnemyFactory.h"
+#include "Factories/ItemFactory.h"
+#include "Model/Boss.h"
 #include "Model/Chest.h"
 #include "Model/Checkpoint.h"
+#include "Model/FakeWall.h"
+#include "Model/DualWorldPlayer.h"
 #include "Utils/Constants.h"
+#include <nlohmann/json.hpp>
 #include <fstream>
 #include <sstream>
+#include <filesystem>
+#include <unordered_map>
+
+// ── anonymous helpers ─────────────────────────────────────────────────────────
+namespace {
+// Read an int field from a LDtk entityInstance fieldInstances array.
+int GetEntityFieldInt(const nlohmann::json& ei,
+                      const std::string& fieldName, int defaultVal = 0) {
+    if (!ei.contains("fieldInstances")) return defaultVal;
+    for (auto& f : ei["fieldInstances"]) {
+        if (f["__identifier"] == fieldName && !f["__value"].is_null())
+            return f["__value"].get<int>();
+    }
+    return defaultVal;
+}
+} // namespace
 
 CharacterClass LevelFactory::ParsePlayerClass(const std::string& name) {
-    if (name == "fighter") return CharacterClass::Fighter;
-    if (name == "ninja") return CharacterClass::Ninja;
-    if (name == "magic_caster" || name == "magiccaster") return CharacterClass::MagicCaster;
+    if (name == "fighter"  || name == "Fighter")  return CharacterClass::Fighter;
+    if (name == "ninja"    || name == "Ninja")     return CharacterClass::Ninja;
+    if (name == "magic_caster" || name == "magiccaster" ||
+        name == "MagicCaster")                     return CharacterClass::MagicCaster;
     return CharacterClass::Knight;
 }
 
-std::unique_ptr<GameState> LevelFactory::LoadLevel(const std::string& filepath, GameMode mode) {
+BackgroundTheme LevelFactory::ParseBackgroundTheme(const std::string& name) {
+    if (name == "ColdCorridor") return BackgroundTheme::ColdCorridor;
+    if (name == "Underwater")   return BackgroundTheme::Underwater;
+    return BackgroundTheme::Forest;
+}
+
+void LevelFactory::BuildTileTypeMap(const std::string& ldtkJson,
+                                    std::unordered_map<int,int>& out) {
+    // Parse just the 'defs' section to map tilesetUid -> tileType (1-based import order).
+    // Import order in LDtk must match: Tiles, Buildings, Hive, Interior-01, Props-Rocks, Tree-Assets.
+    using json = nlohmann::json;
+    std::ifstream f(ldtkJson);
+    if (!f.is_open()) return;
+    json root;
+    try { f >> root; } catch (...) { return; }
+    if (!root.contains("defs") || !root["defs"].contains("tilesets")) return;
+    int idx = 1;
+    for (auto& ts : root["defs"]["tilesets"]) {
+        out[ts["uid"].get<int>()] = idx++;
+    }
+}
+
+std::unique_ptr<GameState> LevelFactory::LoadLevel(const std::string& filepath,
+                                                   GameMode mode,
+                                                   int ldtkLevelIndex) {
+    // Auto-detect LDtk format by extension
+    if (filepath.size() >= 5 &&
+        filepath.substr(filepath.size() - 5) == ".ldtk") {
+        return LoadLDtkLevel(filepath, ldtkLevelIndex, mode);
+    }
+    // --- Legacy .lvl text format ---
     auto state = std::make_unique<GameState>(mode);
     std::ifstream file(filepath);
     if (!file.is_open()) {
@@ -205,4 +257,240 @@ bool LevelFactory::SaveDualWorld(const std::string& filepath, DualWorld* world) 
 
     file.close();
     return true;
+}
+
+// ── LDtk Loaders ─────────────────────────────────────────────────────────────
+
+std::unique_ptr<GameState> LevelFactory::LoadLDtkLevel(const std::string& filepath,
+                                                       int levelIndex,
+                                                       GameMode mode) {
+    using json = nlohmann::json;
+    auto state = std::make_unique<GameState>(mode);
+
+    std::ifstream file(filepath);
+    if (!file.is_open()) return CreateDefaultLevel(1);
+    json root;
+    try { file >> root; } catch (...) { return CreateDefaultLevel(1); }
+
+    auto& levels = root["levels"];
+    if (levelIndex < 0 || levelIndex >= (int)levels.size())
+        return CreateDefaultLevel(1);
+    auto& lvl = levels[levelIndex];
+
+    // --- Map size ---
+    int pxWid = lvl.value("pxWid", 2560);
+    int pxHei = lvl.value("pxHei", 1152);
+    state->SetMapSize(pxWid / TILE_SIZE, pxHei / TILE_SIZE);
+
+    // --- TilesetUid → tileType map (based on import order in LDtk) ---
+    std::unordered_map<int,int> uidToTileType;
+    if (root.contains("defs") && root["defs"].contains("tilesets")) {
+        int idx = 1;
+        for (auto& ts : root["defs"]["tilesets"])
+            uidToTileType[ts["uid"].get<int>()] = idx++;
+    }
+
+    // --- Level fieldInstances ---
+    int totalItems = 0, totalEnemies = 0;
+    if (lvl.contains("fieldInstances")) {
+        for (auto& fi : lvl["fieldInstances"]) {
+            std::string fid = fi["__identifier"];
+            if      (fid == "BackgroundTheme" && !fi["__value"].is_null())
+                state->SetBackgroundTheme(ParseBackgroundTheme(fi["__value"].get<std::string>()));
+            else if (fid == "PlayerClass" && !fi["__value"].is_null())
+                state->SetPlayerClass(ParsePlayerClass(fi["__value"].get<std::string>()));
+            else if (fid == "TotalItems"   && !fi["__value"].is_null())
+                totalItems   = fi["__value"].get<int>();
+            else if (fid == "TotalEnemies" && !fi["__value"].is_null())
+                totalEnemies = fi["__value"].get<int>();
+        }
+    }
+
+    if (!lvl.contains("layerInstances")) {
+        state->SetTotalItems(totalItems);
+        state->SetTotalEnemies(totalEnemies);
+        return CreateDefaultLevel(1);
+    }
+
+    // --- Pass 1: IntGrid Collision → solidMap ---
+    std::unordered_map<int,int> solidMap; // cell linear index → intgrid value
+    for (auto& layer : lvl["layerInstances"]) {
+        if (layer["__type"] != "IntGrid" || layer["__identifier"] != "Collision") continue;
+        int gs = layer.value("__gridSize", TILE_SIZE);
+        int cols = std::max(1, pxWid / gs);
+        auto& csv = layer["intGridCsv"];
+        for (int i = 0; i < (int)csv.size(); ++i)
+            if (csv[i].get<int>() != 0) solidMap[i] = csv[i].get<int>();
+    }
+
+    // --- Pass 2: Tile layers + Entities ---
+    bool hasLocalSpawn = false;
+    int autoItems = 0, autoEnemies = 0;
+
+    for (auto& layer : lvl["layerInstances"]) {
+        std::string ltype = layer["__type"];
+        std::string lid   = layer["__identifier"];
+        int gs            = layer.value("__gridSize", TILE_SIZE);
+        int tilesetUid    = layer.value("__tilesetDefUid", -1);
+        int tileType      = (uidToTileType.count(tilesetUid)) ? uidToTileType[tilesetUid] : 1;
+        int cols          = std::max(1, pxWid / gs);
+
+        // ── Tile layers ──────────────────────────────────────────
+        if (ltype == "Tiles" && (lid == "Tiles" || lid == "BG_Tiles")) {
+            bool isBG = (lid == "BG_Tiles");
+            if (!layer.contains("gridTiles")) continue;
+            for (auto& gt : layer["gridTiles"]) {
+                int gx = gt["px"][0].get<int>() / gs;
+                int gy = gt["px"][1].get<int>() / gs;
+                int t  = gt["t"].get<int>();
+                int f  = gt.value("f", 0);
+                int cellIdx = gy * cols + gx;
+                bool solid = !isBG && (solidMap.count(cellIdx) > 0);
+                state->AddTile(Tile{gx, gy, tileType, t, solid, f});
+            }
+            continue;
+        }
+
+        // ── Entity layer ─────────────────────────────────────────
+        if (ltype != "Entities" || lid != "Entities") continue;
+        if (!layer.contains("entityInstances")) continue;
+
+        for (auto& ei : layer["entityInstances"]) {
+            std::string eid = ei["__identifier"];
+            float wx = ei["px"][0].get<float>();
+            float wy = ei["px"][1].get<float>();
+            Vector2 pos{wx, wy};
+
+            // ── Spawn points ──────────────────────────────────────
+            if (eid == "SpawnSolo" && mode == GameMode::SinglePlayer) {
+                state->SetLocalPlayer(std::make_unique<Player>(pos));
+                hasLocalSpawn = true;
+            } else if (eid == "SpawnGuide" && mode == GameMode::MultiplayerHost) {
+                state->SetLocalPlayer(std::make_unique<Player>(pos));
+                hasLocalSpawn = true;
+            } else if (eid == "SpawnWarrior" && mode == GameMode::MultiplayerClient) {
+                state->SetLocalPlayer(std::make_unique<Player>(pos));
+                hasLocalSpawn = true;
+            } else if (eid == "SpawnDualLight" && mode == GameMode::SinglePlayer) {
+                auto p = std::make_unique<DualWorldPlayer>(pos, WorldLayer::Light);
+                state->SetLocalPlayer(std::move(p));
+                hasLocalSpawn = true;
+            } else if (eid == "SpawnDualShadow" && mode == GameMode::SinglePlayer) {
+                auto p = std::make_unique<DualWorldPlayer>(pos, WorldLayer::Shadow);
+                state->SetLocalPlayer(std::move(p));
+                hasLocalSpawn = true;
+
+            // ── Enemies ───────────────────────────────────────────
+            } else if (eid == "EnemyMelee") {
+                state->AddEntity(EnemyFactory::CreateMelee(pos));
+                ++autoEnemies;
+            } else if (eid == "EnemyRanged") {
+                state->AddEntity(EnemyFactory::CreateRanged(pos));
+                ++autoEnemies;
+            } else if (eid == "EnemyFlying") {
+                state->AddEntity(EnemyFactory::CreateFlying(pos));
+                ++autoEnemies;
+
+            // ── Bosses (size distinguishes Boss1/2 from Boss3) ────
+            } else if (eid == "Boss1") {
+                auto boss = std::make_unique<Boss>(pos, Vector2{96.0f, 96.0f});
+                float patrol = (float)GetEntityFieldInt(ei, "PatrolRight", (int)wx + 400);
+                boss->SetDetectionRange(patrol - wx);
+                state->AddEntity(std::move(boss));
+                ++autoEnemies;
+            } else if (eid == "Boss2") {
+                auto boss = std::make_unique<Boss>(pos, Vector2{96.0f, 96.0f});
+                float patrol = (float)GetEntityFieldInt(ei, "PatrolRight", (int)wx + 400);
+                boss->SetDetectionRange(patrol - wx);
+                state->AddEntity(std::move(boss));
+                ++autoEnemies;
+            } else if (eid == "Boss3") {
+                auto boss = std::make_unique<Boss>(pos, Vector2{128.0f, 128.0f});
+                float patrol = (float)GetEntityFieldInt(ei, "PatrolRight", (int)wx + 500);
+                boss->SetDetectionRange(patrol - wx);
+                state->AddEntity(std::move(boss));
+                ++autoEnemies;
+
+            // ── Interactables ─────────────────────────────────────
+            } else if (eid == "Chest") {
+                state->AddEntity(std::make_unique<Chest>(pos));
+                ++autoItems;
+            } else if (eid == "CheckpointMid") {
+                auto cp = std::make_unique<Checkpoint>(pos);
+                cp->SetEndGame(false);
+                state->AddEntity(std::move(cp));
+            } else if (eid == "CheckpointEnd") {
+                auto cp = std::make_unique<Checkpoint>(pos);
+                cp->SetEndGame(true);
+                state->AddEntity(std::move(cp));
+            } else if (eid == "FakeWall") {
+                state->AddEntity(std::make_unique<FakeWall>(
+                    pos, Vector2{(float)TILE_SIZE, (float)TILE_SIZE}));
+
+            // ── Fixed Items ───────────────────────────────────────
+            } else if (eid == "ItemCoin") {
+                int amt = GetEntityFieldInt(ei, "Amount", 1);
+                state->AddEntity(ItemFactory::CreateCoin(pos, amt));
+                ++autoItems;
+            } else if (eid == "ItemApple") {
+                state->AddEntity(ItemFactory::CreateApple(pos));
+                ++autoItems;
+            } else if (eid == "ItemKey") {
+                state->AddEntity(ItemFactory::CreateKey(pos));
+                ++autoItems;
+            } else if (eid == "ItemPotion") {
+                state->AddEntity(ItemFactory::CreatePotion(pos));
+                ++autoItems;
+            } else if (eid == "ItemEquipment") {
+                state->AddEntity(ItemFactory::CreateEquipment(pos));
+                ++autoItems;
+            }
+        }
+    }
+
+    // Use field values if explicitly set, otherwise use auto-counted values
+    state->SetTotalItems(totalItems > 0 ? totalItems : autoItems);
+    state->SetTotalEnemies(totalEnemies > 0 ? totalEnemies : autoEnemies);
+
+    if (!hasLocalSpawn) return CreateDefaultLevel(1);
+    return state;
+}
+
+std::unique_ptr<DualWorld> LevelFactory::LoadLDtkDualWorld(const std::string& filepath,
+                                                           int levelIndex) {
+    using json = nlohmann::json;
+    std::ifstream file(filepath);
+    if (!file.is_open()) return std::make_unique<DualWorld>();
+    json root;
+    try { file >> root; } catch (...) { return std::make_unique<DualWorld>(); }
+
+    auto& levels = root["levels"];
+    if (levelIndex < 0 || levelIndex >= (int)levels.size())
+        return std::make_unique<DualWorld>();
+    auto& lvl = levels[levelIndex];
+
+    int pxWid = lvl.value("pxWid", 2560);
+    int pxHei = lvl.value("pxHei", 1152);
+    auto world = std::make_unique<DualWorld>(pxWid / TILE_SIZE, pxHei / TILE_SIZE);
+
+    if (!lvl.contains("layerInstances")) return world;
+
+    for (auto& layer : lvl["layerInstances"]) {
+        std::string lid = layer["__identifier"];
+        if (lid != "LightTiles" && lid != "ShadowTiles") continue;
+        WorldLayer wl = (lid == "LightTiles") ? WorldLayer::Light : WorldLayer::Shadow;
+        int gs = layer.value("__gridSize", TILE_SIZE);
+        if (!layer.contains("gridTiles")) continue;
+        for (auto& gt : layer["gridTiles"]) {
+            Tile tile{};
+            tile.x         = gt["px"][0].get<int>() / gs;
+            tile.y         = gt["px"][1].get<int>() / gs;
+            tile.tileId    = gt["t"].get<int>();
+            tile.tileType  = 1;
+            tile.solid     = true;
+            tile.flipFlags = gt.value("f", 0);
+            world->AddTile(wl, tile);
+        }
+    }
+    return world;
 }

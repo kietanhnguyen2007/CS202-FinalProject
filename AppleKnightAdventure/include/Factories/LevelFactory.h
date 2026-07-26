@@ -6,19 +6,35 @@
 #include "Utils/Types.h"
 #include <string>
 #include <memory>
+#include <unordered_map>
+
+
 
 class LevelFactory {
 public:
+    // Auto-detect .lvl vs .ldtk by file extension
     static std::unique_ptr<GameState> LoadLevel(const std::string& filepath,
-                                               GameMode mode = GameMode::SinglePlayer);
-    static bool SaveLevel(const std::string& filepath, GameState* state);
+                                               GameMode mode = GameMode::SinglePlayer,
+                                               int ldtkLevelIndex = 0);
 
+    static bool SaveLevel(const std::string& filepath, GameState* state);
     static std::unique_ptr<GameState> CreateDefaultLevel(int levelNumber);
+
     static std::unique_ptr<DualWorld> LoadDualWorld(const std::string& filepath);
     static bool SaveDualWorld(const std::string& filepath, DualWorld* world);
 
+    // LDtk-specific (có thể gọi trực tiếp)
+    static std::unique_ptr<GameState> LoadLDtkLevel(const std::string& filepath,
+                                                    int levelIndex = 0,
+                                                    GameMode mode = GameMode::SinglePlayer);
+    static std::unique_ptr<DualWorld> LoadLDtkDualWorld(const std::string& filepath,
+                                                        int levelIndex = 0);
+
 private:
-    static CharacterClass ParsePlayerClass(const std::string& name);
+    static CharacterClass  ParsePlayerClass(const std::string& name);
+    static BackgroundTheme ParseBackgroundTheme(const std::string& name);
+    static void            BuildTileTypeMap(const std::string& ldtkJson,
+                                           std::unordered_map<int,int>& out);
 };
 
 #endif
