@@ -10,7 +10,7 @@ constexpr int SCREEN_HEIGHT = 720;
 constexpr int BASE_SCREEN_WIDTH  = SCREEN_WIDTH;
 constexpr int BASE_SCREEN_HEIGHT = SCREEN_HEIGHT;
 
-constexpr int TILE_SIZE = 64;
+constexpr float TILE_SIZE = 64.0f * (2.0f / 3.0f);
 constexpr float GRAVITY = 980.0f;
 constexpr float PLAYER_SPEED = 200.0f;
 constexpr float PLAYER_JUMP_FORCE = -600.0f;
