@@ -77,7 +77,8 @@ private:
     // Skill projectile helpers
     void SpawnPlayerProjectile(const char* atlasPath, Vector2 spawnPos, Direction dir,
                                int damage, float speed, float lifetime);
-    void SpawnLightningAt(Vector2 targetPos, int damage, float lifetime);
+    void SpawnLightningAt(Vector2 targetPos, int damage, float lifetime,
+                          const char* atlasPath = "assets/textures/player/magic_caster/projectile_attack1.json");
     void UpdatePlayerProjectiles(float dt);
     void UpdateNinjaTeleport(Player* player, float dt);
 

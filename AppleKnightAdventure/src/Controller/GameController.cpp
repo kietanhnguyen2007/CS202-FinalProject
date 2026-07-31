@@ -105,27 +105,31 @@ void GameController::RegisterPlayerVisuals(Player* player, CharacterClass player
     auto& cr = View::CharacterRenderer::GetInstance();
     const uint32_t id = static_cast<uint32_t>(player->GetId());
 
+    // Register all clips with explicit aliases so CharacterRenderer can find them by name.
     cr.Register(player, root + "idle.json", "idle");
-    cr.MergeAtlas(id, root + "walk.json");
-    cr.MergeAtlas(id, root + "jump.json");
-    if (std::filesystem::exists(root + "run.json"))
-        cr.MergeAtlas(id, root + "run.json");
-    cr.MergeAtlas(id, root + "attack1.json");
-    cr.MergeAtlas(id, root + "attack2.json");
-    if (std::filesystem::exists(root + "attack3.json"))
-        cr.MergeAtlas(id, root + "attack3.json");
-    cr.MergeAtlas(id, root + "hurt.json");
-    cr.MergeAtlas(id, root + "dead.json");
+    cr.MergeAtlas(id, root + "walk.json",        "walk");
+    cr.MergeAtlas(id, root + "jump.json",        "jump");
+    cr.MergeAtlas(id, root + "hurt.json",        "hurt");
+    cr.MergeAtlas(id, root + "dead.json",        "dead");
+    cr.MergeAtlas(id, root + "attack1.json",     "attack");
+    cr.MergeAtlas(id, root + "attack2.json",     "attack_2");
     if (std::filesystem::exists(root + "parry.json"))
-        cr.MergeAtlas(id, root + "parry.json");
+        cr.MergeAtlas(id, root + "parry.json",   "parry");
     if (std::filesystem::exists(root + "ultimate_skill.json"))
-        cr.MergeAtlas(id, root + "ultimate_skill.json");
-    // Ninja teleport animations
+        cr.MergeAtlas(id, root + "ultimate_skill.json", "ultimate_skill");
+    // run.json is used exclusively for Dash animation
+    if (std::filesystem::exists(root + "run.json"))
+        cr.MergeAtlas(id, root + "run.json",     "run");
+    // Attack3: class-specific
     if (playerClass == CharacterClass::Ninja) {
+        // Ninja: teleport_start plays for Attack3, teleport_end plays after snap
         if (std::filesystem::exists(root + "skill3_teleport_start.json"))
-            cr.MergeAtlas(id, root + "skill3_teleport_start.json");
+            cr.MergeAtlas(id, root + "skill3_teleport_start.json", "attack_3");
         if (std::filesystem::exists(root + "skill3_teleport_end.json"))
-            cr.MergeAtlas(id, root + "skill3_teleport_end.json");
+            cr.MergeAtlas(id, root + "skill3_teleport_end.json",   "skill3_teleport_end");
+    } else {
+        if (std::filesystem::exists(root + "attack3.json"))
+            cr.MergeAtlas(id, root + "attack3.json", "attack_3");
     }
 }
 
@@ -459,9 +463,9 @@ void GameController::HandlePlayerInput(const InputCommand& cmd, float /*dt*/) {
 
     // --- Dash (L) ---
     if (cmd.dash && player->CanDash()) {
-        bool isMoving = (cmd.moveLeft || cmd.moveRight);
-        float dirX    = (player->GetDirection() == Direction::Right) ? 1.0f : -1.0f;
-        player->StartDash(isMoving, dirX);
+        // Always dash in the direction the player is currently facing
+        float dirX = (player->GetDirection() == Direction::Right) ? 1.0f : -1.0f;
+        player->StartDash(true, dirX);
     }
 
     // --- Knight Skills ---
@@ -477,12 +481,6 @@ void GameController::HandlePlayerInput(const InputCommand& cmd, float /*dt*/) {
             if (cmd.parry   && skills->TryAttack2()) {
                 player->Attack2();
                 SoundManager::GetInstance().PlaySound("player_attack");
-                // Lunge: reduced speed 650px/s
-                float lDir = (player->GetDirection() == Direction::Right) ? 1.0f : -1.0f;
-                if (cmd.moveRight && !cmd.moveLeft) { lDir = 1.0f; player->SetDirection(Direction::Right); }
-                else if (cmd.moveLeft && !cmd.moveRight) { lDir = -1.0f; player->SetDirection(Direction::Left); }
-                Vector2 lv = player->GetVelocity(); lv.x = lDir * skills->m_lungeSpeed;
-                player->SetVelocity(lv);
             }
             if (cmd.skill1  && skills->TryAttack3()) {
                 player->Attack3();
@@ -707,7 +705,8 @@ void GameController::UpdateCombat(float dt) {
                 float d = std::sqrt(dx*dx + dy*dy);
                 if (d < minDist) { minDist = d; targetPos = e->GetPosition(); }
             }
-            SpawnLightningAt(targetPos, ms->attack1.damage, 0.12f);
+            SpawnLightningAt(targetPos, ms->attack1.damage, 0.12f,
+                             "assets/textures/player/magic_caster/projectile_attack1.json");
             ms->ResetLightning();
         }
         // Fireball (attack2): fly forward
@@ -749,7 +748,8 @@ void GameController::UpdateCombat(float dt) {
                 float d = std::sqrt(dx*dx + dy*dy);
                 if (d < minDist) { minDist = d; targetPos = e->GetPosition(); }
             }
-            SpawnLightningAt(targetPos, ms->ultimate.damage, 0.12f);
+            SpawnLightningAt(targetPos, ms->ultimate.damage, 0.12f,
+                             "assets/textures/player/magic_caster/ultimate_skill_projectile.json");
             ms->ResetUltLightning();
         }
 
@@ -1469,7 +1469,8 @@ void GameController::SpawnPlayerProjectile(const char* atlasPath, Vector2 spawnP
     m_playerProjectiles.push_back(std::move(proj));
 }
 
-void GameController::SpawnLightningAt(Vector2 targetPos, int damage, float lifetime) {
+void GameController::SpawnLightningAt(Vector2 targetPos, int damage, float lifetime,
+                                       const char* atlasPath) {
     // Lightning appears instantly at target position — zero velocity, short life
     auto proj = std::make_unique<Projectile>(
         targetPos, Vector2{64.0f, 128.0f},
@@ -1480,7 +1481,7 @@ void GameController::SpawnLightningAt(Vector2 targetPos, int damage, float lifet
     proj->SetVelocity({0.0f, 0.0f});
 
     View::EntityRenderer::GetInstance().RegisterAnimated(
-        proj.get(), "assets/textures/player/magic_caster/projectile_attack1.json", "default");
+        proj.get(), atlasPath, "default");
 
     // Deal damage immediately to any enemy overlapping
     for (auto& e : m_gameState->GetAllEntities()) {
@@ -1600,5 +1601,11 @@ void GameController::UpdateNinjaTeleport(Player* player, float dt) {
         ns->m_teleportDone = true;
 
         View::ParticleRenderer::GetInstance().EmitBurst(newPos, 15, WHITE);
+        // Play teleport_end animation after snap
+        uint32_t pid = static_cast<uint32_t>(player->GetId());
+        auto* anim = View::CharacterRenderer::GetInstance().GetAnimator(pid);
+        if (anim && anim->HasClip("skill3_teleport_end")) {
+            anim->Play("skill3_teleport_end");
+        }
     }
 }
