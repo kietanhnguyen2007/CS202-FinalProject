@@ -87,6 +87,9 @@ bool EntityRenderer::RegisterAnimated(const Entity* entity, const std::string& a
     }
     if (!startClip.empty() && ad.animator.HasClip(startClip)) {
         ad.animator.Play(startClip);
+    } else if (!ad.atlas->GetClipNames().empty()) {
+        // Fallback: play the first clip available in the JSON (e.g. "projectile_attack2")
+        ad.animator.Play(ad.atlas->GetClipNames().front());
     }
     return true;
 }
