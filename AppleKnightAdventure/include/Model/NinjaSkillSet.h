@@ -15,7 +15,7 @@ public:
     SkillData attack2 { 40, 1.0f,  0.0f,  0.35f };  // K — Blade Rush (projectile on anim end)
     SkillData attack3 { 0,  2.0f,  0.0f,  0.0f  };  // U — Teleport
     SkillData ultimate{ 60, 7.0f,  0.40f, 0.0f  };  // H — Shadow Clone (projectile)
-    SkillData parry   { 0,  1.0f,  0.0f,  0.30f };  // P — Block
+    SkillData parry   { 0,  0.0f,  0.0f,  0.30f };  // P — Block (no cooldown)
 
     bool m_isParrying       = false;
 

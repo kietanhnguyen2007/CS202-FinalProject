@@ -32,7 +32,7 @@ public:
     // Ultimate — Close-range power slash (H): big hitbox, high damage
     SkillData ultimate { 80, 5.0f, 0.20f, 0.30f };
     // Parry — Block (P): reduces damage taken by 70% while active
-    SkillData parry { 0, 1.0f, 0.0f, 0.30f };
+    SkillData parry { 0, 0.0f, 0.0f, 0.30f };
 
     // Lunge state for Attack3 (reduced speed: 650px/s × 0.15s ≈ 97px)
     bool  m_isLunging  = false;

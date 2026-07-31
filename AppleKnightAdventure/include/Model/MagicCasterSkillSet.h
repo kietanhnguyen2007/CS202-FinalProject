@@ -21,7 +21,7 @@ public:
     // H — Ultimate Lightning: like attack1 but higher damage
     SkillData ultimate { 80, 8.0f, 0.50f, 0.10f };
     // P — Parry / Block
-    SkillData parry   { 0,  1.0f,  0.0f,  0.30f };
+    SkillData parry   { 0,  0.0f,  0.0f,  0.30f };  // P — Block (no cooldown)
 
     bool m_isParrying = false;
 

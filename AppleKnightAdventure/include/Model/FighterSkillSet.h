@@ -15,7 +15,7 @@ public:
     SkillData attack2 { 35, 0.75f, 0.0f, 0.35f };   // K — Combo (2-hit window)
     SkillData attack3 { 50, 1.5f,  0.40f, 0.25f };  // U — Energy Punch (charged)
     SkillData ultimate { 70, 6.0f, 0.50f, 0.0f };   // H — Ultimate Orb (projectile)
-    SkillData parry   { 0,  1.0f,  0.0f,  0.30f };  // P — Block
+    SkillData parry   { 0,  0.0f,  0.0f,  0.30f };  // P — Block (no cooldown)
 
     bool m_isParrying   = false;
     bool m_wantsToFire  = false;  // true for 1 frame when ultimate projectile should spawn

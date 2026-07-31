@@ -473,7 +473,7 @@ void GameController::HandlePlayerInput(const InputCommand& cmd, float /*dt*/) {
 
     // ==================== KNIGHT ====================
     if (KnightSkillSet* skills = player->GetKnightSkills()) {
-        if (!player->IsDashing()) {
+        if (!player->IsDashing() && !player->IsParrying()) {
             if (cmd.attack  && skills->TryAttack1()) {
                 player->Attack();
                 SoundManager::GetInstance().PlaySound("player_attack");
@@ -495,14 +495,13 @@ void GameController::HandlePlayerInput(const InputCommand& cmd, float /*dt*/) {
                 player->DoUltimate();
                 SoundManager::GetInstance().PlaySound("player_attack");
             }
-            if (cmd.parryBlock && skills->TryParry()) {
-                // Parry state handled in Player::TakeDamage
-            }
         }
+        // Parry can be triggered regardless of other attack state
+        if (!player->IsDashing() && cmd.parryBlock && skills->TryParry()) {}
 
     // ==================== FIGHTER ====================
     } else if (FighterSkillSet* fs = player->GetFighterSkills()) {
-        if (!player->IsDashing()) {
+        if (!player->IsDashing() && !player->IsParrying()) {
             if (cmd.attack    && fs->TryAttack1()) {
                 player->Attack();
                 SoundManager::GetInstance().PlaySound("player_attack");
@@ -519,12 +518,12 @@ void GameController::HandlePlayerInput(const InputCommand& cmd, float /*dt*/) {
                 player->DoUltimate();
                 SoundManager::GetInstance().PlaySound("player_attack");
             }
-            if (cmd.parryBlock && fs->TryParry()) {}
         }
+        if (!player->IsDashing() && cmd.parryBlock && fs->TryParry()) {}
 
     // ==================== MAGIC CASTER ====================
     } else if (MagicCasterSkillSet* ms = player->GetMagicSkills()) {
-        if (!player->IsDashing()) {
+        if (!player->IsDashing() && !player->IsParrying()) {
             if (cmd.attack    && ms->TryAttack1()) {
                 player->Attack();
                 SoundManager::GetInstance().PlaySound("player_attack");
@@ -541,12 +540,12 @@ void GameController::HandlePlayerInput(const InputCommand& cmd, float /*dt*/) {
                 player->DoUltimate();
                 SoundManager::GetInstance().PlaySound("player_attack");
             }
-            if (cmd.parryBlock && ms->TryParry()) {}
         }
+        if (!player->IsDashing() && cmd.parryBlock && ms->TryParry()) {}
 
     // ==================== NINJA ====================
     } else if (NinjaSkillSet* ns = player->GetNinjaSkills()) {
-        if (!player->IsDashing()) {
+        if (!player->IsDashing() && !player->IsParrying()) {
             if (cmd.attack    && ns->TryAttack1()) {
                 player->Attack();
                 SoundManager::GetInstance().PlaySound("player_attack");
@@ -562,8 +561,8 @@ void GameController::HandlePlayerInput(const InputCommand& cmd, float /*dt*/) {
                 player->DoUltimate();
                 SoundManager::GetInstance().PlaySound("player_attack");
             }
-            if (cmd.parryBlock && ns->TryParry()) {}
         }
+        if (!player->IsDashing() && cmd.parryBlock && ns->TryParry()) {}
 
     // ==================== FALLBACK ====================
     } else {
