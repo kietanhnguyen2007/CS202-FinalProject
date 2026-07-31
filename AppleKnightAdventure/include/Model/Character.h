@@ -10,11 +10,15 @@ public:
     enum class State {
         Idle,
         Walk,
+        Run,       // Sprint / Dash animation
         Jump,
         Fall,
+        Dash,      // Invincibility dash
         Attack,
         Attack2,
         Attack3,
+        Ultimate,  // Ultimate skill
+        Parry,     // Block (reduces incoming damage)
         Hurt,
         Dead,
         Skill
@@ -40,7 +44,7 @@ public:
     void SetHealth(int health);
     int GetMaxHealth() const;
     void SetMaxHealth(int maxHealth);
-    void TakeDamage(int damage);
+    virtual void TakeDamage(int damage);
     void Heal(int amount);
     bool IsAlive() const;
 

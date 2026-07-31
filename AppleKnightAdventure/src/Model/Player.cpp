@@ -1,35 +1,78 @@
 #include "Model/Player.h"
 #include "raylib.h"
 #include <cmath>
+#include <algorithm>
+
+// ---------- Constructors ----------
 
 Player::Player()
     : Character(EntityType::Player)
     , m_score(0)
     , m_skillPoints(0)
-    , m_knightSkills(std::make_unique<KnightSkillSet>())
+    , m_characterClass(CharacterClass::Knight)
 {
     m_speed = PLAYER_SPEED;
     m_maxHealth = PLAYER_MAX_HEALTH;
     m_health = m_maxHealth;
+    InitSkills();
 }
 
 Player::Player(Vector2 position)
     : Character(position, {TILE_SIZE * 0.5f, TILE_SIZE * 0.9f}, EntityType::Player)
     , m_score(0)
     , m_skillPoints(0)
-    , m_knightSkills(std::make_unique<KnightSkillSet>())
+    , m_characterClass(CharacterClass::Knight)
 {
     m_speed = PLAYER_SPEED;
     m_maxHealth = PLAYER_MAX_HEALTH;
     m_health = m_maxHealth;
     m_direction = Direction::Right;
+    InitSkills();
 }
+
+Player::Player(Vector2 position, CharacterClass cls)
+    : Character(position, {TILE_SIZE * 0.5f, TILE_SIZE * 0.9f}, EntityType::Player)
+    , m_score(0)
+    , m_skillPoints(0)
+    , m_characterClass(cls)
+{
+    m_speed = PLAYER_SPEED;
+    m_maxHealth = PLAYER_MAX_HEALTH;
+    m_health = m_maxHealth;
+    m_direction = Direction::Right;
+    InitSkills();
+}
+
+void Player::InitSkills() {
+    switch (m_characterClass) {
+        case CharacterClass::Fighter:
+            m_skills = std::make_unique<FighterSkillSet>();
+            break;
+        case CharacterClass::MagicCaster:
+            m_skills = std::make_unique<MagicCasterSkillSet>();
+            break;
+        case CharacterClass::Ninja:
+            m_skills = std::make_unique<NinjaSkillSet>();
+            break;
+        case CharacterClass::Knight:
+        default:
+            m_skills = std::make_unique<KnightSkillSet>();
+            break;
+    }
+}
+
+void Player::SetCharacterClass(CharacterClass cls) {
+    m_characterClass = cls;
+    InitSkills();
+}
+
+// ---------- Update ----------
 
 void Player::Update(float deltaTime) {
     Character::Update(deltaTime);
 
-    // Tick knight skills
-    if (m_knightSkills) m_knightSkills->Update(deltaTime);
+    // Tick skill set
+    if (m_skills) m_skills->Update(deltaTime);
 
     // Tick dash cooldown
     if (m_dashCooldown > 0.0f) {
@@ -44,27 +87,35 @@ void Player::Update(float deltaTime) {
             m_isDashing    = false;
             m_isInvincible = false;
             m_dashTimer    = 0.0f;
-            // Kill horizontal momentum from lunge
             if (m_dashMoving) {
                 Vector2 vel = m_velocity;
                 vel.x = 0.0f;
                 m_velocity = vel;
             }
         } else if (m_dashMoving) {
-            // Keep lunge velocity alive
             Vector2 vel = m_velocity;
             vel.x = m_dashDirX * DASH_SPEED;
             m_velocity = vel;
         }
     }
 
-    // State machine
+    // Tick hurt flash
+    if (m_hurtTimer > 0.0f) {
+        m_hurtTimer -= deltaTime;
+        if (m_hurtTimer < 0.0f) m_hurtTimer = 0.0f;
+    }
+
+    // ---- State machine (priority: Dead > Hurt > Dash > Parry > Attack > Jump/Fall > Walk/Run > Idle) ----
     if (!IsAlive()) {
         m_state = State::Dead;
+    } else if (m_hurtTimer > 0.0f) {
+        m_state = State::Hurt;
     } else if (m_isDashing) {
-        m_state = State::Jump;  // Use 'Jump' state during dash to avoid triggering attack animation
+        m_state = State::Dash;  // Use dedicated Dash state (not Jump)
+    } else if (IsParrying()) {
+        m_state = State::Parry;
     } else if (m_attackTimer > 0.0f) {
-        if (m_state != State::Attack2 && m_state != State::Attack3) {
+        if (m_state != State::Attack2 && m_state != State::Attack3 && m_state != State::Ultimate) {
             m_state = State::Attack;
         }
     } else if (m_velocity.y < 0.0f) {
@@ -72,11 +123,38 @@ void Player::Update(float deltaTime) {
     } else if (m_velocity.y > 0.0f) {
         m_state = State::Fall;
     } else if (std::abs(m_velocity.x) > 1.0f) {
-        m_state = State::Walk;
+        m_state = m_isSprinting ? State::Run : State::Walk;
     } else {
         m_state = State::Idle;
     }
 }
+
+// ---------- Damage (with parry reduction) ----------
+
+void Player::TakeDamage(int damage) {
+    if (m_isInvincible) return;  // Dash invincibility
+
+    if (IsParrying()) {
+        damage = static_cast<int>(damage * PARRY_DAMAGE_MULT);
+    }
+
+    Character::TakeDamage(damage);
+
+    if (damage > 0 && IsAlive()) {
+        m_hurtTimer = HURT_FLASH_DURATION;
+    }
+}
+
+bool Player::IsParrying() const {
+    // Check the concrete skill set for parry state
+    if (auto* ks = GetKnightSkills())  return ks->IsParrying();
+    if (auto* fs = GetFighterSkills()) return fs->IsParrying();
+    if (auto* ms = GetMagicSkills())   return ms->IsParrying();
+    if (auto* ns = GetNinjaSkills())   return ns->IsParrying();
+    return false;
+}
+
+// ---------- Attack state triggers ----------
 
 void Player::Attack() {
     m_attackTimer = m_attackCooldown;
@@ -93,14 +171,23 @@ void Player::Attack3() {
     m_state = State::Attack3;
 }
 
-// --- Sprint ---
+void Player::DoUltimate() {
+    m_attackTimer = m_attackCooldown;
+    m_state = State::Ultimate;
+}
+
+bool Player::IsAttacking() const {
+    return m_attackTimer > 0.0f;
+}
+
+// ---------- Sprint ----------
 bool Player::IsSprinting() const { return m_isSprinting; }
 void Player::SetSprinting(bool sprinting) { m_isSprinting = sprinting; }
 
-// --- Dash ---
-bool Player::IsDashing() const    { return m_isDashing; }
+// ---------- Dash ----------
+bool Player::IsDashing()    const { return m_isDashing; }
 bool Player::IsInvincible() const { return m_isInvincible; }
-bool Player::CanDash() const      { return !m_isDashing && m_dashCooldown <= 0.0f; }
+bool Player::CanDash()      const { return !m_isDashing && m_dashCooldown <= 0.0f; }
 
 void Player::StartDash(bool isMoving, float dirX) {
     m_isDashing    = true;
@@ -111,7 +198,25 @@ void Player::StartDash(bool isMoving, float dirX) {
     m_dashCooldown = DASH_COOLDOWN_MAX;
 }
 
-// --- Inventory & Score ---
+// ---------- Skill accessors ----------
+
+KnightSkillSet* Player::GetKnightSkills() const {
+    return dynamic_cast<KnightSkillSet*>(m_skills.get());
+}
+
+FighterSkillSet* Player::GetFighterSkills() const {
+    return dynamic_cast<FighterSkillSet*>(m_skills.get());
+}
+
+MagicCasterSkillSet* Player::GetMagicSkills() const {
+    return dynamic_cast<MagicCasterSkillSet*>(m_skills.get());
+}
+
+NinjaSkillSet* Player::GetNinjaSkills() const {
+    return dynamic_cast<NinjaSkillSet*>(m_skills.get());
+}
+
+// ---------- Inventory & Score ----------
 Inventory& Player::GetInventory() { return m_inventory; }
 const Inventory& Player::GetInventory() const { return m_inventory; }
 

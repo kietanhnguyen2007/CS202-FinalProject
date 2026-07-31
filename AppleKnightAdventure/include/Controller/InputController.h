@@ -9,7 +9,8 @@ struct InputCommand {
     bool parry         = false;  // K — Attack2 (heavy strike)
     bool skill1        = false;  // U — Attack3 (lunge thrust)
     bool skill2        = false;  // (reserved)
-    bool ultimate      = false;  // R
+    bool ultimate      = false;  // H — Ultimate skill
+    bool parryBlock    = false;  // P — Parry / Block
     bool interact      = false;  // F or O
     bool openInventory = false;  // I
     bool pause         = false;  // ESC

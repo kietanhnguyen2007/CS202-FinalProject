@@ -5,6 +5,9 @@
 #include "Model/LevelScoring.h"
 #include "Model/Pet.h"
 #include "Model/Projectile.h"
+#include "Model/FighterSkillSet.h"
+#include "Model/MagicCasterSkillSet.h"
+#include "Model/NinjaSkillSet.h"
 #include "Systems/CollisionSystem.h"
 #include "Systems/ParticleSystem.h"
 #include "Utils/Types.h"
@@ -70,6 +73,16 @@ private:
     void CheckLevelComplete();
     void OnEntityRemoved(Entity* entity);
     void RespawnPlayer();
+
+    // Skill projectile helpers
+    void SpawnPlayerProjectile(const char* atlasPath, Vector2 spawnPos, Direction dir,
+                               int damage, float speed, float lifetime);
+    void SpawnLightningAt(Vector2 targetPos, int damage, float lifetime);
+    void UpdatePlayerProjectiles(float dt);
+    void UpdateNinjaTeleport(Player* player, float dt);
+
+    // Player skill projectile list (separate from pet projectiles)
+    std::vector<std::unique_ptr<Projectile>> m_playerProjectiles;
 
     std::string GetLevelPath(int levelNumber) const;
     std::string GetPlayerAtlasRoot(CharacterClass playerClass) const;

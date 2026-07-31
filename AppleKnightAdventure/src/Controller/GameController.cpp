@@ -7,6 +7,10 @@
 #include "Model/Checkpoint.h"
 #include "Model/Item.h"
 #include "Model/KnightSkillSet.h"
+#include "Model/FighterSkillSet.h"
+#include "Model/MagicCasterSkillSet.h"
+#include "Model/NinjaSkillSet.h"
+#include "Model/Player.h"
 #include "View/GameView.h"
 #include "View/CharacterRenderer.h"
 #include "View/EntityRenderer.h"
@@ -104,12 +108,25 @@ void GameController::RegisterPlayerVisuals(Player* player, CharacterClass player
     cr.Register(player, root + "idle.json", "idle");
     cr.MergeAtlas(id, root + "walk.json");
     cr.MergeAtlas(id, root + "jump.json");
-    cr.MergeAtlas(id, root + "run.json");
+    if (std::filesystem::exists(root + "run.json"))
+        cr.MergeAtlas(id, root + "run.json");
     cr.MergeAtlas(id, root + "attack1.json");
     cr.MergeAtlas(id, root + "attack2.json");
-    cr.MergeAtlas(id, root + "attack3.json");
+    if (std::filesystem::exists(root + "attack3.json"))
+        cr.MergeAtlas(id, root + "attack3.json");
     cr.MergeAtlas(id, root + "hurt.json");
     cr.MergeAtlas(id, root + "dead.json");
+    if (std::filesystem::exists(root + "parry.json"))
+        cr.MergeAtlas(id, root + "parry.json");
+    if (std::filesystem::exists(root + "ultimate_skill.json"))
+        cr.MergeAtlas(id, root + "ultimate_skill.json");
+    // Ninja teleport animations
+    if (playerClass == CharacterClass::Ninja) {
+        if (std::filesystem::exists(root + "skill3_teleport_start.json"))
+            cr.MergeAtlas(id, root + "skill3_teleport_start.json");
+        if (std::filesystem::exists(root + "skill3_teleport_end.json"))
+            cr.MergeAtlas(id, root + "skill3_teleport_end.json");
+    }
 }
 
 void GameController::RegisterEnemyVisuals(Enemy* enemy) {
@@ -233,6 +250,7 @@ void GameController::StartLevel(int levelNumber) {
 
     m_activePet.reset();
     m_petProjectiles.clear();
+    m_playerProjectiles.clear();
 
     const std::string path = GetLevelPath(levelNumber);
     const bool isLDtk = (path.size() >= 5 &&
@@ -449,38 +467,108 @@ void GameController::HandlePlayerInput(const InputCommand& cmd, float /*dt*/) {
     // --- Knight Skills ---
     uint32_t pid = static_cast<uint32_t>(player->GetId());
 
-    if (skills && !player->IsDashing()) {
-        // Attack1 (J) — quick slash
-        if (cmd.attack && skills->TryAttack1()) {
-            player->Attack();  // syncs m_attackTimer for animation state
-            SoundManager::GetInstance().PlaySound("player_attack");
-        }
-        // Attack2 (K) — heavy strike (starts charging)
-        if (cmd.parry && skills->TryAttack2()) {
-            player->Attack2();
-            SoundManager::GetInstance().PlaySound("player_attack");
-        }
-        // Attack3 (U) — lunge thrust
-        if (cmd.skill1 && skills->TryAttack3()) {
-            player->Attack3();
-            SoundManager::GetInstance().PlaySound("player_attack");
-            // Apply lunge velocity (overrides current vel.x)
-            float lDir = 0.0f;
-            if (cmd.moveRight && !cmd.moveLeft) {
-                lDir = 1.0f;
-                player->SetDirection(Direction::Right);
-            } else if (cmd.moveLeft && !cmd.moveRight) {
-                lDir = -1.0f;
-                player->SetDirection(Direction::Left);
-            } else {
-                lDir = (player->GetDirection() == Direction::Right) ? 1.0f : -1.0f;
+    // ==================== KNIGHT ====================
+    if (KnightSkillSet* skills = player->GetKnightSkills()) {
+        if (!player->IsDashing()) {
+            if (cmd.attack  && skills->TryAttack1()) {
+                player->Attack();
+                SoundManager::GetInstance().PlaySound("player_attack");
             }
-            Vector2 lv = player->GetVelocity();
-            lv.x = lDir * skills->m_lungeSpeed;
-            player->SetVelocity(lv);
+            if (cmd.parry   && skills->TryAttack2()) {
+                player->Attack2();
+                SoundManager::GetInstance().PlaySound("player_attack");
+                // Lunge: reduced speed 650px/s
+                float lDir = (player->GetDirection() == Direction::Right) ? 1.0f : -1.0f;
+                if (cmd.moveRight && !cmd.moveLeft) { lDir = 1.0f; player->SetDirection(Direction::Right); }
+                else if (cmd.moveLeft && !cmd.moveRight) { lDir = -1.0f; player->SetDirection(Direction::Left); }
+                Vector2 lv = player->GetVelocity(); lv.x = lDir * skills->m_lungeSpeed;
+                player->SetVelocity(lv);
+            }
+            if (cmd.skill1  && skills->TryAttack3()) {
+                player->Attack3();
+                SoundManager::GetInstance().PlaySound("player_attack");
+                float lDir = (player->GetDirection() == Direction::Right) ? 1.0f : -1.0f;
+                if (cmd.moveRight && !cmd.moveLeft) { lDir = 1.0f; player->SetDirection(Direction::Right); }
+                else if (cmd.moveLeft && !cmd.moveRight) { lDir = -1.0f; player->SetDirection(Direction::Left); }
+                Vector2 lv = player->GetVelocity(); lv.x = lDir * skills->m_lungeSpeed;
+                player->SetVelocity(lv);
+            }
+            if (cmd.ultimate && skills->TryUltimate()) {
+                player->DoUltimate();
+                SoundManager::GetInstance().PlaySound("player_attack");
+            }
+            if (cmd.parryBlock && skills->TryParry()) {
+                // Parry state handled in Player::TakeDamage
+            }
         }
-    } else if (!skills) {
-        // Non-knight fallback — original single attack
+
+    // ==================== FIGHTER ====================
+    } else if (FighterSkillSet* fs = player->GetFighterSkills()) {
+        if (!player->IsDashing()) {
+            if (cmd.attack    && fs->TryAttack1()) {
+                player->Attack();
+                SoundManager::GetInstance().PlaySound("player_attack");
+            }
+            if (cmd.parry     && fs->TryAttack2()) {
+                player->Attack2();
+                SoundManager::GetInstance().PlaySound("player_attack");
+            }
+            if (cmd.skill1    && fs->TryAttack3()) {
+                player->Attack3();
+                SoundManager::GetInstance().PlaySound("player_attack");
+            }
+            if (cmd.ultimate  && fs->TryUltimate()) {
+                player->DoUltimate();
+                SoundManager::GetInstance().PlaySound("player_attack");
+            }
+            if (cmd.parryBlock && fs->TryParry()) {}
+        }
+
+    // ==================== MAGIC CASTER ====================
+    } else if (MagicCasterSkillSet* ms = player->GetMagicSkills()) {
+        if (!player->IsDashing()) {
+            if (cmd.attack    && ms->TryAttack1()) {
+                player->Attack();
+                SoundManager::GetInstance().PlaySound("player_attack");
+            }
+            if (cmd.parry     && ms->TryAttack2()) {
+                player->Attack2();
+                SoundManager::GetInstance().PlaySound("player_attack");
+            }
+            if (cmd.skill1    && ms->TryAttack3()) {
+                player->Attack3();
+                SoundManager::GetInstance().PlaySound("player_attack");
+            }
+            if (cmd.ultimate  && ms->TryUltimate()) {
+                player->DoUltimate();
+                SoundManager::GetInstance().PlaySound("player_attack");
+            }
+            if (cmd.parryBlock && ms->TryParry()) {}
+        }
+
+    // ==================== NINJA ====================
+    } else if (NinjaSkillSet* ns = player->GetNinjaSkills()) {
+        if (!player->IsDashing()) {
+            if (cmd.attack    && ns->TryAttack1()) {
+                player->Attack();
+                SoundManager::GetInstance().PlaySound("player_attack");
+            }
+            if (cmd.parry     && ns->TryAttack2()) {
+                player->Attack2();
+                SoundManager::GetInstance().PlaySound("player_attack");
+            }
+            if (cmd.skill1    && ns->TryAttack3()) {
+                player->Attack3();  // triggers teleport_start animation
+            }
+            if (cmd.ultimate  && ns->TryUltimate()) {
+                player->DoUltimate();
+                SoundManager::GetInstance().PlaySound("player_attack");
+            }
+            if (cmd.parryBlock && ns->TryParry()) {}
+        }
+
+    // ==================== FALLBACK ====================
+    } else {
         if (cmd.attack && player->CanAttack()) {
             player->Attack();
             View::CharacterRenderer::GetInstance().PlayAction(pid, View::ACTION_ATTACK);
@@ -545,12 +633,10 @@ void GameController::UpdateEnemyAI(float dt) {
 }
 
 void GameController::UpdateCombat(float dt) {
-    Player* player = m_gameState->GetLocalPlayer();
+    Player* player = m_gameState ? m_gameState->GetLocalPlayer() : nullptr;
     if (!player) return;
 
-    KnightSkillSet* skills = player->GetKnightSkills();
-
-    // Helper lambda to deal damage to an enemy from a given hitbox
+    // ---- Helper: deal damage to enemies in a rect ----
     auto HitEnemiesInBox = [&](Rectangle attackBox, int damage) {
         for (auto& entity : m_gameState->GetAllEntities()) {
             if (entity->GetType() != EntityType::Enemy || !entity->IsActive()) continue;
@@ -569,23 +655,142 @@ void GameController::UpdateCombat(float dt) {
         }
     };
 
-    if (skills) {
-        // Attack1 — standard slash box
-        if (skills->IsAttack1Active()) {
+    // ==================== KNIGHT COMBAT ====================
+    if (KnightSkillSet* skills = player->GetKnightSkills()) {
+        if (skills->IsAttack1Active())
             HitEnemiesInBox(player->GetAttackBoundingBox(), skills->attack1.damage);
-        }
-        // Attack2 — wider heavy hit box
-        if (skills->IsAttack2Active()) {
-            Rectangle heavyBox = skills->GetAttack2HitBox(
-                player->GetPosition(), player->GetSize(), player->GetDirection());
-            HitEnemiesInBox(heavyBox, skills->attack2.damage);
-        }
-        // Attack3 — player bounding box while lunging
-        if (skills->IsAttack3Active()) {
+        if (skills->IsAttack2Active())
+            HitEnemiesInBox(skills->GetAttack2HitBox(player->GetPosition(), player->GetSize(), player->GetDirection()),
+                            skills->attack2.damage);
+        if (skills->IsAttack3Active())
             HitEnemiesInBox(player->GetBoundingBox(), skills->attack3.damage);
+        if (skills->IsUltimateActive())
+            HitEnemiesInBox(skills->GetUltimateHitBox(player->GetPosition(), player->GetSize(), player->GetDirection()),
+                            skills->ultimate.damage);
+
+    // ==================== FIGHTER COMBAT ====================
+    } else if (FighterSkillSet* fs = player->GetFighterSkills()) {
+        if (fs->IsAttack1Active())
+            HitEnemiesInBox(fs->GetAttack1HitBox(player->GetPosition(), player->GetSize(), player->GetDirection()),
+                            fs->attack1.damage);
+        if (fs->IsAttack2Active())
+            HitEnemiesInBox(fs->GetAttack2HitBox(player->GetPosition(), player->GetSize(), player->GetDirection()),
+                            fs->attack2.damage);
+        if (fs->IsAttack3Active())
+            HitEnemiesInBox(fs->GetAttack3HitBox(player->GetPosition(), player->GetSize(), player->GetDirection()),
+                            fs->attack3.damage);
+        // Fighter Ultimate: spawn projectile when charge done
+        if (fs->WantsToFire()) {
+            Vector2 spawnPos = {
+                player->GetPosition().x + (player->GetDirection() == Direction::Right ? player->GetSize().x : 0.0f),
+                player->GetPosition().y + player->GetSize().y * 0.3f
+            };
+            SpawnPlayerProjectile(
+                "assets/textures/player/fighter/ultimate_projectile.json",
+                spawnPos, player->GetDirection(),
+                fs->ultimate.damage, 400.0f, 600.0f / 400.0f);
+            fs->ResetFireFlag();
+            SoundManager::GetInstance().PlaySound("player_attack");
         }
+
+    // ==================== MAGIC CASTER COMBAT ====================
+    } else if (MagicCasterSkillSet* ms = player->GetMagicSkills()) {
+        // Lightning (attack1): instant at nearest enemy
+        if (ms->m_wantsLightning) {
+            // Find nearest enemy within range
+            Vector2 targetPos = player->GetPosition();
+            float   minDist   = MagicCasterSkillSet::LIGHTNING_RANGE;
+            for (auto& e : m_gameState->GetAllEntities()) {
+                if (e->GetType() != EntityType::Enemy || !e->IsActive()) continue;
+                float dx = e->GetPosition().x - player->GetPosition().x;
+                float dy = e->GetPosition().y - player->GetPosition().y;
+                float d = std::sqrt(dx*dx + dy*dy);
+                if (d < minDist) { minDist = d; targetPos = e->GetPosition(); }
+            }
+            SpawnLightningAt(targetPos, ms->attack1.damage, 0.12f);
+            ms->ResetLightning();
+        }
+        // Fireball (attack2): fly forward
+        if (ms->m_wantsFireball) {
+            Vector2 spawnPos = {
+                player->GetPosition().x + (player->GetDirection() == Direction::Right ? player->GetSize().x : 0.0f),
+                player->GetPosition().y + player->GetSize().y * 0.35f
+            };
+            SpawnPlayerProjectile(
+                "assets/textures/player/magic_caster/projectile_attack2.json",
+                spawnPos, player->GetDirection(),
+                ms->attack2.damage,
+                MagicCasterSkillSet::FIREBALL_SPEED,
+                MagicCasterSkillSet::FIREBALL_RANGE / MagicCasterSkillSet::FIREBALL_SPEED);
+            ms->ResetFireball();
+        }
+        // Wave (attack3): fly forward slower
+        if (ms->m_wantsWave) {
+            Vector2 spawnPos = {
+                player->GetPosition().x + (player->GetDirection() == Direction::Right ? player->GetSize().x : 0.0f),
+                player->GetPosition().y + player->GetSize().y * 0.4f
+            };
+            SpawnPlayerProjectile(
+                "assets/textures/player/magic_caster/projectile_attack3.json",
+                spawnPos, player->GetDirection(),
+                ms->attack3.damage,
+                MagicCasterSkillSet::WAVE_SPEED,
+                MagicCasterSkillSet::WAVE_RANGE / MagicCasterSkillSet::WAVE_SPEED);
+            ms->ResetWave();
+        }
+        // Ultimate Lightning: instant at nearest enemy
+        if (ms->m_wantsUltLightning) {
+            Vector2 targetPos = player->GetPosition();
+            float   minDist   = MagicCasterSkillSet::LIGHTNING_RANGE * 1.5f;
+            for (auto& e : m_gameState->GetAllEntities()) {
+                if (e->GetType() != EntityType::Enemy || !e->IsActive()) continue;
+                float dx = e->GetPosition().x - player->GetPosition().x;
+                float dy = e->GetPosition().y - player->GetPosition().y;
+                float d = std::sqrt(dx*dx + dy*dy);
+                if (d < minDist) { minDist = d; targetPos = e->GetPosition(); }
+            }
+            SpawnLightningAt(targetPos, ms->ultimate.damage, 0.12f);
+            ms->ResetUltLightning();
+        }
+
+    // ==================== NINJA COMBAT ====================
+    } else if (NinjaSkillSet* ns = player->GetNinjaSkills()) {
+        if (ns->IsAttack1Active())
+            HitEnemiesInBox(ns->GetAttack1HitBox(player->GetPosition(), player->GetSize(), player->GetDirection()),
+                            ns->attack1.damage);
+        // Blade Rush: projectile spawns when animation ends
+        if (ns->WantsBladeRush()) {
+            Vector2 spawnPos = {
+                player->GetPosition().x + (player->GetDirection() == Direction::Right ? player->GetSize().x : 0.0f),
+                player->GetPosition().y + player->GetSize().y * 0.3f
+            };
+            SpawnPlayerProjectile(
+                "assets/textures/player/ninja/projectile_attack2.json",
+                spawnPos, player->GetDirection(),
+                ns->attack2.damage,
+                NinjaSkillSet::BLADE_RUSH_SPEED,
+                NinjaSkillSet::BLADE_RUSH_RANGE / NinjaSkillSet::BLADE_RUSH_SPEED);
+            ns->ResetBladeRush();
+        }
+        // Teleport
+        UpdateNinjaTeleport(player, dt);
+        // Shadow Clone projectile
+        if (ns->WantsShadowClone()) {
+            Vector2 spawnPos = {
+                player->GetPosition().x + (player->GetDirection() == Direction::Right ? player->GetSize().x : 0.0f),
+                player->GetPosition().y + player->GetSize().y * 0.2f
+            };
+            SpawnPlayerProjectile(
+                "assets/textures/player/ninja/projectile_ultimate_attack.json",
+                spawnPos, player->GetDirection(),
+                ns->ultimate.damage,
+                NinjaSkillSet::CLONE_SPEED,
+                NinjaSkillSet::CLONE_RANGE / NinjaSkillSet::CLONE_SPEED);
+            ns->ResetShadowClone();
+        }
+
+    // ==================== FALLBACK ====================
     } else if (player->GetState() == Character::State::Attack) {
-        // Fallback for non-knight classes (hardcoded 25)
         HitEnemiesInBox(player->GetAttackBoundingBox(), 25);
     }
 
@@ -791,6 +996,7 @@ void GameController::Update(float dt) {
             View::MenuView::GetInstance().SetVisible(true);
             View::UIStateManager::GetInstance().Push(View::UILayer::Menu);
         }
+        return;
     }
 
     if (m_paused) {
@@ -833,6 +1039,7 @@ void GameController::Update(float dt) {
     UpdateItems(dt);
     UpdatePets(dt, cmd);
     UpdateProjectiles(dt);
+    UpdatePlayerProjectiles(dt);
     UpdateEndgameCheckpoints();
     m_particles.Update(dt);
     m_gameState->TickTimer(dt);
@@ -1238,4 +1445,160 @@ void GameController::UpdateProjectiles(float dt) {
                 return false;
             }),
         m_petProjectiles.end());
+}
+
+// ============================================================
+// Player Skill Projectile Helpers
+// ============================================================
+
+void GameController::SpawnPlayerProjectile(const char* atlasPath, Vector2 spawnPos,
+                                            Direction dir, int damage,
+                                            float speed, float lifetime) {
+    auto proj = std::make_unique<Projectile>(
+        spawnPos, Vector2{32.0f, 32.0f},
+        ProjectileType::Magic,
+        dir, damage,
+        m_gameState->GetLocalPlayer() ? m_gameState->GetLocalPlayer()->GetId() : 0);
+
+    float vx = (dir == Direction::Right) ? speed : -speed;
+    proj->SetVelocity({vx, 0.0f});
+
+    // Register visual
+    View::EntityRenderer::GetInstance().RegisterAnimated(proj.get(), atlasPath, "default");
+
+    m_playerProjectiles.push_back(std::move(proj));
+}
+
+void GameController::SpawnLightningAt(Vector2 targetPos, int damage, float lifetime) {
+    // Lightning appears instantly at target position — zero velocity, short life
+    auto proj = std::make_unique<Projectile>(
+        targetPos, Vector2{64.0f, 128.0f},
+        ProjectileType::Magic,
+        Direction::Down, damage,
+        m_gameState->GetLocalPlayer() ? m_gameState->GetLocalPlayer()->GetId() : 0);
+
+    proj->SetVelocity({0.0f, 0.0f});
+
+    View::EntityRenderer::GetInstance().RegisterAnimated(
+        proj.get(), "assets/textures/player/magic_caster/projectile_attack1.json", "default");
+
+    // Deal damage immediately to any enemy overlapping
+    for (auto& e : m_gameState->GetAllEntities()) {
+        if (e->GetType() != EntityType::Enemy || !e->IsActive()) continue;
+        auto* enemy = static_cast<Enemy*>(e.get());
+        if (enemy->GetState() == EnemyState::Dead) continue;
+        if (!RectOverlap(proj->GetBoundingBox(), enemy->GetBoundingBox())) continue;
+        enemy->TakeDamage(damage);
+        SoundManager::GetInstance().PlaySound("enemy_hurt");
+        View::FloatingTextManager::GetInstance().Emit(
+            enemy->GetPosition(), "-" + std::to_string(damage), PURPLE, 1.0f);
+        View::ParticleRenderer::GetInstance().EmitBurst(enemy->GetPosition(), 12, PURPLE);
+        View::GameView::GetInstance().Shake(4.0f, 0.2f);
+        if (!enemy->IsActive()) OnEntityRemoved(enemy);
+    }
+
+    m_playerProjectiles.push_back(std::move(proj));
+}
+
+void GameController::UpdatePlayerProjectiles(float dt) {
+    if (!m_gameState) return;
+
+    for (auto& proj : m_playerProjectiles) {
+        if (!proj->IsActive()) continue;
+        proj->Update(dt);
+
+        // Resolve tile collision (stop on wall)
+        Rectangle box = proj->GetBoundingBox();
+        bool hitTile = false;
+        for (const auto& tile : m_gameState->GetTiles()) {
+            if (!tile.solid) continue;
+            Rectangle tr = { (float)tile.x * TILE_SIZE, (float)tile.y * TILE_SIZE,
+                              (float)TILE_SIZE, (float)TILE_SIZE };
+            if (RectOverlap(box, tr)) { proj->OnHit(); hitTile = true; break; }
+        }
+        if (hitTile) continue;
+
+        // Check collision with enemies (skip lightning which already dealt damage)
+        Vector2 vel = proj->GetVelocity();
+        if (std::abs(vel.x) < 1.0f && std::abs(vel.y) < 1.0f) continue; // stationary (lightning)
+
+        for (auto& e : m_gameState->GetAllEntities()) {
+            if (e->GetType() != EntityType::Enemy || !e->IsActive()) continue;
+            auto* enemy = static_cast<Enemy*>(e.get());
+            if (enemy->GetState() == EnemyState::Dead) continue;
+            if (!RectOverlap(proj->GetBoundingBox(), enemy->GetBoundingBox())) continue;
+
+            enemy->TakeDamage(proj->GetDamage());
+            SoundManager::GetInstance().PlaySound("enemy_hurt");
+            View::FloatingTextManager::GetInstance().Emit(
+                enemy->GetPosition(), "-" + std::to_string(proj->GetDamage()), ORANGE, 1.0f);
+            View::ParticleRenderer::GetInstance().EmitBurst(enemy->GetPosition(), 8, ORANGE);
+            View::GameView::GetInstance().Shake(3.0f, 0.15f);
+            if (!enemy->IsActive()) OnEntityRemoved(enemy);
+            proj->OnHit();
+            break;
+        }
+    }
+
+    // Remove expired
+    m_playerProjectiles.erase(
+        std::remove_if(m_playerProjectiles.begin(), m_playerProjectiles.end(),
+            [](const std::unique_ptr<Projectile>& p) {
+                if (p->HasExpired()) {
+                    View::EntityRenderer::GetInstance().Unregister(p->GetId());
+                    return true;
+                }
+                return false;
+            }),
+        m_playerProjectiles.end());
+}
+
+void GameController::UpdateNinjaTeleport(Player* player, float dt) {
+    if (!player) return;
+    NinjaSkillSet* ns = player->GetNinjaSkills();
+    if (!ns || !ns->IsTeleporting() || ns->m_teleportDone) return;
+
+    // Snap position once after the start animation window
+    float elapsed = NinjaSkillSet::TELEPORT_START_DURATION + NinjaSkillSet::TELEPORT_END_DURATION
+                    - ns->m_teleportTimer;
+    if (elapsed >= NinjaSkillSet::TELEPORT_START_DURATION) {
+        // Find nearest enemy
+        Vector2 targetPos = player->GetPosition();
+        float   minDist   = NinjaSkillSet::TELEPORT_MAX_RANGE;
+        bool    foundEnemy = false;
+
+        for (const auto& e : m_gameState->GetAllEntities()) {
+            if (e->GetType() != EntityType::Enemy || !e->IsActive()) continue;
+            float dx = e->GetPosition().x - player->GetPosition().x;
+            float dy = e->GetPosition().y - player->GetPosition().y;
+            float d  = std::sqrt(dx*dx + dy*dy);
+            if (d < minDist) {
+                minDist   = d;
+                targetPos = e->GetPosition();
+                foundEnemy = true;
+            }
+        }
+
+        Vector2 newPos;
+        if (foundEnemy) {
+            // Place player 80px in front of enemy (toward the player's facing)
+            float dx = player->GetPosition().x - targetPos.x;
+            float len = std::abs(dx);
+            float signX = (len > 0.001f) ? (dx > 0.0f ? 1.0f : -1.0f) : 1.0f;
+            newPos.x = targetPos.x + signX * NinjaSkillSet::TELEPORT_OFFSET;
+            newPos.y = targetPos.y;
+            player->SetDirection(signX > 0.0f ? Direction::Right : Direction::Left);
+        } else {
+            // No enemy: teleport forward
+            float dirX = (player->GetDirection() == Direction::Right) ? 1.0f : -1.0f;
+            newPos.x = player->GetPosition().x + dirX * NinjaSkillSet::TELEPORT_NO_ENEMY_DIST;
+            newPos.y = player->GetPosition().y;
+        }
+
+        player->SetPosition(newPos);
+        player->SetVelocity({0.0f, 0.0f});
+        ns->m_teleportDone = true;
+
+        View::ParticleRenderer::GetInstance().EmitBurst(newPos, 15, WHITE);
+    }
 }
