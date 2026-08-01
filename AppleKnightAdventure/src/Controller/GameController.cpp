@@ -432,22 +432,6 @@ void GameController::HandlePlayerInput(const InputCommand& cmd, float /*dt*/) {
     Player* player = m_gameState ? m_gameState->GetLocalPlayer() : nullptr;
     if (!player || !player->IsAlive()) return;
 
-    // --- DEBUG: F1-F4 to switch class for testing ---
-    auto SwitchClass = [&](CharacterClass cls) {
-        if (player->GetCharacterClass() != cls) {
-            UnregisterEntityVisuals(player->GetId());
-            m_gameState->SetPlayerClass(cls);
-            player->SetCharacterClass(cls);
-            RegisterPlayerVisuals(player, cls);
-        }
-    };
-    if (IsKeyPressed(KEY_F1)) SwitchClass(CharacterClass::Knight);
-    if (IsKeyPressed(KEY_F2)) SwitchClass(CharacterClass::Fighter);
-    if (IsKeyPressed(KEY_F3)) SwitchClass(CharacterClass::MagicCaster);
-    if (IsKeyPressed(KEY_F4)) SwitchClass(CharacterClass::Ninja);
-    // ------------------------------------------------
-
-
     KnightSkillSet* skills = player->GetKnightSkills();
     bool isLunging = skills && skills->m_isLunging;
     bool blockMovement = player->IsDashing() || isLunging;
