@@ -215,16 +215,20 @@ void CharacterRenderer::UpdateAll(float dt) {
 
             std::string clipName = "idle";
             switch (state) {
-                case Character::State::Idle:   clipName = "idle"; break;
-                case Character::State::Walk:   clipName = "walk"; break;
-                case Character::State::Jump:   clipName = "jump"; break;
-                case Character::State::Fall:   clipName = "fall"; break;
-                case Character::State::Attack: clipName = "attack"; break;
-                case Character::State::Attack2: clipName = "attack_2"; break;
-                case Character::State::Attack3: clipName = "attack_3"; break;
-                case Character::State::Hurt:   clipName = "hurt"; break;
-                case Character::State::Dead:   clipName = "dead"; break;
-                case Character::State::Skill:  clipName = "skill"; break;
+                case Character::State::Idle:    clipName = "idle";          break;
+                case Character::State::Walk:    clipName = "walk";          break;
+                case Character::State::Run:     clipName = "walk";          break; // Sprint shares walk asset
+                case Character::State::Dash:    clipName = "run";           break; // Dash uses run.json
+                case Character::State::Jump:    clipName = "jump";          break;
+                case Character::State::Fall:    clipName = "fall";          break;
+                case Character::State::Attack:  clipName = "attack";        break;
+                case Character::State::Attack2: clipName = "attack_2";      break;
+                case Character::State::Attack3: clipName = "attack_3";      break;
+                case Character::State::Ultimate:clipName = "ultimate_skill";break;
+                case Character::State::Parry:   clipName = "parry";         break;
+                case Character::State::Hurt:    clipName = "hurt";          break;
+                case Character::State::Dead:    clipName = "dead";          break;
+                case Character::State::Skill:   clipName = "skill";         break;
             }
 
             auto prevIt = m_lastActions.find(id);
@@ -234,13 +238,18 @@ void CharacterRenderer::UpdateAll(float dt) {
             // Clip fallback chains for assets that use different naming
             if (!animator.HasClip(clipName)) {
                 static const std::unordered_map<std::string, std::vector<std::string>> fallback = {
-                    {"idle",   {"fly", "default"}},
-                    {"walk",   {"run", "fly", "idle"}},
-                    {"jump",   {"jump_fall", "idle"}},
-                    {"fall",   {"jump_fall", "idle"}},
-                    {"hurt",   {"hit", "idle"}},
-                    {"dead",   {"death", "idle"}},
-                    {"skill",  {"attack", "idle"}}
+                    {"idle",          {"fly", "default"}},
+                    {"walk",          {"run", "fly", "idle"}},
+                    {"run",           {"walk", "idle"}},
+                    {"jump",          {"jump_fall", "idle"}},
+                    {"fall",          {"jump_fall", "idle"}},
+                    {"hurt",          {"hit", "idle"}},
+                    {"dead",          {"death", "idle"}},
+                    {"skill",         {"attack", "idle"}},
+                    {"parry",         {"idle"}},
+                    {"ultimate_skill",{"skill", "attack", "idle"}},
+                    {"attack_2",      {"attack", "idle"}},
+                    {"attack_3",      {"attack", "idle"}},
                 };
                 auto it = fallback.find(clipName);
                 if (it != fallback.end()) {
@@ -253,8 +262,12 @@ void CharacterRenderer::UpdateAll(float dt) {
                 }
             }
 
-            // Switch clip if action changed or animator stopped (except when dead)
-            if (currentAction != prevAction || (!animator.IsPlaying() && state != Character::State::Dead)) {
+
+            // Switch clip if action changed or animator stopped (except when dead or parrying)
+            // Parry: play once, then hold last frame until state changes
+            bool parryHolding = (state == Character::State::Parry && !animator.IsPlaying()
+                                 && animator.CurrentClip() == clipName);
+            if (currentAction != prevAction || (!animator.IsPlaying() && state != Character::State::Dead && !parryHolding)) {
                 animator.Play(clipName, 1.0f, true);
                 m_lastActions[id] = currentAction;
             }

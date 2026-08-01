@@ -1,13 +1,13 @@
-# Apple Knight Adventure - Update Status
+# Update Version
 
-## Files Modified
-- `include/Utils/Constants.h`
-- `src/Factories/LevelFactory.cpp`
+## Files Created/Modified
+- `Report/Week8_Report.md` (Created)
+- `Report/Week8_Report.tex` (Created)
+- `Report/Week8_Report.pdf` (Created)
 
 ## What was changed and why
-- Changed `TILE_SIZE` from `64` to `64.0f * (2.0f / 3.0f)` (which is `~42.66`). 
-- Updated `LevelFactory.cpp` to use `16` directly for LDtk's `__gridSize` default value instead of relying on `TILE_SIZE` to avoid float-to-int type deduction warnings with nlohmann::json.
-- **Why:** The user requested to scale down the tileset size to 2/3 of its current size. Modifying `TILE_SIZE` ensures both rendering logic and physics/collision logic scale harmoniously to prevent visual gaps.
+- Thêm file report tuần 8 dưới định dạng Markdown (`Week8_Report.md`) và LaTeX/PDF (`Week8_Report.tex`, `Week8_Report.pdf`). Nội dung report ghi nhận hoàn thành 4 class nhân vật (Kiệt) và hoàn thành thiết kế Map 1 cùng với sửa lỗi render map (Tiến).
+- Lý do: Báo cáo công việc hàng tuần 8.
 
-## Current Status
-- Tileset scale is successfully changed to 2/3. `TILE_SIZE` is now a floating point constant.
+## Current status
+- Hoàn thành viết báo cáo tuần 8. Đã sẵn sàng để commit lên nhánh `report`.
