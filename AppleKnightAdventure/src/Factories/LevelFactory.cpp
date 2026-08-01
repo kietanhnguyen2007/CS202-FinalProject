@@ -284,9 +284,15 @@ std::unique_ptr<GameState> LevelFactory::LoadLDtkLevel(const std::string& filepa
     auto& lvl = levels[levelIndex];
 
     // --- Map size ---
-    int pxWid = lvl.value("pxWid", 2560);
-    int pxHei = lvl.value("pxHei", 1152);
-    state->SetMapSize(pxWid / TILE_SIZE, pxHei / TILE_SIZE);
+    // Read ldtkGs from first layer so this works with any gridSize (16 or 64)
+    int pxWid   = lvl.value("pxWid", 2560);
+    int pxHei   = lvl.value("pxHei", 1152);
+    int ldtkGs  = 16; // default: tileset native size
+    if (lvl.contains("layerInstances") && !lvl["layerInstances"].empty())
+        ldtkGs = lvl["layerInstances"][0].value("__gridSize", 16);
+    // Map size in game tiles: (map pixels / ldtk grid) gives cell count,
+    // which equals game-tile count because 1 LDtk cell = 1 game tile.
+    state->SetMapSize(pxWid / ldtkGs, pxHei / ldtkGs);
 
     // --- TilesetUid → tileType map ---
     // Bug 3 & 4 fix: guard null uid entries and map UID directly as tileType.
@@ -329,7 +335,7 @@ std::unique_ptr<GameState> LevelFactory::LoadLDtkLevel(const std::string& filepa
     std::unordered_map<int,int> solidMap; // cell linear index → intgrid value
     for (auto& layer : lvl["layerInstances"]) {
         if (layer["__type"] != "IntGrid" || layer["__identifier"] != "Collision") continue;
-        int gs = layer.value("__gridSize", TILE_SIZE);
+        int gs = layer.value("__gridSize", 16);
         int cols = std::max(1, pxWid / gs);
         if (!layer.contains("intGridCsv")) continue;
         auto& csv = layer["intGridCsv"];
@@ -348,7 +354,7 @@ std::unique_ptr<GameState> LevelFactory::LoadLDtkLevel(const std::string& filepa
     for (auto& layer : lvl["layerInstances"]) {
         std::string ltype = layer["__type"];
         std::string lid   = layer["__identifier"];
-        int gs            = layer.value("__gridSize", TILE_SIZE);
+        int gs            = layer.value("__gridSize", 16);
         // Bug 1 fix: __tilesetDefUid is JSON null on Entities/IntGrid layers.
         // nlohmann::json::value() throws type_error.302 when the key exists but
         // is null — it only falls back for absent keys. Use explicit null-check.
@@ -358,20 +364,27 @@ std::unique_ptr<GameState> LevelFactory::LoadLDtkLevel(const std::string& filepa
         int tileType = (uidToTileType.count(tilesetUid)) ? uidToTileType[tilesetUid] : 1;
         int cols     = std::max(1, pxWid / gs);
 
-        // ── Tile layers ──────────────────────────────────────────
-        if (ltype == "Tiles" && (lid == "Tiles" || lid == "BG_Tiles")) {
+        // ── Tile layers (including AutoLayer from IntGrid) ───────
+        if (lid == "Tiles" || lid == "BG_Tiles" || lid == "Collision") {
             bool isBG = (lid == "BG_Tiles");
-            if (!layer.contains("gridTiles")) continue;
-            for (auto& gt : layer["gridTiles"]) {
-                int gx = gt["px"][0].get<int>() / gs;
-                int gy = gt["px"][1].get<int>() / gs;
-                int t  = gt["t"].get<int>();
-                int f  = gt.value("f", 0);
-                int cellIdx = gy * cols + gx;
-                bool solid = !isBG && (solidMap.count(cellIdx) > 0);
-                state->AddTile(Tile{gx, gy, tileType, t, solid, f});
-            }
-            continue;
+            
+            auto processTiles = [&](const std::string& arrayName) {
+                if (!layer.contains(arrayName)) return;
+                for (auto& gt : layer[arrayName]) {
+                    int gx = gt["px"][0].get<int>() / gs;
+                    int gy = gt["px"][1].get<int>() / gs;
+                    int t  = gt["t"].get<int>();
+                    int f  = gt.value("f", 0);
+                    int cellIdx = gy * cols + gx;
+                    bool solid = !isBG && (solidMap.count(cellIdx) > 0);
+                    state->AddTile(Tile{gx, gy, tileType, t, solid, f});
+                }
+            };
+            
+            processTiles("gridTiles");
+            processTiles("autoLayerTiles");
+            
+            if (lid != "Collision") continue;
         }
 
         // ── Entity layer ─────────────────────────────────────────
@@ -380,8 +393,11 @@ std::unique_ptr<GameState> LevelFactory::LoadLDtkLevel(const std::string& filepa
 
         for (auto& ei : layer["entityInstances"]) {
             std::string eid = ei["__identifier"];
-            float wx = ei["px"][0].get<float>();
-            float wy = ei["px"][1].get<float>();
+            // LDtk px is in ldtk-pixel space (gs=16). Tiles render at gx*TILE_SIZE.
+            // Must apply the same scale: gamePos = (ldtkPx / gs) * TILE_SIZE
+            const float scale = (float)TILE_SIZE / (float)gs;
+            float wx = ei["px"][0].get<float>() * scale;
+            float wy = ei["px"][1].get<float>() * scale;
             Vector2 pos{wx, wy};
 
             // ── Spawn points ──────────────────────────────────────
@@ -501,9 +517,12 @@ std::unique_ptr<DualWorld> LevelFactory::LoadLDtkDualWorld(const std::string& fi
         return std::make_unique<DualWorld>();
     auto& lvl = levels[levelIndex];
 
-    int pxWid = lvl.value("pxWid", 2560);
-    int pxHei = lvl.value("pxHei", 1152);
-    auto world = std::make_unique<DualWorld>(pxWid / TILE_SIZE, pxHei / TILE_SIZE);
+    int pxWid  = lvl.value("pxWid", 2560);
+    int pxHei  = lvl.value("pxHei", 1152);
+    int ldtkGs = 16;
+    if (lvl.contains("layerInstances") && !lvl["layerInstances"].empty())
+        ldtkGs = lvl["layerInstances"][0].value("__gridSize", 16);
+    auto world = std::make_unique<DualWorld>(pxWid / ldtkGs, pxHei / ldtkGs);
 
     if (!lvl.contains("layerInstances")) return world;
 
@@ -511,18 +530,22 @@ std::unique_ptr<DualWorld> LevelFactory::LoadLDtkDualWorld(const std::string& fi
         std::string lid = layer["__identifier"];
         if (lid != "LightTiles" && lid != "ShadowTiles") continue;
         WorldLayer wl = (lid == "LightTiles") ? WorldLayer::Light : WorldLayer::Shadow;
-        int gs = layer.value("__gridSize", TILE_SIZE);
-        if (!layer.contains("gridTiles")) continue;
-        for (auto& gt : layer["gridTiles"]) {
-            Tile tile{};
-            tile.x         = gt["px"][0].get<int>() / gs;
-            tile.y         = gt["px"][1].get<int>() / gs;
-            tile.tileId    = gt["t"].get<int>();
-            tile.tileType  = 1;
-            tile.solid     = true;
-            tile.flipFlags = gt.value("f", 0);
-            world->AddTile(wl, tile);
-        }
+        int gs = layer.value("__gridSize", 16);
+        auto processTiles = [&](const std::string& arrayName) {
+            if (!layer.contains(arrayName)) return;
+            for (auto& gt : layer[arrayName]) {
+                Tile tile{};
+                tile.x         = gt["px"][0].get<int>() / gs;
+                tile.y         = gt["px"][1].get<int>() / gs;
+                tile.tileId    = gt["t"].get<int>();
+                tile.tileType  = 1;
+                tile.solid     = true;
+                tile.flipFlags = gt.value("f", 0);
+                world->AddTile(wl, tile);
+            }
+        };
+        processTiles("gridTiles");
+        processTiles("autoLayerTiles");
     }
     return world;
 }
