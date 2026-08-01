@@ -33,6 +33,7 @@ public:
     bool HasExpired() const;
     void OnHit();
     void SetLifetime(float lifetime) { m_lifetime = lifetime; }
+    void SetDamage(int damage) { m_damage = damage; }
 
     // Homing
     bool IsHoming() const { return m_isHoming; }

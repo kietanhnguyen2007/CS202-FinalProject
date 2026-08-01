@@ -432,6 +432,22 @@ void GameController::HandlePlayerInput(const InputCommand& cmd, float /*dt*/) {
     Player* player = m_gameState ? m_gameState->GetLocalPlayer() : nullptr;
     if (!player || !player->IsAlive()) return;
 
+    // --- DEBUG: F1-F4 to switch class for testing ---
+    auto SwitchClass = [&](CharacterClass cls) {
+        if (player->GetCharacterClass() != cls) {
+            UnregisterEntityVisuals(player->GetId());
+            m_gameState->SetPlayerClass(cls);
+            player->SetCharacterClass(cls);
+            RegisterPlayerVisuals(player, cls);
+        }
+    };
+    if (IsKeyPressed(KEY_F1)) SwitchClass(CharacterClass::Knight);
+    if (IsKeyPressed(KEY_F2)) SwitchClass(CharacterClass::Fighter);
+    if (IsKeyPressed(KEY_F3)) SwitchClass(CharacterClass::MagicCaster);
+    if (IsKeyPressed(KEY_F4)) SwitchClass(CharacterClass::Ninja);
+    // ------------------------------------------------
+
+
     KnightSkillSet* skills = player->GetKnightSkills();
     bool isLunging = skills && skills->m_isLunging;
     bool blockMovement = player->IsDashing() || isLunging;
@@ -678,77 +694,147 @@ void GameController::UpdateCombat(float dt) {
                             fs->attack3.damage);
         // Fighter Ultimate: spawn projectile when charge done
         if (fs->WantsToFire()) {
+            // Spawn at horizontal edge of player, raised high enough to not clip ground
+            float spawnX = (player->GetDirection() == Direction::Right)
+                ? player->GetPosition().x + player->GetSize().x
+                : player->GetPosition().x;
             Vector2 spawnPos = {
-                player->GetPosition().x + (player->GetDirection() == Direction::Right ? player->GetSize().x : 0.0f),
-                player->GetPosition().y + player->GetSize().y * 0.3f
+                spawnX,
+                player->GetPosition().y - 20.0f  // raised significantly
             };
             SpawnPlayerProjectile(
                 "assets/textures/player/fighter/ultimate_projectile.json",
                 spawnPos, player->GetDirection(),
-                fs->ultimate.damage, 400.0f, 600.0f / 400.0f);
+                fs->ultimate.damage, 400.0f, 0.9f, // 0.9f matches exact animation length (9 frames * 0.1s)
+                0.8f, false);  // Fighter H faces right by default
             fs->ResetFireFlag();
             SoundManager::GetInstance().PlaySound("player_attack");
         }
 
     // ==================== MAGIC CASTER COMBAT ====================
     } else if (MagicCasterSkillSet* ms = player->GetMagicSkills()) {
-        // Lightning (attack1): instant at nearest enemy
+        // Lightning (attack1): instant at nearest ON-SCREEN enemy
         if (ms->m_wantsLightning) {
-            // Find nearest enemy within range
-            Vector2 targetPos = player->GetPosition();
+            // Compute camera viewport in world space
+            float halfW = (SCREEN_WIDTH  * 0.5f) / m_camera.zoom;
+            float halfH = (SCREEN_HEIGHT * 0.5f) / m_camera.zoom;
+            Rectangle viewport = {
+                m_camera.target.x - halfW, m_camera.target.y - halfH,
+                halfW * 2.0f, halfH * 2.0f
+            };
+            // Find nearest enemy within range AND on screen
+            Vector2 targetPos = { -99999.0f, -99999.0f };
             float   minDist   = MagicCasterSkillSet::LIGHTNING_RANGE;
+            bool    foundEnemy = false;
             for (auto& e : m_gameState->GetAllEntities()) {
                 if (e->GetType() != EntityType::Enemy || !e->IsActive()) continue;
+                auto* enemy = static_cast<Enemy*>(e.get());
+                if (enemy->GetState() == EnemyState::Dead) continue;
+                // Check on-screen
+                Rectangle eBox = e->GetBoundingBox();
+                if (!RectOverlap(eBox, viewport)) continue;
                 float dx = e->GetPosition().x - player->GetPosition().x;
                 float dy = e->GetPosition().y - player->GetPosition().y;
                 float d = std::sqrt(dx*dx + dy*dy);
-                if (d < minDist) { minDist = d; targetPos = e->GetPosition(); }
+                if (d < minDist) {
+                    minDist = d;
+                    // Use bounding-box center so strike lands ON the enemy
+                    targetPos = {
+                        e->GetPosition().x + e->GetSize().x * 0.5f,
+                        e->GetPosition().y + e->GetSize().y * 0.5f
+                    };
+                    foundEnemy = true;
+                }
+            }
+            if (!foundEnemy) {
+                // No on-screen enemy: strike a fixed distance in facing direction
+                float dirX = (player->GetDirection() == Direction::Right) ? 1.0f : -1.0f;
+                targetPos = {
+                    player->GetPosition().x + dirX * 250.0f,
+                    player->GetPosition().y + player->GetSize().y * 0.5f
+                };
             }
             SpawnLightningAt(targetPos, ms->attack1.damage, 0.12f,
-                             "assets/textures/player/magic_caster/projectile_attack1.json");
+                             "assets/textures/player/magic_caster/projectile_attack1.json",
+                             0.0f, 0.8f);  // top-down bolt: 0 degrees (sprite is already vertical)
             ms->ResetLightning();
         }
         // Fireball (attack2): fly forward
         if (ms->m_wantsFireball) {
+            float fbSpawnX = (player->GetDirection() == Direction::Right)
+                ? player->GetPosition().x + player->GetSize().x
+                : player->GetPosition().x;
             Vector2 spawnPos = {
-                player->GetPosition().x + (player->GetDirection() == Direction::Right ? player->GetSize().x : 0.0f),
-                player->GetPosition().y + player->GetSize().y * 0.35f
+                fbSpawnX,
+                player->GetPosition().y - 10.0f // raised even higher
             };
             SpawnPlayerProjectile(
                 "assets/textures/player/magic_caster/projectile_attack2.json",
                 spawnPos, player->GetDirection(),
                 ms->attack2.damage,
                 MagicCasterSkillSet::FIREBALL_SPEED,
-                MagicCasterSkillSet::FIREBALL_RANGE / MagicCasterSkillSet::FIREBALL_SPEED);
+                MagicCasterSkillSet::FIREBALL_RANGE / MagicCasterSkillSet::FIREBALL_SPEED,
+                0.8f, false); // Fireball faces Right by default, increased scale to 0.8
             ms->ResetFireball();
         }
         // Wave (attack3): fly forward slower
         if (ms->m_wantsWave) {
+            float waveSpawnX = (player->GetDirection() == Direction::Right)
+                ? player->GetPosition().x + player->GetSize().x
+                : player->GetPosition().x;
             Vector2 spawnPos = {
-                player->GetPosition().x + (player->GetDirection() == Direction::Right ? player->GetSize().x : 0.0f),
-                player->GetPosition().y + player->GetSize().y * 0.4f
+                waveSpawnX,
+                player->GetPosition().y - 65.0f  // raised significantly higher
             };
             SpawnPlayerProjectile(
                 "assets/textures/player/magic_caster/projectile_attack3.json",
                 spawnPos, player->GetDirection(),
                 ms->attack3.damage,
                 MagicCasterSkillSet::WAVE_SPEED,
-                MagicCasterSkillSet::WAVE_RANGE / MagicCasterSkillSet::WAVE_SPEED);
+                1.0f, // 1.0f matches exact animation length (5 frames * 0.2s)
+                1.0f, true); // Wave at 1.0 scale
             ms->ResetWave();
         }
-        // Ultimate Lightning: instant at nearest enemy
+            // Ultimate Lightning: instant at nearest ON-SCREEN enemy center
         if (ms->m_wantsUltLightning) {
-            Vector2 targetPos = player->GetPosition();
-            float   minDist   = MagicCasterSkillSet::LIGHTNING_RANGE * 1.5f;
+            float halfW2 = (SCREEN_WIDTH  * 0.5f) / m_camera.zoom;
+            float halfH2 = (SCREEN_HEIGHT * 0.5f) / m_camera.zoom;
+            Rectangle viewport2 = {
+                m_camera.target.x - halfW2, m_camera.target.y - halfH2,
+                halfW2 * 2.0f, halfH2 * 2.0f
+            };
+            Vector2 targetPos2 = { -99999.0f, -99999.0f };
+            float   minDist2   = MagicCasterSkillSet::LIGHTNING_RANGE * 1.5f;
+            bool    foundEnemy2 = false;
             for (auto& e : m_gameState->GetAllEntities()) {
                 if (e->GetType() != EntityType::Enemy || !e->IsActive()) continue;
+                auto* enemy = static_cast<Enemy*>(e.get());
+                if (enemy->GetState() == EnemyState::Dead) continue;
+                Rectangle eBox = e->GetBoundingBox();
+                if (!RectOverlap(eBox, viewport2)) continue;
                 float dx = e->GetPosition().x - player->GetPosition().x;
                 float dy = e->GetPosition().y - player->GetPosition().y;
                 float d = std::sqrt(dx*dx + dy*dy);
-                if (d < minDist) { minDist = d; targetPos = e->GetPosition(); }
+                if (d < minDist2) {
+                    minDist2 = d;
+                    // Use bounding-box center
+                    targetPos2 = {
+                        e->GetPosition().x + e->GetSize().x * 0.5f,
+                        e->GetPosition().y + e->GetSize().y * 0.5f
+                    };
+                    foundEnemy2 = true;
+                }
             }
-            SpawnLightningAt(targetPos, ms->ultimate.damage, 0.12f,
-                             "assets/textures/player/magic_caster/ultimate_skill_projectile.json");
+            if (!foundEnemy2) {
+                float dirX = (player->GetDirection() == Direction::Right) ? 1.0f : -1.0f;
+                targetPos2 = {
+                    player->GetPosition().x + dirX * 300.0f,
+                    player->GetPosition().y + player->GetSize().y * 0.5f
+                };
+            }
+            SpawnLightningAt(targetPos2, ms->ultimate.damage, 0.12f,
+                             "assets/textures/player/magic_caster/ultimate_skill_projectile.json",
+                             0.0f, 1.0f);  // aura explosion: original asset size (1.0f)
             ms->ResetUltLightning();
         }
 
@@ -759,32 +845,42 @@ void GameController::UpdateCombat(float dt) {
                             ns->attack1.damage);
         // Blade Rush: projectile spawns when animation ends
         if (ns->WantsBladeRush()) {
+            float brSpawnX = (player->GetDirection() == Direction::Right)
+                ? player->GetPosition().x + player->GetSize().x
+                : player->GetPosition().x;
             Vector2 spawnPos = {
-                player->GetPosition().x + (player->GetDirection() == Direction::Right ? player->GetSize().x : 0.0f),
-                player->GetPosition().y + player->GetSize().y * 0.3f
+                brSpawnX,
+                player->GetPosition().y + player->GetSize().y * 0.25f  // raised higher
             };
             SpawnPlayerProjectile(
                 "assets/textures/player/ninja/projectile_attack2.json",
                 spawnPos, player->GetDirection(),
                 ns->attack2.damage,
                 NinjaSkillSet::BLADE_RUSH_SPEED,
-                NinjaSkillSet::BLADE_RUSH_RANGE / NinjaSkillSet::BLADE_RUSH_SPEED);
+                NinjaSkillSet::BLADE_RUSH_RANGE / NinjaSkillSet::BLADE_RUSH_SPEED,
+                0.3f, false); // Ninja K sprite faces right by default
             ns->ResetBladeRush();
         }
         // Teleport
         UpdateNinjaTeleport(player, dt);
         // Shadow Clone projectile
         if (ns->WantsShadowClone()) {
+            float cloneSpawnX = (player->GetDirection() == Direction::Right)
+                ? player->GetPosition().x + player->GetSize().x
+                : player->GetPosition().x;
+            // Ninja H sprite at 0.5 scale is ~75px tall.
+            // Raise it so it doesn't clip below the ground block.
             Vector2 spawnPos = {
-                player->GetPosition().x + (player->GetDirection() == Direction::Right ? player->GetSize().x : 0.0f),
-                player->GetPosition().y + player->GetSize().y * 0.2f
+                cloneSpawnX,
+                player->GetPosition().y - 15.0f
             };
             SpawnPlayerProjectile(
                 "assets/textures/player/ninja/projectile_ultimate_attack.json",
                 spawnPos, player->GetDirection(),
                 ns->ultimate.damage,
                 NinjaSkillSet::CLONE_SPEED,
-                NinjaSkillSet::CLONE_RANGE / NinjaSkillSet::CLONE_SPEED);
+                0.7f, // 0.7f matches exact animation length (7 frames * 0.1s)
+                0.5f, false); // Ninja H sprite is 0.5 scale and faces right by default
             ns->ResetShadowClone();
         }
 
@@ -1452,42 +1548,69 @@ void GameController::UpdateProjectiles(float dt) {
 
 void GameController::SpawnPlayerProjectile(const char* atlasPath, Vector2 spawnPos,
                                             Direction dir, int damage,
-                                            float speed, float lifetime) {
+                                            float speed, float lifetime,
+                                            float scale, bool facesLeft) {
+    // Collision box size scales proportionally to visual scale.
+    // Assuming an average base asset size of ~100x100 pixels.
+    float boxSize = 100.0f * scale;
+    
     auto proj = std::make_unique<Projectile>(
-        spawnPos, Vector2{32.0f, 32.0f},
+        spawnPos, Vector2{boxSize, boxSize},
         ProjectileType::Magic,
         dir, damage,
         m_gameState->GetLocalPlayer() ? m_gameState->GetLocalPlayer()->GetId() : 0);
 
+    proj->SetLifetime(lifetime);
     float vx = (dir == Direction::Right) ? speed : -speed;
     proj->SetVelocity({vx, 0.0f});
+    proj->SetScale(scale);
 
-    // Register visual
-    View::EntityRenderer::GetInstance().RegisterAnimated(proj.get(), atlasPath, "default");
+    // If sprite naturally faces Left, flip when moving Right.
+    // If sprite naturally faces Right, flip when moving Left.
+    bool flipX = facesLeft ? (dir == Direction::Right) : (dir == Direction::Left);
+
+    // Force rotation to 0 to prevent double-flipping from the Projectile constructor
+    proj->SetRotation(0.0f);
+
+    // Register visual with correct flip
+    View::EntityRenderer::GetInstance().RegisterAnimated(proj.get(), atlasPath, "default", {0, 0}, flipX);
 
     m_playerProjectiles.push_back(std::move(proj));
 }
 
 void GameController::SpawnLightningAt(Vector2 targetPos, int damage, float lifetime,
-                                       const char* atlasPath) {
-    // Lightning appears instantly at target position — zero velocity, short life
+                                       const char* atlasPath, float rotation, float scale) {
+    // Lightning appears instantly at target position.
+    // Frame center adjustment based on scale.
+    float half = 125.0f * scale; // Assuming average frame width/height is ~250px
+    Vector2 centeredPos = {
+        targetPos.x - half,
+        targetPos.y - half
+    };
+
     auto proj = std::make_unique<Projectile>(
-        targetPos, Vector2{64.0f, 128.0f},
+        centeredPos, Vector2{30.0f, 60.0f},
         ProjectileType::Magic,
-        Direction::Down, damage,
+        Direction::None, damage,
         m_gameState->GetLocalPlayer() ? m_gameState->GetLocalPlayer()->GetId() : 0);
 
     proj->SetVelocity({0.0f, 0.0f});
+    proj->SetLifetime(0.6f);  // 5-7 frames × 0.1s
+    proj->SetScale(scale);
+    proj->SetRotation(rotation);
 
     View::EntityRenderer::GetInstance().RegisterAnimated(
         proj.get(), atlasPath, "default");
 
-    // Deal damage immediately to any enemy overlapping
+    // Deal damage immediately to any enemy overlapping targetPos
+    // We use a logical 60x60 hitbox centered on the intended target, 
+    // rather than the visual projectile's bounding box which might be offset.
+    Rectangle hitBox = { targetPos.x - 30.0f, targetPos.y - 30.0f, 60.0f, 60.0f };
     for (auto& e : m_gameState->GetAllEntities()) {
         if (e->GetType() != EntityType::Enemy || !e->IsActive()) continue;
         auto* enemy = static_cast<Enemy*>(e.get());
         if (enemy->GetState() == EnemyState::Dead) continue;
-        if (!RectOverlap(proj->GetBoundingBox(), enemy->GetBoundingBox())) continue;
+        if (!RectOverlap(hitBox, enemy->GetBoundingBox())) continue;
         enemy->TakeDamage(damage);
         SoundManager::GetInstance().PlaySound("enemy_hurt");
         View::FloatingTextManager::GetInstance().Emit(
@@ -1514,7 +1637,17 @@ void GameController::UpdatePlayerProjectiles(float dt) {
             if (!tile.solid) continue;
             Rectangle tr = { (float)tile.x * TILE_SIZE, (float)tile.y * TILE_SIZE,
                               (float)TILE_SIZE, (float)TILE_SIZE };
-            if (RectOverlap(box, tr)) { proj->OnHit(); hitTile = true; break; }
+            if (RectOverlap(box, tr)) {
+                if ((proj->GetLifetime() == 0.9f && proj->GetScale() == 0.8f) || // Fighter H
+                    (proj->GetLifetime() == 1.0f && proj->GetScale() == 1.0f) || // MC U
+                    (proj->GetLifetime() == 0.7f && proj->GetScale() == 0.5f)) { // Ninja H
+                    proj->SetVelocity({0.0f, 0.0f});
+                    proj->SetDamage(0);
+                } else {
+                    proj->OnHit(); 
+                }
+                hitTile = true; break; 
+            }
         }
         if (hitTile) continue;
 
@@ -1535,7 +1668,15 @@ void GameController::UpdatePlayerProjectiles(float dt) {
             View::ParticleRenderer::GetInstance().EmitBurst(enemy->GetPosition(), 8, ORANGE);
             View::GameView::GetInstance().Shake(3.0f, 0.15f);
             if (!enemy->IsActive()) OnEntityRemoved(enemy);
-            proj->OnHit();
+            
+            if ((proj->GetLifetime() == 0.9f && proj->GetScale() == 0.8f) || // Fighter H
+                (proj->GetLifetime() == 1.0f && proj->GetScale() == 1.0f) || // MC U
+                (proj->GetLifetime() == 0.7f && proj->GetScale() == 0.5f)) { // Ninja H
+                proj->SetVelocity({0.0f, 0.0f});
+                proj->SetDamage(0); // stops further collision and finishes animation
+            } else {
+                proj->OnHit();
+            }
             break;
         }
     }
