@@ -69,6 +69,9 @@ void Player::SetCharacterClass(CharacterClass cls) {
 // ---------- Update ----------
 
 void Player::Update(float deltaTime) {
+    if (IsParrying()) {
+        m_velocity.x = 0.0f;
+    }
     Character::Update(deltaTime);
 
     // Tick skill set
