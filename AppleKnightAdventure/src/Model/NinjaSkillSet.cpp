@@ -25,10 +25,10 @@ void NinjaSkillSet::TickSkill(SkillData& s, float dt) {
 
 void NinjaSkillSet::Update(float dt) {
     bool wasActive2 = attack2.isActive;
-    bool wasChargingU = ultimate.isCharging;
 
     TickSkill(attack1, dt);
     TickSkill(attack2, dt);
+    TickSkill(attack3, dt);  // Bug fix: attack3 (teleport) cooldown must tick!
     TickSkill(parry,   dt);
 
     // Blade Rush: fire projectile when active window closes
@@ -36,14 +36,12 @@ void NinjaSkillSet::Update(float dt) {
         m_wantsBladeRush = true;
     }
 
-    // Ultimate charge
-    if (wasChargingU && !ultimate.isCharging) {
-        m_wantsShadowClone = true;
-    }
+    // Ultimate charge — tick manually so we can detect the isCharging→false transition
     if (ultimate.isCharging) {
         ultimate.chargeTimer -= dt;
         if (ultimate.chargeTimer <= 0.0f) {
-            ultimate.isCharging = false;
+            ultimate.isCharging  = false;
+            m_wantsShadowClone   = true;  // fire projectile now that charge finished
         }
         if (ultimate.cooldownTimer > 0.0f) {
             ultimate.cooldownTimer -= dt;
@@ -104,10 +102,9 @@ bool NinjaSkillSet::TryUltimate() {
 }
 
 bool NinjaSkillSet::TryParry() {
-    if (parry.cooldownTimer > 0.0f || parry.isActive) return false;
+    // Allow re-trigger while P is held
     parry.isActive      = true;
     parry.activeTimer   = parry.activeDuration;
-    parry.cooldownTimer = parry.cooldownMax;
     m_isParrying        = true;
     return true;
 }

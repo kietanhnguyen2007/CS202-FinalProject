@@ -263,8 +263,11 @@ void CharacterRenderer::UpdateAll(float dt) {
             }
 
 
-            // Switch clip if action changed or animator stopped (except when dead)
-            if (currentAction != prevAction || (!animator.IsPlaying() && state != Character::State::Dead)) {
+            // Switch clip if action changed or animator stopped (except when dead or parrying)
+            // Parry: play once, then hold last frame until state changes
+            bool parryHolding = (state == Character::State::Parry && !animator.IsPlaying()
+                                 && animator.CurrentClip() == clipName);
+            if (currentAction != prevAction || (!animator.IsPlaying() && state != Character::State::Dead && !parryHolding)) {
                 animator.Play(clipName, 1.0f, true);
                 m_lastActions[id] = currentAction;
             }

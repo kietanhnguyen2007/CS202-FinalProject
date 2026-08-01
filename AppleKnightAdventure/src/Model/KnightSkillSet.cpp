@@ -89,10 +89,9 @@ bool KnightSkillSet::TryUltimate() {
 }
 
 bool KnightSkillSet::TryParry() {
-    if (parry.cooldownTimer > 0.0f || parry.isActive) return false;
+    // Allow re-trigger while P is held (no cooldown, no isActive guard)
     parry.isActive      = true;
-    parry.activeTimer   = parry.activeDuration;
-    parry.cooldownTimer = parry.cooldownMax;
+    parry.activeTimer   = parry.activeDuration;  // refreshed every frame while held
     m_isParrying        = true;
     return true;
 }

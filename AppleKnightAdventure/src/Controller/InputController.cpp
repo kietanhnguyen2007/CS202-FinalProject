@@ -16,7 +16,7 @@ InputCommand InputController::Poll() {
     cmd.parry     = IsKeyPressed(KEY_K);  // Attack2 (heavy)
     cmd.skill1    = IsKeyPressed(KEY_U);  // Attack3 (lunge)
     cmd.ultimate  = IsKeyPressed(KEY_H);
-    cmd.parryBlock = IsKeyPressed(KEY_P);
+    cmd.parryBlock = IsKeyDown(KEY_P);  // Hold P to keep parrying
     cmd.interact  = IsKeyPressed(KEY_F) || IsKeyPressed(KEY_O);
     cmd.openInventory = IsKeyPressed(KEY_I);
     cmd.pause     = IsKeyPressed(KEY_ESCAPE);

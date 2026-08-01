@@ -32,6 +32,7 @@ public:
     float GetLifetime() const;
     bool HasExpired() const;
     void OnHit();
+    void SetLifetime(float lifetime) { m_lifetime = lifetime; }
 
     // Homing
     bool IsHoming() const { return m_isHoming; }

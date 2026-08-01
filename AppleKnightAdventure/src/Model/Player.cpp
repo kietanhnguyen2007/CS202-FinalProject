@@ -114,6 +114,8 @@ void Player::Update(float deltaTime) {
         m_state = State::Dash;  // Use dedicated Dash state (not Jump)
     } else if (IsParrying()) {
         m_state = State::Parry;
+        // Lock out movement while blocking: zero horizontal velocity
+        m_velocity.x = 0.0f;
     } else if (m_attackTimer > 0.0f) {
         if (m_state != State::Attack2 && m_state != State::Attack3 && m_state != State::Ultimate) {
             m_state = State::Attack;

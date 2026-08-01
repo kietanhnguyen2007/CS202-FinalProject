@@ -85,10 +85,9 @@ bool FighterSkillSet::TryUltimate() {
 }
 
 bool FighterSkillSet::TryParry() {
-    if (parry.cooldownTimer > 0.0f || parry.isActive) return false;
+    // Allow re-trigger while P is held
     parry.isActive      = true;
     parry.activeTimer   = parry.activeDuration;
-    parry.cooldownTimer = parry.cooldownMax;
     m_isParrying        = true;
     return true;
 }
