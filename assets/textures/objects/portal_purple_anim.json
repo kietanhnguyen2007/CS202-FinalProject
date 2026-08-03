@@ -1,0 +1,19 @@
+﻿{
+    "image": "portal_purple_spritesheet.png",
+    "frames": {
+        "portal_0": { "frame": { "x": 0, "y": 0, "w": 283, "h": 308 } },
+        "portal_1": { "frame": { "x": 283, "y": 0, "w": 283, "h": 308 } },
+        "portal_2": { "frame": { "x": 566, "y": 0, "w": 283, "h": 308 } },
+        "portal_3": { "frame": { "x": 849, "y": 0, "w": 283, "h": 308 } },
+        "portal_4": { "frame": { "x": 1132, "y": 0, "w": 283, "h": 308 } },
+        "portal_5": { "frame": { "x": 1415, "y": 0, "w": 283, "h": 308 } },
+        "portal_6": { "frame": { "x": 1698, "y": 0, "w": 283, "h": 308 } }
+    },
+    "clips": {
+        "default": {
+            "loop": true,
+            "frames": ["portal_0", "portal_1", "portal_2", "portal_3", "portal_4", "portal_5", "portal_6"],
+            "durations": [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
+        }
+    }
+}

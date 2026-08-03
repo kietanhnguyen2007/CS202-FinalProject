@@ -48,6 +48,7 @@ private:
     void RegisterPlayerVisuals(Player* player, CharacterClass playerClass);
     void RegisterEnemyVisuals(Enemy* enemy);
     void RegisterBossVisuals(Boss* boss);          // NEW — LDtk boss spawn
+    void RegisterPortalVisuals(class TeleportPortal* portal);
     void RegisterChestVisuals(Chest* chest);
     void RegisterCheckpointVisuals(Checkpoint* checkpoint);
     void RegisterItemVisuals(Item* item);

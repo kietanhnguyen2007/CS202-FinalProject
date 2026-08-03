@@ -10,7 +10,9 @@
 #include "Model/FighterSkillSet.h"
 #include "Model/MagicCasterSkillSet.h"
 #include "Model/NinjaSkillSet.h"
+#include "Model/TeleportPortal.h"
 #include "Model/Player.h"
+#include "Systems/ParticleSystem.h"
 #include "View/GameView.h"
 #include "View/CharacterRenderer.h"
 #include "View/EntityRenderer.h"
@@ -192,6 +194,23 @@ void GameController::RegisterItemVisuals(Item* item) {
     View::EntityRenderer::GetInstance().RegisterAnimated(item, atlasPath, "default");
 }
 
+void GameController::RegisterPortalVisuals(TeleportPortal* portal) {
+    if (!portal) return;
+
+    std::string jsonPath;
+    switch (portal->GetColorId()) {
+        case 1: jsonPath = "assets/textures/objects/portal_red_anim.json"; break;
+        case 2: jsonPath = "assets/textures/objects/portal_blue_anim.json"; break;
+        case 3: jsonPath = "assets/textures/objects/portal_green_anim.json"; break;
+        case 4: jsonPath = "assets/textures/objects/portal_brown_anim.json"; break;
+        case 5: jsonPath = "assets/textures/objects/portal_purple_anim.json"; break;
+        default: jsonPath = "assets/textures/objects/portal_blue_anim.json"; break;
+    }
+
+    View::EntityRenderer::GetInstance().RegisterAnimated(
+        portal, jsonPath, "default", {0, 0}, false);
+}
+
 void GameController::RegisterBossVisuals(Boss* boss) {
     if (!boss) return;
     auto& cr = View::CharacterRenderer::GetInstance();
@@ -234,6 +253,9 @@ void GameController::RegisterEntityVisuals(Entity* entity) {
             break;
         case EntityType::Item:
             RegisterItemVisuals(static_cast<Item*>(entity));
+            break;
+        case EntityType::TeleportPortal:
+            RegisterPortalVisuals(static_cast<TeleportPortal*>(entity));
             break;
         case EntityType::FakeWall:
             // FakeWall trông như tile thường — không cần Register visuals riêng
@@ -1019,6 +1041,23 @@ void GameController::UpdateInteractions(const InputCommand& cmd) {
             View::EntityRenderer::GetInstance().Unregister(cpUid);
             View::EntityRenderer::GetInstance().RegisterAnimated(
                 checkpoint, "assets/textures/objects/checkpoint_flag_out.json", "flag_out");
+            return;
+        }
+
+        if (entity->GetType() == EntityType::TeleportPortal) {
+            auto* portal = static_cast<TeleportPortal*>(entity.get());
+            if (portal->GetPortalType() == PortalType::Local) {
+                if (portal->GetLinkedPortal()) {
+                    Rectangle destBox = portal->GetLinkedPortal()->GetBoundingBox();
+                    Vector2 dest = { destBox.x + destBox.width / 2.0f - player->GetSize().x / 2.0f, destBox.y + destBox.height - player->GetSize().y };
+                    player->SetPosition(dest);
+                    player->SetVelocity({0, 0});
+                }
+            } else if (portal->GetPortalType() == PortalType::LevelTransition) {
+                if (portal->GetTargetLevelId() != -1) {
+                    StartLevel(portal->GetTargetLevelId());
+                }
+            }
             return;
         }
     }
