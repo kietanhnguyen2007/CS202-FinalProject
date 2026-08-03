@@ -16,7 +16,8 @@ enum class EntityType {
     FakeWall,
     Pet,
     Particle,
-    Effect
+    Effect,
+    TeleportPortal
 };
 
 class Entity {
