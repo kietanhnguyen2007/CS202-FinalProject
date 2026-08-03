@@ -5,6 +5,7 @@
 #include "Model/Chest.h"
 #include "Model/Checkpoint.h"
 #include "Model/FakeWall.h"
+#include "Model/TeleportPortal.h"
 #include "Model/DualWorldPlayer.h"
 #include "Utils/Constants.h"
 #include <nlohmann/json.hpp>
@@ -483,6 +484,40 @@ std::unique_ptr<GameState> LevelFactory::LoadLDtkLevel(const std::string& filepa
             } else if (eid == "ItemEquipment") {
                 state->AddEntity(ItemFactory::CreateEquipment(pos));
                 ++autoItems;
+            } else if (eid == "Portal") {
+                std::string pTypeStr = "Local";
+                if (ei.contains("fieldInstances")) {
+                    for (auto& f : ei["fieldInstances"]) {
+                        if (f["__identifier"] == "PortalType" && !f["__value"].is_null())
+                            pTypeStr = f["__value"].get<std::string>();
+                    }
+                }
+                PortalType pType = (pTypeStr == "LevelTransition") ? PortalType::LevelTransition : PortalType::Local;
+                int colorId = GetEntityFieldInt(ei, "ColorId", 1);
+                int targetLevel = GetEntityFieldInt(ei, "TargetLevelId", -1);
+                
+                state->AddEntity(std::make_unique<TeleportPortal>(pos, pType, colorId, targetLevel));
+            }
+        }
+    }
+
+    // Link local portals
+    std::vector<TeleportPortal*> localPortals;
+    for (auto& entity : state->GetAllEntities()) {
+        if (entity->GetType() == EntityType::TeleportPortal) {
+            auto* portal = static_cast<TeleportPortal*>(entity.get());
+            if (portal->GetPortalType() == PortalType::Local) {
+                localPortals.push_back(portal);
+            }
+        }
+    }
+    
+    // Connect portals with the same colorId
+    for (size_t i = 0; i < localPortals.size(); ++i) {
+        for (size_t j = i + 1; j < localPortals.size(); ++j) {
+            if (localPortals[i]->GetColorId() == localPortals[j]->GetColorId()) {
+                localPortals[i]->SetLinkedPortal(localPortals[j]);
+                localPortals[j]->SetLinkedPortal(localPortals[i]);
             }
         }
     }
