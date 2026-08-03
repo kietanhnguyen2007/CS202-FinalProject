@@ -1,5 +1,6 @@
 #include "Controller/MenuController.h"
 #include "Controller/GameController.h"
+#include "Controller/MapBuilderController.h"
 #include "View/Renderer.h"
 #include "View/MenuView.h"
 #include "View/GameView.h"
@@ -61,18 +62,21 @@ int main() {
     game.Init();
 
     bool inGame = false;
+    bool inMapBuilder = false;
 
     while (!WindowShouldClose()) {
         WindowManager::GetInstance().Update();
         float dt = GetFrameTime();
 
-        if (!inGame) {
+        if (!inGame && !inMapBuilder) {
             menu.Update(dt);
             if (menu.ShouldStartGame()) {
                 inGame = true;
                 game.StartLevel(1);
-            }
-            if (menu.ShouldQuit()) {
+            } else if (menu.ShouldOpenMapBuilder()) {
+                inMapBuilder = true;
+                MapBuilderController::GetInstance().StartEditor();
+            } else if (menu.ShouldQuit()) {
                 break;
             }
 
@@ -83,6 +87,24 @@ int main() {
             View::MenuView::GetInstance().Render();
             View::Renderer::GetInstance().EndFrameAndFlush();
             EndDrawing();
+        } else if (inMapBuilder) {
+            MapBuilderController::GetInstance().Update(dt);
+            if (MapBuilderController::GetInstance().ShouldReturnToMenu()) {
+                inMapBuilder = false;
+                menu.ShowMainMenu();
+                
+                // Pump events
+                BeginDrawing();
+                ClearBackground(BLACK);
+                View::Renderer::GetInstance().BeginFrame();
+                View::MenuView::GetInstance().Update(dt, menu.GetSelected());
+                View::MenuView::GetInstance().Render();
+                View::Renderer::GetInstance().EndFrameAndFlush();
+                EndDrawing();
+            } else if (MapBuilderController::GetInstance().WantsToPlaytest()) {
+                inMapBuilder = false;
+                inGame = true;
+            }
         } else {
             game.Update(dt);
             if (game.ShouldReturnToMenu()) {

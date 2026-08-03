@@ -43,18 +43,21 @@ void MenuController::HandleMainMenuInput() {
 
     if (cmd.menuDelta != 0) {
         m_selected += cmd.menuDelta;
-        if (m_selected < 0) m_selected = 2;
-        if (m_selected > 2) m_selected = 0;
+        if (m_selected < 0) m_selected = 3;
+        if (m_selected > 3) m_selected = 0;
     }
 
     if (cmd.menuConfirm) {
         switch (m_selected) {
-            case 0:
+            case 0: // Start
                 m_startGame = true;
                 break;
-            case 1:
+            case 1: // Map Builder
+                m_openMapBuilder = true;
                 break;
-            case 2:
+            case 2: // Options
+                break;
+            case 3: // Quit
                 m_quit = true;
                 break;
         }

@@ -83,6 +83,8 @@ void GameController::LoadTilesets() {
 }
 
 std::string GameController::GetLevelPath(int levelNumber) const {
+    if (levelNumber == -99) return "assets/levels/temp_playtest.lvl";
+    
     // Ưu tiên LDtk single-world file nếu tồn tại
     const std::string ldtkPath = "assets/levels/world.ldtk";
     if (std::filesystem::exists(ldtkPath)) return ldtkPath;
@@ -277,7 +279,9 @@ void GameController::StartLevel(int levelNumber) {
     m_running = true;
     m_enemyAttackCooldown = 0.0f;
 
-    View::GameView::GetInstance().SetTiles(&m_gameState->GetTiles());
+    View::GameView::GetInstance().SetTiles(MapLayer::Background, &m_gameState->GetTiles(MapLayer::Background));
+    View::GameView::GetInstance().SetTiles(MapLayer::Main, &m_gameState->GetTiles(MapLayer::Main));
+    View::GameView::GetInstance().SetTiles(MapLayer::Foreground, &m_gameState->GetTiles(MapLayer::Foreground));
 
     // Load background based on the theme set by LDtk level field (or default Forest)
     View::GameView::GetInstance().LoadBackgrounds(m_gameState->GetBackgroundTheme());
@@ -325,7 +329,7 @@ bool GameController::IsOnGround(const Character* character) const {
 bool GameController::IsRectOnGround(Rectangle box) const {
     if (!m_gameState) return false;
     Rectangle probe = {box.x, box.y + box.height, box.width, 2.0f};
-    for (const auto& tile : m_gameState->GetTiles()) {
+    for (const auto& tile : m_gameState->GetTiles(MapLayer::Main)) {
         if (!tile.solid) continue;
         Rectangle tileRect = {
             (float)tile.x * TILE_SIZE,
@@ -359,7 +363,7 @@ void GameController::ResolveTileCollisions(Character* character, float dt) {
     Rectangle prevBox = { box.x - vel.x * dt, box.y - vel.y * dt, box.width, box.height };
     Vector2 pos = character->GetPosition();
 
-    for (const auto& tile : m_gameState->GetTiles()) {
+    for (const auto& tile : m_gameState->GetTiles(MapLayer::Main)) {
         if (!tile.solid) continue;
         Rectangle tileRect = {
             (float)tile.x * TILE_SIZE,
@@ -597,7 +601,7 @@ void GameController::UpdateEnemyAI(float dt) {
                 float checkY = enemy->GetPosition().y + enemy->GetSize().y + 8.0f; // slightly below feet
 
                 bool groundAhead = false;
-                for (const auto& tile : m_gameState->GetTiles()) {
+                for (const auto& tile : m_gameState->GetTiles(MapLayer::Main)) {
                     if (!tile.solid) continue;
                     float tx = tile.x * TILE_SIZE;
                     float ty = tile.y * TILE_SIZE;
@@ -1219,7 +1223,7 @@ void GameController::UpdateItemPhysics(float dt) {
 
         // Simple vertical tile push-out (land on tiles)
         box = item->GetBoundingBox();
-        for (const auto& tile : m_gameState->GetTiles()) {
+        for (const auto& tile : m_gameState->GetTiles(MapLayer::Main)) {
             if (!tile.solid) continue;
             Rectangle tileRect = {
                 (float)tile.x * TILE_SIZE, (float)tile.y * TILE_SIZE,
@@ -1617,7 +1621,7 @@ void GameController::UpdatePlayerProjectiles(float dt) {
         // Resolve tile collision (stop on wall)
         Rectangle box = proj->GetBoundingBox();
         bool hitTile = false;
-        for (const auto& tile : m_gameState->GetTiles()) {
+        for (const auto& tile : m_gameState->GetTiles(MapLayer::Main)) {
             if (!tile.solid) continue;
             Rectangle tr = { (float)tile.x * TILE_SIZE, (float)tile.y * TILE_SIZE,
                               (float)TILE_SIZE, (float)TILE_SIZE };

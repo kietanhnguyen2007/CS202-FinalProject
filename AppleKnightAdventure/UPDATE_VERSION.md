@@ -1,13 +1,14 @@
 # Update Version
 
-## Files Created/Modified
-- `Report/Week8_Report.md` (Created)
-- `Report/Week8_Report.tex` (Created)
-- `Report/Week8_Report.pdf` (Created)
+## S?a l?i & Tính nang m?i
+- Thêm nút **Clear**: Ğã có thêm nút Clear màu cam trên thanh Toolbar d? xóa toàn b? b?n d? nhanh chóng.
+- Fix l?i **Entities không d?t du?c/Vô hình**: Th?c t? các entities dã du?c d?t thành công nhung chua có code render (v?) chúng ra trong ch? d? Map Builder. Tôi dã b? sung tính nang v? tr?c ti?p các h?p màu vi?n kèm theo Ch? vi?t t?t (P=Player, E=Enemy, I=Item, C=Chest...) ? ngay trên b?n d? d? b?n có th? nhìn th?y nh?ng entities mình v?a d?t.
+- **Thêm lo?i (Type) và hình ?nh cho Entities**: Ğã phân nhánh l?i m?c Entities trong Palette. Bây gi? b?n có d?y d?: Player, Enemy (Melee), Enemy (Ranged), Boss, Ğ?ng ti?n (Coin), Qu? táo (Apple), Chìa khóa (Key), Bình máu (Potion).
 
-## What was changed and why
-- ThÃªm file report tuáº§n 8 dÆ°á»›i Ä‘á»‹nh dáº¡ng Markdown (`Week8_Report.md`) vÃ  LaTeX/PDF (`Week8_Report.tex`, `Week8_Report.pdf`). Ná»™i dung report ghi nháº­n hoÃ n thÃ nh 4 class nhÃ¢n váº­t (Kiá»‡t) vÃ  hoÃ n thÃ nh thiáº¿t káº¿ Map 1 cÃ¹ng vá»›i sá»­a lá»—i render map (Tiáº¿n).
-- LÃ½ do: BÃ¡o cÃ¡o cÃ´ng viá»‡c hÃ ng tuáº§n 8.
+## Files Modified
+- include/View/MapBuilderView.h
+- src/View/MapBuilderView.cpp
+- src/Controller/MapBuilderController.cpp
 
-## Current status
-- HoÃ n thÃ nh viáº¿t bÃ¡o cÃ¡o tuáº§n 8. ÄÃ£ sáºµn sÃ ng Ä‘á»ƒ commit lÃªn nhÃ¡nh `report`.
+## Status
+Hoàn t?t các ch?c nang Clear, d?t nhi?u lo?i v?t ph?m/k? thù, và gi? các v?t th? dã hi?n th? rõ ràng trên map khi du?c d?t xu?ng.

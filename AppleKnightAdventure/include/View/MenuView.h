@@ -52,7 +52,7 @@ private:
 
     MenuMode m_mode = MenuMode::Main;
 
-    std::vector<std::string> m_mainItems = { "Start", "Options", "Quit" };
+    std::vector<std::string> m_mainItems = { "Start", "Map Builder", "Options", "Quit" };
     std::vector<std::string> m_pauseItems = { "Resume", "Quit to Menu" };
 
     std::string m_errorMsg;
