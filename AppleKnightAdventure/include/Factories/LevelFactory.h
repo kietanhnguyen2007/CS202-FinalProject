@@ -15,7 +15,8 @@ public:
     // Auto-detect .lvl vs .ldtk by file extension
     static std::unique_ptr<GameState> LoadLevel(const std::string& filepath,
                                                GameMode mode = GameMode::SinglePlayer,
-                                               int ldtkLevelIndex = 0);
+                                               int ldtkLevelIndex = 0,
+                                               CharacterClass cls = CharacterClass::Knight);
 
     static bool SaveLevel(const std::string& filepath, GameState* state);
     static std::unique_ptr<GameState> CreateDefaultLevel(int levelNumber);
@@ -26,7 +27,8 @@ public:
     // LDtk-specific (có thể gọi trực tiếp)
     static std::unique_ptr<GameState> LoadLDtkLevel(const std::string& filepath,
                                                     int levelIndex = 0,
-                                                    GameMode mode = GameMode::SinglePlayer);
+                                                    GameMode mode = GameMode::SinglePlayer,
+                                                    CharacterClass cls = CharacterClass::Knight);
     static std::unique_ptr<DualWorld> LoadLDtkDualWorld(const std::string& filepath,
                                                         int levelIndex = 0);
 

@@ -8,7 +8,8 @@ TeleportPortal::TeleportPortal(Vector2 position, PortalType type, int colorId, i
       m_portalType(type),
       m_colorId(colorId),
       m_linkedPortal(nullptr),
-      m_targetLevelId(targetLevelId) 
+      m_targetLevelId(targetLevelId),
+      m_isLocked(false)
 {
     m_scale = 0.44f; // Visual size is ~ 124 x 135
 }
@@ -38,9 +39,18 @@ int TeleportPortal::GetTargetLevelId() const {
 
 bool TeleportPortal::CanInteract(const Player* player) const {
     if (!player) return false;
-    
+    if (m_isLocked) return false;   // cổng thoát BossArena bị khóa
+
     Rectangle playerBounds = player->GetBoundingBox();
     Rectangle portalBounds = GetBoundingBox();
 
     return CheckCollisionRecs(playerBounds, portalBounds);
+}
+
+bool TeleportPortal::IsLocked() const {
+    return m_isLocked;
+}
+
+void TeleportPortal::SetLocked(bool locked) {
+    m_isLocked = locked;
 }

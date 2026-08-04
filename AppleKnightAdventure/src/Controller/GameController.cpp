@@ -273,11 +273,16 @@ void GameController::StartLevel(int levelNumber) {
     m_petProjectiles.clear();
     m_playerProjectiles.clear();
 
+    // Preserve the player's chosen class across level transitions
+    CharacterClass cls = m_gameState
+        ? m_gameState->GetPlayerClass()
+        : CharacterClass::Knight;
+
     const std::string path = GetLevelPath(levelNumber);
     const bool isLDtk = (path.size() >= 5 &&
                          path.substr(path.size() - 5) == ".ldtk");
     const int ldtkIdx = isLDtk ? (levelNumber - 1) : 0;
-    m_gameState = LevelFactory::LoadLevel(path, GameMode::SinglePlayer, ldtkIdx);
+    m_gameState = LevelFactory::LoadLevel(path, GameMode::SinglePlayer, ldtkIdx, cls);
     if (!m_gameState) {
         m_gameState = LevelFactory::CreateDefaultLevel(levelNumber);
     }
@@ -1052,6 +1057,38 @@ void GameController::UpdateInteractions(const InputCommand& cmd) {
                 if (portal->GetTargetLevelId() != -1) {
                     StartLevel(portal->GetTargetLevelId());
                 }
+            } else if (portal->GetPortalType() == PortalType::BossArena) {
+                int target = portal->GetTargetLevelId();
+                if (target == -1) {
+                    // Cổng thoát (boss arena → level cũ)
+                    // portal->IsLocked() đã được check trong CanInteract() nên không vào được đây khi khóa
+                    if (m_previousLevelId != -1) {
+                        // Lưu trạng thái player sau khi đánh boss (có thể được thưởng items)
+                        SavePlayerState(player);
+                        int prev = m_previousLevelId;
+                        m_previousLevelId = -1;
+                        StartLevel(prev);
+                        // Override spawn position và restore state sau khi level mới load
+                        if (Player* newPlayer = m_gameState ? m_gameState->GetLocalPlayer() : nullptr) {
+                            newPlayer->SetPosition(m_exitSpawnPos);
+                            m_respawnPoint = m_exitSpawnPos;
+                            RestorePlayerState(newPlayer);
+                            m_hasSavedState = false;
+                        }
+                    }
+                } else {
+                    // Cổng vào boss arena
+                    // Lưu vị trí exit spawn = vị trí cạnh cổng trên level hiện tại
+                    Rectangle portalBox = portal->GetBoundingBox();
+                    m_exitSpawnPos = { portalBox.x + portalBox.width + 8.0f, portalBox.y + portalBox.height - player->GetSize().y };
+                    m_previousLevelId = m_gameState->GetCurrentLevel();
+                    SavePlayerState(player);
+                    StartLevel(target);
+                    // Restore state vào level boss
+                    if (Player* newPlayer = m_gameState ? m_gameState->GetLocalPlayer() : nullptr) {
+                        RestorePlayerState(newPlayer);
+                    }
+                }
             }
             return;
         }
@@ -1090,6 +1127,55 @@ void GameController::CheckLevelComplete() {
         m_scoring.CalculateStars();
         SoundManager::GetInstance().StopMusic("bgm_gameplay");
     }
+}
+
+// ──────────────────────────────────────────────────────────────
+// Boss Arena helpers
+// ──────────────────────────────────────────────────────────────
+
+void GameController::UpdateBossArenaPortals() {
+    if (!m_gameState || m_previousLevelId == -1) return; // không phải trong boss arena
+
+    // Kiểm tra còn enemy/boss sống không
+    bool anyAlive = false;
+    for (auto& e : m_gameState->GetAllEntities()) {
+        auto t = e->GetType();
+        if (t == EntityType::Enemy || t == EntityType::Boss) {
+            auto* c = static_cast<Character*>(e.get());
+            if (c->IsAlive()) { anyAlive = true; break; }
+        }
+    }
+
+    // Lock/unlock cổng thoát BossArena (targetLevelId == -1)
+    for (auto& e : m_gameState->GetAllEntities()) {
+        if (e->GetType() != EntityType::TeleportPortal) continue;
+        auto* portal = static_cast<TeleportPortal*>(e.get());
+        if (portal->GetPortalType() == PortalType::BossArena
+                && portal->GetTargetLevelId() == -1) {
+            portal->SetLocked(anyAlive);
+        }
+    }
+}
+
+void GameController::SavePlayerState(Player* player) {
+    if (!player) return;
+    m_savedPlayerState.health      = player->GetHealth();
+    m_savedPlayerState.score       = player->GetScore();
+    m_savedPlayerState.skillPoints = player->GetSkillPoints();
+    m_savedPlayerState.coins       = player->GetInventory().GetCoins();
+    m_savedPlayerState.apples      = player->GetInventory().GetApples();
+    m_savedPlayerState.keys        = player->GetInventory().GetKeys();
+    m_hasSavedState = true;
+}
+
+void GameController::RestorePlayerState(Player* player) {
+    if (!player || !m_hasSavedState) return;
+    player->SetHealth(m_savedPlayerState.health);
+    player->SetScore(m_savedPlayerState.score);
+    player->SetSkillPoints(m_savedPlayerState.skillPoints);
+    player->GetInventory().AddCoins(m_savedPlayerState.coins);
+    player->GetInventory().AddApples(m_savedPlayerState.apples);
+    player->GetInventory().AddKeys(m_savedPlayerState.keys);
 }
 
 void GameController::Update(float dt) {
@@ -1186,6 +1272,7 @@ void GameController::Update(float dt) {
     UpdateProjectiles(dt);
     UpdatePlayerProjectiles(dt);
     UpdateEndgameCheckpoints();
+    UpdateBossArenaPortals();
     m_particles.Update(dt);
     m_gameState->TickTimer(dt);
 

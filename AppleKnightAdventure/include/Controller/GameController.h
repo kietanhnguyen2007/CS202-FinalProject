@@ -8,6 +8,7 @@
 #include "Model/FighterSkillSet.h"
 #include "Model/MagicCasterSkillSet.h"
 #include "Model/NinjaSkillSet.h"
+#include "Model/Inventory.h"
 #include "Systems/CollisionSystem.h"
 #include "Systems/ParticleSystem.h"
 #include "Utils/Types.h"
@@ -26,6 +27,17 @@ class Checkpoint;
 class Item;
 class Entity;
 struct InputCommand;
+
+// Snapshot of player state saved when entering a Boss Arena,
+// restored on return so HP / score / inventory persist across the transition.
+struct PlayerSaveState {
+    int   health      = 0;
+    int   score       = 0;
+    int   skillPoints = 0;
+    int   coins       = 0;
+    int   apples      = 0;
+    int   keys        = 0;
+};
 
 class GameController {
 public:
@@ -77,6 +89,11 @@ private:
     void OnEntityRemoved(Entity* entity);
     void RespawnPlayer();
 
+    // Boss Arena helpers
+    void UpdateBossArenaPortals();          // lock/unlock exit portal based on enemies alive
+    void SavePlayerState(Player* player);   // snapshot before entering boss arena
+    void RestorePlayerState(Player* player);// restore after returning
+
     // Skill projectile helpers
     void SpawnPlayerProjectile(const char* atlasPath, Vector2 spawnPos, Direction dir,
                                int damage, float speed, float lifetime, 
@@ -124,6 +141,12 @@ private:
     std::set<int> m_endgameFlagCapturedIds;  // IDs now showing checkpoint_captured loop
     std::unordered_map<int, float> m_flagOutTimers; // tracks time since flag_out started
     static constexpr float FLAG_OUT_DURATION = 1.35f; // 27 frames x 0.05s
+
+    // Boss Arena transition state
+    int              m_previousLevelId = -1;          // level to return to after boss arena
+    Vector2          m_exitSpawnPos    = {0.0f, 0.0f};// position near entry portal
+    PlayerSaveState  m_savedPlayerState;              // HP/score/inventory snapshot
+    bool             m_hasSavedState   = false;       // true when snapshot is valid
 };
 
 #endif

@@ -1,14 +1,36 @@
-# Update Version
+﻿# UPDATE_VERSION
 
-## S?a l?i & T�nh nang m?i
-- Th�m n�t **Clear**: �� c� th�m n�t Clear m�u cam tr�n thanh Toolbar d? x�a to�n b? b?n d? nhanh ch�ng.
-- Fix l?i **Entities kh�ng d?t du?c/V� h�nh**: Th?c t? c�c entities d� du?c d?t th�nh c�ng nhung chua c� code render (v?) ch�ng ra trong ch? d? Map Builder. T�i d� b? sung t�nh nang v? tr?c ti?p c�c h?p m�u vi?n k�m theo Ch? vi?t t?t (P=Player, E=Enemy, I=Item, C=Chest...) ? ngay tr�n b?n d? d? b?n c� th? nh�n th?y nh?ng entities m�nh v?a d?t.
-- **Th�m lo?i (Type) v� h�nh ?nh cho Entities**: �� ph�n nh�nh l?i m?c Entities trong Palette. B�y gi? b?n c� d?y d?: Player, Enemy (Melee), Enemy (Ranged), Boss, �?ng ti?n (Coin), Qu? t�o (Apple), Ch�a kh�a (Key), B�nh m�u (Potion).
+## Cập nhật nhánh Map Builder (Tích hợp tính năng & UI)
+- Thêm nút **Clear**: Đã có thêm nút Clear màu cam trên thanh Toolbar để xóa toàn bộ bản đồ nhanh chóng.
+- Fix lỗi **Entities không đặt được/Vô hình**: Thực tế các entities đã được đặt thành công nhưng chưa có code render (vẽ) chúng ra trong chế độ Map Builder. Tôi đã bổ sung tính năng vẽ trực tiếp các hộp màu viền kèm theo Chữ viết tắt (P=Player, E=Enemy, I=Item, C=Chest...) ở ngay trên bản đồ để bạn có thể nhìn thấy những entities mình vừa đặt.
+- **Thêm loại (Type) và hình ảnh cho Entities**: Đã phân nhánh lại mục Entities trong Palette. Bây giờ bạn có đầy đủ: Player, Enemy (Melee), Enemy (Ranged), Boss, Đồng tiền (Coin), Quả táo (Apple), Chìa khóa (Key), Bình máu (Potion).
+- **Fix Quit Test Button, Crash & Visibility**: Fix lỗi văng game khi ấn nút Quit Test từ Playtest mode (bằng cách xóa bộ đệm vẽ CharacterRenderer) và sửa lỗi hiển thị sót nút Quit Test trong màn hình Map Builder.
 
-## Files Modified
-- include/View/MapBuilderView.h
-- src/View/MapBuilderView.cpp
-- src/Controller/MapBuilderController.cpp
+## Cập nhật nhánh Tien (Tính năng Boss Arena)
+### Modified Files
+- include/Model/TeleportPortal.h - Added BossArena to PortalType enum; added IsLocked(), SetLocked() and m_isLocked
+- src/Model/TeleportPortal.cpp - Implement lock/unlock; CanInteract() returns false when locked
+- include/Controller/GameController.h - Added PlayerSaveState struct, boss arena fields (m_previousLevelId, m_exitSpawnPos, m_savedPlayerState, m_hasSavedState), and helpers
+- src/Controller/GameController.cpp - StartLevel() preserves CharacterClass; UpdateInteractions() handles BossArena portal; helpers UpdateBossArenaPortals, SavePlayerState, RestorePlayerState added; Update() calls UpdateBossArenaPortals
+- include/Factories/LevelFactory.h - Added CharacterClass cls param to LoadLevel() and LoadLDtkLevel()
+- src/Factories/LevelFactory.cpp - Spawn points use Player(pos, cls); portal type parsing handles BossArena
 
-## Status
-Ho�n t?t c�c ch?c nang Clear, d?t nhi?u lo?i v?t ph?m/k? th�, v� gi? c�c v?t th? d� hi?n th? r� r�ng tr�n map khi du?c d?t xu?ng.
+### What Changed and Why
+**Boss Arena Portal** - New PortalType::BossArena. Entry portal saves player state (HP/score/coins/apples/keys) and records exit spawn position. Exit portal auto-locked until all enemies/bosses dead. On exit, state restored and player spawns at exit position (beside the original entry portal).
+
+**Exit Spawn Point** - No new LDtk entity. Position is right-edge of entry portal bounding box, stored in m_exitSpawnPos before level transition.
+
+**Player State Preservation** - PlayerSaveState snapshot. Saved on enter, restored on return. Boss rewards captured before returning.
+
+**SkillSet Init Fix** - LevelFactory passes cls to Player(pos, cls) so the correct SkillSet (Knight/Fighter/Ninja/MagicCaster) is initialized from spawn.
+
+## LDtk Map Builder Instructions
+To create a boss arena connection:
+1. **Level main** - place Portal entity: PortalType=BossArena, TargetLevelId=<boss_level_index>
+2. **Level boss** - place Portal entity: PortalType=BossArena, TargetLevelId=-1 (exit), do NOT place CheckpointEnd
+3. Player enters boss arena with current HP/score/inventory preserved
+4. After killing all enemies, exit portal unlocks automatically
+
+## Current Status
+Build: PASS (no errors, no warnings)
+Tất cả các tính năng của Map Builder (bao gồm giao diện, hiển thị Entity) và Boss Arena của nhánh Tien đã được tích hợp thành công.
