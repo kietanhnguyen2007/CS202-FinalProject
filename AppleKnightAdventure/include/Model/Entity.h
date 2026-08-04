@@ -17,6 +17,7 @@ enum class EntityType {
     Pet,
     Particle,
     Effect,
+    TriggerZone,
     TeleportPortal
 };
 

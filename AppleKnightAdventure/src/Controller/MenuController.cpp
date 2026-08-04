@@ -33,6 +33,7 @@ void MenuController::Shutdown() {
 void MenuController::ShowMainMenu() {
     m_selected = 0;
     m_startGame = false;
+    m_openMapBuilder = false;
     m_quit = false;
     View::MenuView::GetInstance().ShowMainMenu();
 }
@@ -43,18 +44,29 @@ void MenuController::HandleMainMenuInput() {
 
     if (cmd.menuDelta != 0) {
         m_selected += cmd.menuDelta;
-        if (m_selected < 0) m_selected = 2;
-        if (m_selected > 2) m_selected = 0;
+        if (m_selected < 0) m_selected = 3;
+        if (m_selected > 3) m_selected = 0;
     }
 
-    if (cmd.menuConfirm) {
+    // Handle mouse hover
+    Vector2 mousePos = GetMousePosition();
+    int hovered = menuView.GetHoveredItem(mousePos);
+    if (hovered != -1) {
+        m_selected = hovered;
+    }
+
+    // Handle mouse click or keyboard confirm
+    if (cmd.menuConfirm || (hovered != -1 && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))) {
         switch (m_selected) {
-            case 0:
+            case 0: // Start
                 m_startGame = true;
                 break;
-            case 1:
+            case 1: // Map Builder
+                m_openMapBuilder = true;
                 break;
-            case 2:
+            case 2: // Options
+                break;
+            case 3: // Quit
                 m_quit = true;
                 break;
         }

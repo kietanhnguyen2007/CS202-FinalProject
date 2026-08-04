@@ -49,14 +49,17 @@ public:
     void Render();
     void Shutdown();
 
+    void RegisterEntityVisuals(Entity* entity);
+    void UnregisterEntityVisuals(int entityId);
+
     bool ShouldReturnToMenu() const { return m_returnToMenu; }
     bool IsRunning() const { return m_running; }
+    bool IsPlaytest() const { return m_gameState && m_gameState->GetCurrentLevel() == -99; }
 
 private:
     GameController() = default;
 
     void LoadTilesets();
-    void RegisterEntityVisuals(Entity* entity);
     void RegisterPlayerVisuals(Player* player, CharacterClass playerClass);
     void RegisterEnemyVisuals(Enemy* enemy);
     void RegisterBossVisuals(Boss* boss);          // NEW — LDtk boss spawn
@@ -64,7 +67,6 @@ private:
     void RegisterChestVisuals(Chest* chest);
     void RegisterCheckpointVisuals(Checkpoint* checkpoint);
     void RegisterItemVisuals(Item* item);
-    void UnregisterEntityVisuals(int entityId);
 
     void HandlePlayerInput(const struct InputCommand& cmd, float dt);
     void ApplyGravity(Character* character, float dt);
@@ -117,6 +119,7 @@ private:
     Vector2 m_respawnPoint{0.0f, 0.0f};
     bool m_running        = false;
     bool m_paused         = false;
+    int  m_pauseSelected  = 0;
     bool m_returnToMenu   = false;
     bool m_levelComplete  = false;
     bool m_playerOnGround = false;

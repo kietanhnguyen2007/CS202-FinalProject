@@ -42,6 +42,7 @@ target_link_libraries(AppleKnightAdventure PRIVATE
     gdi32 
     winmm
     ws2_32
+    comdlg32
 )
 
 # Fix for MinGW 14.2.0 / UCRT stat64i32 linking error with older raylib binary

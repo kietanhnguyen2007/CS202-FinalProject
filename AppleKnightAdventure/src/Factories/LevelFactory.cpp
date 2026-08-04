@@ -8,6 +8,9 @@
 #include "Model/TeleportPortal.h"
 #include "Model/DualWorldPlayer.h"
 #include "Utils/Constants.h"
+#include "Model/TriggerZone.h"
+#include "Model/Enemy.h"
+#include "Model/Item.h"
 #include <nlohmann/json.hpp>
 #include <fstream>
 #include <sstream>
@@ -104,7 +107,14 @@ std::unique_ptr<GameState> LevelFactory::LoadLevel(const std::string& filepath,
             int solid = 1;
             file >> tile.x >> tile.y >> tile.tileType >> tile.tileId >> solid;
             tile.solid = (solid != 0);
-            state->AddTile(tile);
+            state->AddTile(MapLayer::Main, tile);
+        } else if (token == "tile_layer") {
+            int layerIdx = 1;
+            Tile tile{};
+            int solid = 1;
+            file >> layerIdx >> tile.x >> tile.y >> tile.tileType >> tile.tileId >> solid >> tile.flipFlags;
+            tile.solid = (solid != 0);
+            state->AddTile(static_cast<MapLayer>(layerIdx), tile);
         } else if (token == "spawn_solo") {
             float tx = 0.0f;
             float ty = 0.0f;
@@ -144,6 +154,11 @@ std::unique_ptr<GameState> LevelFactory::LoadLevel(const std::string& filepath,
                 enemyType = EnemyType::Flying;
             }
             state->AddEntity(EnemyFactory::CreateEnemy({tx * TILE_SIZE, ty * TILE_SIZE}, enemyType));
+        } else if (token == "boss") {
+            float tx = 0.0f, ty = 0.0f, sx = 0.0f, sy = 0.0f;
+            file >> tx >> ty >> sx >> sy;
+            auto boss = std::make_unique<Boss>(Vector2{tx * TILE_SIZE, ty * TILE_SIZE}, Vector2{sx, sy});
+            state->AddEntity(std::move(boss));
         } else if (token == "chest") {
             float tx = 0.0f;
             float ty = 0.0f;
@@ -159,6 +174,35 @@ std::unique_ptr<GameState> LevelFactory::LoadLevel(const std::string& filepath,
                 cp->SetEndGame(true);
             }
             state->AddEntity(std::move(cp));
+        } else if (token == "item") {
+            std::string type;
+            float tx = 0.0f, ty = 0.0f;
+            int amount = 1;
+            file >> type >> tx >> ty >> amount;
+            Vector2 pos = {tx * TILE_SIZE, ty * TILE_SIZE};
+            if (type == "coin") state->AddEntity(ItemFactory::CreateCoin(pos, amount));
+            else if (type == "apple") state->AddEntity(ItemFactory::CreateApple(pos));
+            else if (type == "key") state->AddEntity(ItemFactory::CreateKey(pos));
+            else if (type == "potion") state->AddEntity(ItemFactory::CreatePotion(pos));
+            else if (type == "equipment") state->AddEntity(ItemFactory::CreateEquipment(pos));
+        } else if (token == "trigger") {
+            float tx = 0.0f, ty = 0.0f;
+            std::string target;
+            file >> tx >> ty >> target;
+            #include "Model/TriggerZone.h"
+            auto tz = std::make_unique<TriggerZone>(Vector2{tx * TILE_SIZE, ty * TILE_SIZE}, Vector2{64.0f, 64.0f}, target);
+            state->AddEntity(std::move(tz));
+        } else if (token == "portal") {
+            float tx = 0.0f, ty = 0.0f;
+            std::string pType;
+            int colorId = 1, targetLevel = -1;
+            file >> tx >> ty >> pType >> colorId >> targetLevel;
+            PortalType pt = pType == "transition" ? PortalType::LevelTransition : PortalType::Local;
+            state->AddEntity(std::make_unique<TeleportPortal>(Vector2{tx * TILE_SIZE, ty * TILE_SIZE}, pt, colorId, targetLevel));
+        } else if (token == "fake_wall") {
+            float tx = 0.0f, ty = 0.0f;
+            file >> tx >> ty;
+            state->AddEntity(std::make_unique<FakeWall>(Vector2{tx * TILE_SIZE, ty * TILE_SIZE}, Vector2{64.0f, 64.0f}));
         } else if (token == "scoring") {
             int items = 0;
             int enemies = 0;
@@ -183,20 +227,98 @@ bool LevelFactory::SaveLevel(const std::string& filepath, GameState* state) {
     file << "mode " << static_cast<int>(state->GetMode()) << "\n";
     file << "level " << state->GetCurrentLevel() << "\n";
 
+    file << "width " << state->GetMapWidth() << "\n";
+    file << "height " << state->GetMapHeight() << "\n";
+    
+    // Convert CharacterClass to string for legacy parser compatibility
+    std::string pClass = "Knight";
+    switch (state->GetPlayerClass()) {
+        case CharacterClass::Fighter: pClass = "fighter"; break;
+        case CharacterClass::Ninja: pClass = "ninja"; break;
+        case CharacterClass::MagicCaster: pClass = "magic_caster"; break;
+        default: pClass = "Knight"; break;
+    }
+    file << "player_class " << pClass << "\n";
+
     if (auto* player = state->GetLocalPlayer()) {
         Vector2 pos = player->GetPosition();
-        file << "player " << pos.x << " " << pos.y << " "
-             << player->GetHealth() << " " << player->GetMaxHealth() << "\n";
+        file << "spawn_solo " << (pos.x / TILE_SIZE) << " " << (pos.y / TILE_SIZE) << "\n";
+    }
+
+    for (int l = 0; l < static_cast<int>(MapLayer::Count); ++l) {
+        for (const auto& tile : state->GetTiles(static_cast<MapLayer>(l))) {
+            file << "tile_layer " << l << " " << tile.x << " " << tile.y << " "
+                 << tile.tileType << " " << tile.tileId << " " << (tile.solid ? 1 : 0) << " " << tile.flipFlags << "\n";
+        }
     }
 
     for (const auto& entity : state->GetAllEntities()) {
         Vector2 pos = entity->GetPosition();
-        Vector2 size = entity->GetSize();
-        file << "entity " << static_cast<int>(entity->GetType()) << " "
-             << pos.x << " " << pos.y << " "
-             << size.x << " " << size.y << " "
-             << entity->IsActive() << "\n";
+        float tx = pos.x / TILE_SIZE;
+        float ty = pos.y / TILE_SIZE;
+
+        switch (entity->GetType()) {
+            case EntityType::Player: {
+                file << "spawn_solo " << tx << " " << ty << "\n";
+                break;
+            }
+            case EntityType::Enemy: {
+                Enemy* e = static_cast<Enemy*>(entity.get());
+                std::string typeStr = "melee";
+                if (e->GetEnemyType() == EnemyType::Ranged) typeStr = "ranged";
+                else if (e->GetEnemyType() == EnemyType::Flying) typeStr = "flying";
+                file << "enemy " << typeStr << " " << tx << " " << ty << "\n";
+                break;
+            }
+            case EntityType::Boss: {
+                file << "boss " << tx << " " << ty << " " << entity->GetSize().x << " " << entity->GetSize().y << "\n";
+                break;
+            }
+            case EntityType::Chest: {
+                file << "chest " << tx << " " << ty << "\n";
+                break;
+            }
+            case EntityType::Checkpoint: {
+                Checkpoint* cp = static_cast<Checkpoint*>(entity.get());
+                std::string cpType = cp->IsEndGame() ? "end" : "mid";
+                file << "checkpoint " << cpType << " " << tx << " " << ty << "\n";
+                break;
+            }
+            case EntityType::Item: {
+                Item* item = static_cast<Item*>(entity.get());
+                std::string typeStr = "coin";
+                switch(item->GetItemType()) {
+                    case ItemType::Apple: typeStr = "apple"; break;
+                    case ItemType::Key: typeStr = "key"; break;
+                    case ItemType::Potion: typeStr = "potion"; break;
+                    case ItemType::Equipment: typeStr = "equipment"; break;
+                    default: break;
+                }
+                file << "item " << typeStr << " " << tx << " " << ty << " " << item->GetAmount() << "\n";
+                break;
+            }
+            case EntityType::TriggerZone: {
+                TriggerZone* tz = static_cast<TriggerZone*>(entity.get());
+                std::string target = tz->GetTargetLevelId();
+                if (target.empty()) target = "none";
+                file << "trigger " << tx << " " << ty << " " << target << "\n";
+                break;
+            }
+            case EntityType::FakeWall: {
+                file << "fake_wall " << tx << " " << ty << "\n";
+                break;
+            }
+            case EntityType::TeleportPortal: {
+                TeleportPortal* portal = static_cast<TeleportPortal*>(entity.get());
+                std::string typeStr = portal->GetPortalType() == PortalType::Local ? "local" : "transition";
+                file << "portal " << tx << " " << ty << " " << typeStr << " " << portal->GetColorId() << " " << portal->GetTargetLevelId() << "\n";
+                break;
+            }
+            default: break;
+        }
     }
+
+    file << "scoring " << state->GetTotalItems() << " " << state->GetTotalEnemies() << "\n";
 
     file.close();
     return true;
@@ -209,7 +331,7 @@ std::unique_ptr<GameState> LevelFactory::CreateDefaultLevel(int levelNumber) {
     state->SetMapSize(35, 15);
 
     for (int x = 0; x < 35; ++x) {
-        state->AddTile(Tile{x, 14, 1, 25, true});
+        state->AddTile(MapLayer::Main, Tile{x, 14, 1, 25, true});
     }
 
     auto player = std::make_unique<Player>(Vector2{4.0f * TILE_SIZE, 13.0f * TILE_SIZE});
@@ -380,7 +502,7 @@ std::unique_ptr<GameState> LevelFactory::LoadLDtkLevel(const std::string& filepa
                     int f  = gt.value("f", 0);
                     int cellIdx = gy * cols + gx;
                     bool solid = !isBG && (solidMap.count(cellIdx) > 0);
-                    state->AddTile(Tile{gx, gy, tileType, t, solid, f});
+                    state->AddTile(isBG ? MapLayer::Background : MapLayer::Main, Tile{gx, gy, tileType, t, solid, f});
                 }
             };
             

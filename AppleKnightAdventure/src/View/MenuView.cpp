@@ -56,11 +56,13 @@ void MenuView::Update(float dt, int selectedIndex) {
 void MenuView::ShowMainMenu() {
     m_mode = MenuMode::Main;
     m_selected = 0;
+    m_visible = true;
 }
 
 void MenuView::ShowPauseOverlay() {
     m_mode = MenuMode::Pause;
     m_selected = 0;
+    m_visible = true;
 }
 
 void MenuView::ShowErrorDialog(const std::string& message) {
@@ -94,6 +96,54 @@ void MenuView::Render() {
         case MenuMode::Connection: RenderConnection(); break;
         case MenuMode::RoleSelect: RenderRoleSelect(); break;
     }
+}
+
+// ---------------------------------------------------------------------------
+// Mouse Interaction
+// ---------------------------------------------------------------------------
+int MenuView::GetHoveredItem(Vector2 mousePos) const {
+    if (!m_loaded || !m_visible) return -1;
+    
+    int w = Renderer::GetInstance().GetWindowWidth();
+    int h = Renderer::GetInstance().GetWindowHeight();
+
+    if (m_mode == MenuMode::Main) {
+        float btnW = w * 0.20f;
+        float btnH = h * 0.055f;
+        float spacing = h * 0.07f;
+        float startY = h * 0.45f;
+        float btnX = ((float)w - btnW) * 0.5f;
+
+        for (size_t i = 0; i < m_mainItems.size(); ++i) {
+            float by = startY + (float)i * spacing;
+            Rectangle rect = { btnX, by, btnW, btnH };
+            if (CheckCollisionPointRec(mousePos, rect)) {
+                return (int)i;
+            }
+        }
+    } else if (m_mode == MenuMode::Pause) {
+        float panelW = w * 0.35f;
+        float panelH = h * 0.40f;
+        float panelX = ((float)w - panelW) * 0.5f;
+        float panelY = ((float)h - panelH) * 0.5f;
+
+        float btnW = panelW * 0.65f;
+        float btnH = panelH * 0.13f;
+        float btnX = panelX + (panelW - btnW) * 0.5f;
+        float btnStartY = panelY + panelH * 0.40f;
+        float spacing = panelH * 0.18f;
+
+        for (size_t i = 0; i < m_pauseItems.size(); ++i) {
+            float by = btnStartY + (float)i * spacing;
+            Rectangle rect = { btnX, by, btnW, btnH };
+            if (CheckCollisionPointRec(mousePos, rect)) {
+                return (int)i;
+            }
+        }
+    }
+    // Note: Can add other modes like Error, Connection, RoleSelect here later if needed
+    
+    return -1;
 }
 
 // ===========================================================================

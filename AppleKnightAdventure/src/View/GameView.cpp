@@ -401,13 +401,17 @@ void GameView::Render(const Camera2D& camera, const std::vector<Particle*>& part
     // 2. Begin camera space rendering for world elements
     BeginMode2D(cam);
     
-    // Render tilemap
-    if (m_tiles) RenderTilemap(*m_tiles);
+    // Render background and main tilemap layers
+    if (m_tiles[static_cast<int>(MapLayer::Background)]) RenderTilemap(*m_tiles[static_cast<int>(MapLayer::Background)]);
+    if (m_tiles[static_cast<int>(MapLayer::Main)]) RenderTilemap(*m_tiles[static_cast<int>(MapLayer::Main)]);
 
     // Render entities and particles
     View::CharacterRenderer::GetInstance().RenderAll();
     View::EntityRenderer::GetInstance().RenderAll();
     View::ParticleRenderer::GetInstance().RenderAll(particles, cam, dt);
+
+    // Render foreground tilemap layer (above entities)
+    if (m_tiles[static_cast<int>(MapLayer::Foreground)]) RenderTilemap(*m_tiles[static_cast<int>(MapLayer::Foreground)]);
 
     View::EnemyStatusRenderer::GetInstance().Render(cam);
 

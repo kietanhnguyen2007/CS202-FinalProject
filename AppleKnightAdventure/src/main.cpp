@@ -1,5 +1,6 @@
 #include "Controller/MenuController.h"
 #include "Controller/GameController.h"
+#include "Controller/MapBuilderController.h"
 #include "View/Renderer.h"
 #include "View/MenuView.h"
 #include "View/GameView.h"
@@ -14,6 +15,7 @@
 
 int main() {
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Apple Knight Adventure");
+    SetExitKey(0); // Disable ESC to quit so we can use it for Pause Menu
     SetWindowState(FLAG_WINDOW_RESIZABLE);
     SetWindowMinSize(640, 360);  // minimum 16:9 at half base resolution
     WindowManager::GetInstance().Init(SCREEN_WIDTH, SCREEN_HEIGHT);
@@ -61,18 +63,21 @@ int main() {
     game.Init();
 
     bool inGame = false;
+    bool inMapBuilder = false;
 
     while (!WindowShouldClose()) {
         WindowManager::GetInstance().Update();
         float dt = GetFrameTime();
 
-        if (!inGame) {
+        if (!inGame && !inMapBuilder) {
             menu.Update(dt);
             if (menu.ShouldStartGame()) {
                 inGame = true;
                 game.StartLevel(1);
-            }
-            if (menu.ShouldQuit()) {
+            } else if (menu.ShouldOpenMapBuilder()) {
+                inMapBuilder = true;
+                MapBuilderController::GetInstance().StartEditor();
+            } else if (menu.ShouldQuit()) {
                 break;
             }
 
@@ -83,14 +88,13 @@ int main() {
             View::MenuView::GetInstance().Render();
             View::Renderer::GetInstance().EndFrameAndFlush();
             EndDrawing();
-        } else {
-            game.Update(dt);
-            if (game.ShouldReturnToMenu()) {
-                game.Shutdown();
-                inGame = false;
+        } else if (inMapBuilder) {
+            MapBuilderController::GetInstance().Update(dt);
+            if (MapBuilderController::GetInstance().ShouldReturnToMenu()) {
+                inMapBuilder = false;
                 menu.ShowMainMenu();
                 
-                // Render one frame of menu to consume the input and pump events
+                // Pump events
                 BeginDrawing();
                 ClearBackground(BLACK);
                 View::Renderer::GetInstance().BeginFrame();
@@ -98,6 +102,32 @@ int main() {
                 View::MenuView::GetInstance().Render();
                 View::Renderer::GetInstance().EndFrameAndFlush();
                 EndDrawing();
+            } else if (MapBuilderController::GetInstance().WantsToPlaytest()) {
+                inMapBuilder = false;
+                inGame = true;
+            }
+        } else {
+            game.Update(dt);
+            if (game.ShouldReturnToMenu()) {
+                bool wasPlaytest = game.IsPlaytest();
+                game.Shutdown();
+                inGame = false;
+                
+                if (wasPlaytest) {
+                    inMapBuilder = true;
+                    MapBuilderController::GetInstance().ResumeEditor();
+                } else {
+                    menu.ShowMainMenu();
+                    
+                    // Render one frame of menu to consume the input and pump events
+                    BeginDrawing();
+                    ClearBackground(BLACK);
+                    View::Renderer::GetInstance().BeginFrame();
+                    View::MenuView::GetInstance().Update(dt, menu.GetSelected());
+                    View::MenuView::GetInstance().Render();
+                    View::Renderer::GetInstance().EndFrameAndFlush();
+                    EndDrawing();
+                }
                 
                 continue;
             }

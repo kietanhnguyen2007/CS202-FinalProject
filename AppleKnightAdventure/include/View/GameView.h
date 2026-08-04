@@ -38,20 +38,31 @@ public:
     void Shake(float intensity, float duration);
 
     // Tilemap data from Controller
-    void SetTiles(const std::vector<Tile>* tiles) { m_tiles = tiles; }
+    void SetTiles(MapLayer layer, const std::vector<Tile>* tiles) { 
+        if(static_cast<int>(layer) >= 0 && static_cast<int>(layer) < static_cast<int>(MapLayer::Count)) {
+            m_tiles[static_cast<int>(layer)] = tiles; 
+        }
+    }
 
     // Static textures
     Texture2D* GetMagicTex() { return &m_magicTex; }
+
+    // Tileset info for MapBuilder
+    struct TilesetInfo {
+        Texture2D texture{};
+        int gridCols = 1;
+    };
+    const TilesetInfo* GetTileset(int tileType) const {
+        auto it = m_tilesets.find(tileType);
+        if (it != m_tilesets.end()) return &it->second;
+        return nullptr;
+    }
 
 private:
     GameView() = default;
     ~GameView() = default;
 
-    // Each tileType → { texture, gridCols }
-    struct TilesetInfo {
-        Texture2D texture{};
-        int gridCols = 1;
-    };
+
     std::unordered_map<int, TilesetInfo> m_tilesets;
 
     // Camera shake
@@ -71,7 +82,7 @@ private:
     Texture2D m_magicTex{};
 
     // Tilemap reference (set by Controller)
-    const std::vector<Tile>* m_tiles = nullptr;
+    const std::vector<Tile>* m_tiles[static_cast<int>(MapLayer::Count)] = {nullptr};
 };
 
 } // namespace View

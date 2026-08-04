@@ -25,12 +25,19 @@ struct Tile {
     int flipFlags = 0;  // LDtk "f": 0=none, 1=flipX, 2=flipY, 3=flipXY
 };
 
+enum class MapLayer {
+    Background = 0,
+    Main = 1,
+    Foreground = 2,
+    Count
+};
+
 class GameState {
 protected:
     GameMode m_mode;
     std::unique_ptr<Player> m_localPlayer;
     std::vector<std::unique_ptr<Entity>> m_entities;
-    std::vector<Tile> m_tiles;
+    std::vector<Tile> m_tiles[static_cast<int>(MapLayer::Count)];
     int m_currentLevel;
     int m_totalLevels;
     int m_mapWidth = 0;
@@ -55,6 +62,7 @@ public:
 
     void AddEntity(std::unique_ptr<Entity> entity);
     void RemoveEntity(int entityId);
+    std::unique_ptr<Entity> ExtractEntity(int entityId);
     Entity* GetEntity(int entityId) const;
     const std::vector<std::unique_ptr<Entity>>& GetAllEntities() const;
 
@@ -62,9 +70,18 @@ public:
     void SetCurrentLevel(int level);
     int GetTotalLevels() const;
 
-    void AddTile(const Tile& tile);
-    const std::vector<Tile>& GetTiles() const;
-    void ClearTiles();
+    void AddTile(MapLayer layer, const Tile& tile);
+    void SetTileAt(MapLayer layer, int x, int y, int tileType, int tileId, bool solid, int flipFlags);
+    void RemoveTileAt(MapLayer layer, int x, int y);
+    const std::vector<Tile>& GetTiles(MapLayer layer) const;
+    void ClearTiles(MapLayer layer);
+    void ClearAllTiles();
+
+    Entity* GetEntityAt(float x, float y, float tolerance = 32.0f) const;
+    void RemoveEntityAt(float x, float y, float tolerance = 32.0f);
+    void ResizeMap(int newWidth, int newHeight);
+    void ClearMap();
+
     int GetMapWidth() const;
     int GetMapHeight() const;
     void SetMapSize(int width, int height);

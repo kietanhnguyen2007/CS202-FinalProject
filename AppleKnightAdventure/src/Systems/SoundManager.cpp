@@ -112,6 +112,18 @@ void SoundManager::StopMusic(const std::string& name) {
     }
 }
 
+void SoundManager::StopAllSounds() {
+    for (const auto& pair : m_sounds) {
+        ::StopSound(pair.second);
+    }
+}
+
+void SoundManager::StopAllMusic() {
+    for (const auto& pair : m_music) {
+        ::StopMusicStream(pair.second);
+    }
+}
+
 void SoundManager::PauseMusic(const std::string& name) {
     auto it = m_music.find(name);
     if (it != m_music.end()) {

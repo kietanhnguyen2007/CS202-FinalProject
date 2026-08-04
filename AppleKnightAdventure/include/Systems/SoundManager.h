@@ -40,6 +40,9 @@ public:
     void PauseMusic(const std::string& name);
     void ResumeMusic(const std::string& name);
     void UpdateMusicStream(const std::string& name);
+    
+    void StopAllSounds();
+    void StopAllMusic();
     bool IsMusicPlaying(const std::string& name) const;
 
     void SetSFXVolume(float volume);

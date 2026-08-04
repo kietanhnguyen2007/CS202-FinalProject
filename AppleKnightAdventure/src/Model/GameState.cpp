@@ -45,6 +45,19 @@ void GameState::RemoveEntity(int entityId) {
     m_entities.erase(it, m_entities.end());
 }
 
+std::unique_ptr<Entity> GameState::ExtractEntity(int entityId) {
+    auto it = std::find_if(m_entities.begin(), m_entities.end(),
+        [entityId](const std::unique_ptr<Entity>& e) {
+            return e->GetId() == entityId;
+        });
+    if (it != m_entities.end()) {
+        std::unique_ptr<Entity> e = std::move(*it);
+        m_entities.erase(it);
+        return e;
+    }
+    return nullptr;
+}
+
 Entity* GameState::GetEntity(int entityId) const {
     for (const auto& e : m_entities) {
         if (e->GetId() == entityId) return e.get();
@@ -60,9 +73,106 @@ int GameState::GetCurrentLevel() const { return m_currentLevel; }
 void GameState::SetCurrentLevel(int level) { m_currentLevel = level; }
 int GameState::GetTotalLevels() const { return m_totalLevels; }
 
-void GameState::AddTile(const Tile& tile) { m_tiles.push_back(tile); }
-const std::vector<Tile>& GameState::GetTiles() const { return m_tiles; }
-void GameState::ClearTiles() { m_tiles.clear(); }
+void GameState::AddTile(MapLayer layer, const Tile& tile) { 
+    if(static_cast<int>(layer) >= 0 && static_cast<int>(layer) < static_cast<int>(MapLayer::Count)) {
+        m_tiles[static_cast<int>(layer)].push_back(tile); 
+    }
+}
+
+void GameState::SetTileAt(MapLayer layer, int x, int y, int tileType, int tileId, bool solid, int flipFlags) {
+    if(static_cast<int>(layer) < 0 || static_cast<int>(layer) >= static_cast<int>(MapLayer::Count)) return;
+    
+    // Check if tile exists, if so update it
+    for (auto& t : m_tiles[static_cast<int>(layer)]) {
+        if (t.x == x && t.y == y) {
+            t.tileType = tileType;
+            t.tileId = tileId;
+            t.solid = solid;
+            t.flipFlags = flipFlags;
+            return;
+        }
+    }
+    // Else add new
+    Tile t;
+    t.x = x; t.y = y; t.tileType = tileType; t.tileId = tileId; t.solid = solid; t.flipFlags = flipFlags;
+    m_tiles[static_cast<int>(layer)].push_back(t);
+}
+
+void GameState::RemoveTileAt(MapLayer layer, int x, int y) {
+    if(static_cast<int>(layer) < 0 || static_cast<int>(layer) >= static_cast<int>(MapLayer::Count)) return;
+    auto& tiles = m_tiles[static_cast<int>(layer)];
+    tiles.erase(std::remove_if(tiles.begin(), tiles.end(),
+        [x, y](const Tile& t) { return t.x == x && t.y == y; }), tiles.end());
+}
+
+const std::vector<Tile>& GameState::GetTiles(MapLayer layer) const {
+    if(static_cast<int>(layer) >= 0 && static_cast<int>(layer) < static_cast<int>(MapLayer::Count)) {
+        return m_tiles[static_cast<int>(layer)];
+    }
+    static std::vector<Tile> empty;
+    return empty;
+}
+
+void GameState::ClearTiles(MapLayer layer) {
+    if(static_cast<int>(layer) >= 0 && static_cast<int>(layer) < static_cast<int>(MapLayer::Count)) {
+        m_tiles[static_cast<int>(layer)].clear();
+    }
+}
+
+void GameState::ClearAllTiles() {
+    for (int i = 0; i < static_cast<int>(MapLayer::Count); ++i) {
+        m_tiles[i].clear();
+    }
+}
+
+Entity* GameState::GetEntityAt(float x, float y, float tolerance) const {
+    if (m_localPlayer) {
+        Vector2 pos = m_localPlayer->GetPosition();
+        if (std::abs(pos.x - x) <= tolerance && std::abs(pos.y - y) <= tolerance) {
+            return m_localPlayer.get();
+        }
+    }
+    for (const auto& e : m_entities) {
+        Vector2 pos = e->GetPosition();
+        if (std::abs(pos.x - x) <= tolerance && std::abs(pos.y - y) <= tolerance) {
+            return e.get();
+        }
+    }
+    return nullptr;
+}
+
+void GameState::RemoveEntityAt(float x, float y, float tolerance) {
+    if (m_localPlayer) {
+        Vector2 pos = m_localPlayer->GetPosition();
+        if (std::abs(pos.x - x) <= tolerance && std::abs(pos.y - y) <= tolerance) {
+            m_localPlayer.reset();
+            return;
+        }
+    }
+    auto it = std::remove_if(m_entities.begin(), m_entities.end(),
+        [x, y, tolerance](const std::unique_ptr<Entity>& e) {
+            Vector2 pos = e->GetPosition();
+            return std::abs(pos.x - x) <= tolerance && std::abs(pos.y - y) <= tolerance;
+        });
+    m_entities.erase(it, m_entities.end());
+}
+
+void GameState::ResizeMap(int newWidth, int newHeight) {
+    // Clamp to 20x15 min, 500x150 max
+    m_mapWidth = std::max(20, std::min(500, newWidth));
+    m_mapHeight = std::max(15, std::min(150, newHeight));
+    
+    // Remove out-of-bound tiles
+    for (int i = 0; i < static_cast<int>(MapLayer::Count); ++i) {
+        auto& tiles = m_tiles[i];
+        tiles.erase(std::remove_if(tiles.begin(), tiles.end(),
+            [this](const Tile& t) { return t.x >= m_mapWidth || t.y >= m_mapHeight; }), tiles.end());
+    }
+}
+
+void GameState::ClearMap() {
+    Clear();
+}
 int GameState::GetMapWidth() const { return m_mapWidth; }
 int GameState::GetMapHeight() const { return m_mapHeight; }
 void GameState::SetMapSize(int width, int height) {
@@ -158,7 +268,9 @@ void GameState::Update(float deltaTime) {
 void GameState::Clear() {
     m_entities.clear();
     m_localPlayer.reset();
-    m_tiles.clear();
+    for(int i = 0; i < static_cast<int>(MapLayer::Count); ++i) {
+        m_tiles[i].clear();
+    }
     m_nextEntityId = 1;
     m_clearTime = 0.0f;
     m_timerRunning = false;

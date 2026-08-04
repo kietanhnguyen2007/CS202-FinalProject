@@ -21,12 +21,16 @@ public:
     void Render();
 
     void SetVisible(bool v) { m_visible = v; }
+    void SetPlaytestMode(bool v) { m_isPlaytest = v; }
+    bool WantsQuitTest();
 
 private:
     HUDView() = default;
     bool m_visible = true;
     const Player* m_player = nullptr;
     bool m_loaded = false;
+    bool m_isPlaytest = false;
+    bool m_wantsQuitTest = false;
 
     // Dark Dwellers HUD textures
     Texture2D m_texBarBg{};         // Bar background frame

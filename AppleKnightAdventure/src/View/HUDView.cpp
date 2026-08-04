@@ -76,21 +76,29 @@ void HUDView::Shutdown() {
 }
 
 void HUDView::Update(float dt, const Player* player) {
+    if (!m_loaded) return;
     m_player = player;
     m_coinAnim.Update(dt);
 }
 
+bool HUDView::WantsQuitTest() {
+    bool val = m_wantsQuitTest;
+    m_wantsQuitTest = false;
+    return val;
+}
+
 void HUDView::Render() {
-    if (!m_visible || !m_loaded) return;
+    if (!m_visible || !m_player || !m_loaded) return;
 
     Renderer& r = Renderer::GetInstance();
     int w = r.GetWindowWidth();
     int h = r.GetWindowHeight();
 
-    if (!m_player) return;
-
+    // ==========================================
+    // 1. Health Bar (Top Left)
     int hp    = m_player->GetHealth();
     int maxHp = m_player->GetMaxHealth();
+    
     float frac = (maxHp > 0) ? (float)hp / (float)maxHp : 0.0f;
     if (frac < 0.0f) frac = 0.0f;
     if (frac > 1.0f) frac = 1.0f;
@@ -229,6 +237,32 @@ void HUDView::Render() {
             r.SubmitSprite(&m_texStatusSlot, slotSrc, slotPos,
                            {scaleX, scaleY}, 0.0f, {0, 0},
                            WHITE, Layer::UI, 0.0f, false, 0);
+        }
+    }
+
+    // ======================================================================
+    // 8. Quit Test Button (if in playtest mode)
+    // Draw this last so it overlays other HUD elements if needed
+    // ======================================================================
+    if (m_isPlaytest) {
+        float btnW = 120.0f;
+        float btnH = 40.0f;
+        
+        // Put it top center to avoid UI conflicts or being cropped
+        float btnX = (w - btnW) / 2.0f; 
+        float btnY = 10.0f;
+        
+        Rectangle btnRect = {btnX, btnY, btnW, btnH};
+        
+        Vector2 mousePos = ::GetMousePosition();
+        bool hovered = ::CheckCollisionPointRec(mousePos, btnRect);
+        
+        Color bg = hovered ? RED : MAROON;
+        r.DrawRectangle({btnX, btnY}, {btnW, btnH}, bg, Layer::UI, 1.0f);
+        r.DrawText("Quit Test", {btnX + 20, btnY + 10}, 20, WHITE);
+        
+        if (hovered && ::IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+            m_wantsQuitTest = true;
         }
     }
 }

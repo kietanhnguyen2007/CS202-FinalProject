@@ -9,6 +9,7 @@ Boss::Boss()
     , m_attackRange(80.0f)
     , m_enrageThreshold(0.2f)
     , m_phaseTimer(0.0f)
+    , m_bossType(1)
 {
     m_speed = BOSS_SPEED;
     m_maxHealth = BOSS_MAX_HEALTH;
@@ -17,7 +18,7 @@ Boss::Boss()
     m_phaseOrder = {BossPhase::Phase1, BossPhase::Phase2, BossPhase::Phase3, BossPhase::Enraged};
 }
 
-Boss::Boss(Vector2 position, Vector2 size)
+Boss::Boss(Vector2 position, Vector2 size, int bossType)
     : Character(position, size, EntityType::Boss)
     , m_phase(BossPhase::Phase1)
     , m_damage(20)
@@ -25,6 +26,7 @@ Boss::Boss(Vector2 position, Vector2 size)
     , m_attackRange(80.0f)
     , m_enrageThreshold(0.2f)
     , m_phaseTimer(0.0f)
+    , m_bossType(bossType)
 {
     m_speed = BOSS_SPEED;
     m_maxHealth = BOSS_MAX_HEALTH;
