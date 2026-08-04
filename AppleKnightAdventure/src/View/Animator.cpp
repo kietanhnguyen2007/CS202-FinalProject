@@ -210,6 +210,11 @@ Vector2 Animator::GetCurrentOrigin() const {
     return { frame.src.width * 0.5f, frame.src.height * 0.5f };
 }
 
+float Animator::GetCurrentClipScale() const {
+    if (!m_current) return 1.0f;
+    return m_current->scale;
+}
+
 bool Animator::GetFlipX() const { return m_flipX; }
 void Animator::SetFlipX(bool flip) { m_flipX = flip; }
 

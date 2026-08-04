@@ -6,6 +6,7 @@
 #include <iostream>
 #include <cmath>
 #include <cassert>
+#include <algorithm>
 
 namespace View {
 
@@ -247,7 +248,7 @@ void CharacterRenderer::UpdateAll(float dt) {
                     {"dead",          {"death", "idle"}},
                     {"skill",         {"attack", "idle"}},
                     {"parry",         {"idle"}},
-                    {"ultimate_skill",{"skill", "attack", "idle"}},
+                    {"ultimate_skill",{"attack", "skill", "idle"}},
                     {"attack",        {"attack_1", "idle"}},
                     {"attack_2",      {"attack", "attack_1", "idle"}},
                     {"attack_3",      {"attack", "attack_1", "idle"}},
@@ -302,6 +303,9 @@ void CharacterRenderer::RenderAll() {
         } else if (entity->GetType() == EntityType::Boss) {
             visualScale = 0.77f * 1.7f * 0.5f;
         }
+
+        // Apply per-clip scale (e.g. oversized boss hurt frames normalized to idle size)
+        visualScale *= animator.GetCurrentClipScale();
 
         // Bounding box bottom center
         Vector2 bottomCenter = { pos.x + size.x * 0.5f * baseScale, pos.y + size.y * baseScale };
@@ -435,6 +439,15 @@ bool CharacterRenderer::SwitchPhase(uint32_t entityId, BossPhase phase) {
     animator.ClearClips();
 
     bool anyLoaded = false;
+    float referenceHeight = 0.0f; // reference clip height (idle) for normalizing oversized frames
+    std::vector<std::pair<std::string, std::shared_ptr<Animations::AnimationClip>>> loadedClips;
+
+    auto clipMaxHeight = [](const Animations::AnimationClip& c) {
+        float h = 0.0f;
+        for (const auto& f : c.frames) h = std::max(h, f.src.height);
+        return h;
+    };
+
     for (const char* name : clipFiles) {
         std::string path = phaseDir + name + ".json";
         auto cacheIt = m_atlasCache.find(path);
@@ -454,12 +467,35 @@ bool CharacterRenderer::SwitchPhase(uint32_t entityId, BossPhase phase) {
             if (!alias.empty()) {
                 auto cloned = std::make_shared<Animations::AnimationClip>(*clip);
                 cloned->name = alias;
-                animator.AddClip(cloned);
+                loadedClips.emplace_back(alias, cloned);
             } else {
-                animator.AddClip(clip);
+                loadedClips.emplace_back(rawClip, clip);
             }
             anyLoaded = true;
         }
+    }
+
+    // Normalize oversized clips (e.g. boss2 hurt at 284x259 vs idle 123x226) so they
+    // render at the same size as the idle clip. Falls back to walk/attack when no idle.
+    std::string refKey = "idle";
+    if (std::find_if(loadedClips.begin(), loadedClips.end(),
+            [&](const auto& c){ return c.first == refKey; }) == loadedClips.end()) {
+        if (std::find_if(loadedClips.begin(), loadedClips.end(),
+                [&](const auto& c){ return c.first == "walk"; }) != loadedClips.end()) refKey = "walk";
+        else if (!loadedClips.empty()) refKey = loadedClips.front().first;
+    }
+    for (const auto& c : loadedClips) {
+        if (c.first == refKey) {
+            referenceHeight = clipMaxHeight(*c.second);
+            break;
+        }
+    }
+    for (auto& c : loadedClips) {
+        float h = clipMaxHeight(*c.second);
+        if (referenceHeight > 0.0f && h > referenceHeight) {
+            c.second->scale = referenceHeight / h;
+        }
+        animator.AddClip(c.second);
     }
 
     if (!anyLoaded) return false;
