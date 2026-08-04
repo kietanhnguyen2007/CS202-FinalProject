@@ -1,13 +1,33 @@
-# Update Version
+# UPDATE_VERSION
 
-## Files Created/Modified
-- `Report/Week8_Report.md` (Created)
-- `Report/Week8_Report.tex` (Created)
-- `Report/Week8_Report.pdf` (Created)
+## Files Created / Modified
 
-## What was changed and why
-- Thêm file report tuần 8 dưới định dạng Markdown (`Week8_Report.md`) và LaTeX/PDF (`Week8_Report.tex`, `Week8_Report.pdf`). Nội dung report ghi nhận hoàn thành 4 class nhân vật (Kiệt) và hoàn thành thiết kế Map 1 cùng với sửa lỗi render map (Tiến).
-- Lý do: Báo cáo công việc hàng tuần 8.
+### Modified
+- `include/Model/TeleportPortal.h` � Added `BossArena` to `PortalType` enum; added `IsLocked()`, `SetLocked()` and `m_isLocked`
+- `src/Model/TeleportPortal.cpp` � Implement lock/unlock; `CanInteract()` returns false when locked
+- `include/Controller/GameController.h` � Added `PlayerSaveState` struct, boss arena fields (`m_previousLevelId`, `m_exitSpawnPos`, `m_savedPlayerState`, `m_hasSavedState`), and helpers
+- `src/Controller/GameController.cpp` � `StartLevel()` preserves CharacterClass; `UpdateInteractions()` handles `BossArena` portal; helpers `UpdateBossArenaPortals`, `SavePlayerState`, `RestorePlayerState` added; `Update()` calls `UpdateBossArenaPortals`
+- `include/Factories/LevelFactory.h` � Added `CharacterClass cls` param to `LoadLevel()` and `LoadLDtkLevel()`
+- `src/Factories/LevelFactory.cpp` � Spawn points use `Player(pos, cls)`; portal type parsing handles `"BossArena"`
 
-## Current status
-- Hoàn thành viết báo cáo tuần 8. Đã sẵn sàng để commit lên nhánh `report`.
+## What Changed and Why
+
+**Boss Arena Portal** � New `PortalType::BossArena`. Entry portal saves player state (HP/score/coins/apples/keys) and records exit spawn position. Exit portal auto-locked until all enemies/bosses dead. On exit, state restored and player spawns at exit position (beside the original entry portal).
+
+**Exit Spawn Point** � No new LDtk entity. Position is right-edge of entry portal bounding box, stored in `m_exitSpawnPos` before level transition.
+
+**Player State Preservation** � `PlayerSaveState` snapshot. Saved on enter, restored on return. Boss rewards captured before returning.
+
+**SkillSet Init Fix** � `LevelFactory` passes `cls` to `Player(pos, cls)` so the correct SkillSet (Knight/Fighter/Ninja/MagicCaster) is initialized from spawn.
+
+## LDtk Map Builder Instructions
+
+To create a boss arena connection:
+
+1. **Level main** � place Portal entity: `PortalType=BossArena`, `TargetLevelId=<boss_level_index>`
+2. **Level boss** � place Portal entity: `PortalType=BossArena`, `TargetLevelId=-1` (exit), do NOT place CheckpointEnd
+3. Player enters boss arena with current HP/score/inventory preserved
+4. After killing all enemies, exit portal unlocks automatically
+
+## Current Status
+Build: PASS (no errors, no warnings)

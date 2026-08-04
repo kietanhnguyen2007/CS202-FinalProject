@@ -4,7 +4,8 @@
 
 enum class PortalType {
     Local,
-    LevelTransition
+    LevelTransition,
+    BossArena       // vào boss arena; targetLevelId=-1 = cổng thoát về level cũ
 };
 
 class TeleportPortal : public Entity {
@@ -18,13 +19,18 @@ public:
     
     TeleportPortal* GetLinkedPortal() const;
     void SetLinkedPortal(TeleportPortal* portal);
-    
+
     int GetTargetLevelId() const;
     bool CanInteract(const class Player* player) const;
+
+    // Lock/unlock — dùng cho cổng thoát BossArena (khóa đến khi boss chết)
+    bool IsLocked() const;
+    void SetLocked(bool locked);
 
 private:
     PortalType m_portalType;
     int m_colorId;
     TeleportPortal* m_linkedPortal;
     int m_targetLevelId;
+    bool m_isLocked = false;
 };

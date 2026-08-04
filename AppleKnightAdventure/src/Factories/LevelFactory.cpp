@@ -66,11 +66,12 @@ void LevelFactory::BuildTileTypeMap(const std::string& ldtkJson,
 
 std::unique_ptr<GameState> LevelFactory::LoadLevel(const std::string& filepath,
                                                    GameMode mode,
-                                                   int ldtkLevelIndex) {
+                                                   int ldtkLevelIndex,
+                                                   CharacterClass cls) {
     // Auto-detect LDtk format by extension
     if (filepath.size() >= 5 &&
         filepath.substr(filepath.size() - 5) == ".ldtk") {
-        return LoadLDtkLevel(filepath, ldtkLevelIndex, mode);
+        return LoadLDtkLevel(filepath, ldtkLevelIndex, mode, cls);
     }
     // --- Legacy .lvl text format ---
     auto state = std::make_unique<GameState>(mode);
@@ -270,7 +271,8 @@ bool LevelFactory::SaveDualWorld(const std::string& filepath, DualWorld* world) 
 
 std::unique_ptr<GameState> LevelFactory::LoadLDtkLevel(const std::string& filepath,
                                                        int levelIndex,
-                                                       GameMode mode) {
+                                                       GameMode mode,
+                                                       CharacterClass cls) {
     using json = nlohmann::json;
     auto state = std::make_unique<GameState>(mode);
 
@@ -401,15 +403,15 @@ std::unique_ptr<GameState> LevelFactory::LoadLDtkLevel(const std::string& filepa
             float wy = ei["px"][1].get<float>() * scale;
             Vector2 pos{wx, wy};
 
-            // ── Spawn points ──────────────────────────────────────
+            // ── Spawn points ──────────────────────────────────────────────────
             if (eid == "SpawnSolo" && mode == GameMode::SinglePlayer) {
-                state->SetLocalPlayer(std::make_unique<Player>(pos));
+                state->SetLocalPlayer(std::make_unique<Player>(pos, cls));
                 hasLocalSpawn = true;
             } else if (eid == "SpawnGuide" && mode == GameMode::MultiplayerHost) {
-                state->SetLocalPlayer(std::make_unique<Player>(pos));
+                state->SetLocalPlayer(std::make_unique<Player>(pos, cls));
                 hasLocalSpawn = true;
             } else if (eid == "SpawnWarrior" && mode == GameMode::MultiplayerClient) {
-                state->SetLocalPlayer(std::make_unique<Player>(pos));
+                state->SetLocalPlayer(std::make_unique<Player>(pos, cls));
                 hasLocalSpawn = true;
             } else if (eid == "SpawnDualLight" && mode == GameMode::SinglePlayer) {
                 auto p = std::make_unique<DualWorldPlayer>(pos, WorldLayer::Light);
@@ -492,10 +494,13 @@ std::unique_ptr<GameState> LevelFactory::LoadLDtkLevel(const std::string& filepa
                             pTypeStr = f["__value"].get<std::string>();
                     }
                 }
-                PortalType pType = (pTypeStr == "LevelTransition") ? PortalType::LevelTransition : PortalType::Local;
-                int colorId = GetEntityFieldInt(ei, "ColorId", 1);
+                PortalType pType;
+                if      (pTypeStr == "LevelTransition") pType = PortalType::LevelTransition;
+                else if (pTypeStr == "BossArena")       pType = PortalType::BossArena;
+                else                                    pType = PortalType::Local;
+                int colorId    = GetEntityFieldInt(ei, "ColorId", 1);
                 int targetLevel = GetEntityFieldInt(ei, "TargetLevelId", -1);
-                
+
                 state->AddEntity(std::make_unique<TeleportPortal>(pos, pType, colorId, targetLevel));
             }
         }
