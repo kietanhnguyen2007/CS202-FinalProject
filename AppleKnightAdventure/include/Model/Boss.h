@@ -14,11 +14,14 @@ protected:
     float m_attackRange;
     float m_enrageThreshold;
     float m_phaseTimer;
+    int m_bossType;
     std::vector<BossPhase> m_phaseOrder;
 
 public:
     Boss();
-    Boss(Vector2 position, Vector2 size);
+    Boss(Vector2 position, Vector2 size, int bossType = 1);
+    
+    int GetBossType() const { return m_bossType; }
 
     void Update(float deltaTime) override;
 

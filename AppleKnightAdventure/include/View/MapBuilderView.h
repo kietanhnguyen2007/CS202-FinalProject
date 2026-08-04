@@ -62,13 +62,19 @@ private:
     // Entity Icons
     Texture2D m_texPlayer{};
     Texture2D m_texEnemy{};
-    Texture2D m_texBoss{};
+    Texture2D m_texBoss1{};
+    Texture2D m_texBoss2{};
+    Texture2D m_texBoss3{};
     Texture2D m_texCoin{};
-    Texture2D m_texApple{};
     Texture2D m_texKey{};
     Texture2D m_texPotion{};
     Texture2D m_texChest{};
     Texture2D m_texCheckpoint{};
+    Texture2D m_texPortalBlue{};
+    Texture2D m_texPortalBrown{};
+    Texture2D m_texPortalGreen{};
+    Texture2D m_texPortalPurple{};
+    Texture2D m_texPortalRed{};
 
     // Layer visibility
     bool m_layerVisible[static_cast<int>(MapLayer::Count)] = {true, true, true};
@@ -91,6 +97,7 @@ private:
 
     std::string m_fileName = "custom_map";
     bool m_isTypingFileName = false;
+    bool m_showSaveConfirm = false;
 
     void DrawToolbar(GameState* state, int screenW, int screenH);
     void DrawPalette(int screenW, int screenH);
@@ -146,6 +153,7 @@ public:
     bool WantsClearAll() { bool v = m_wantsClearAll; m_wantsClearAll = false; return v; }
     
     std::string GetFileName() const { return m_fileName; }
+    void SetFileName(const std::string& name) { m_fileName = name; }
 
     int WantsResizeW() { int v = m_wantsResizeW; m_wantsResizeW = 0; return v; }
     int WantsResizeH() { int v = m_wantsResizeH; m_wantsResizeH = 0; return v; }

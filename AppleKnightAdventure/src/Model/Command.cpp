@@ -50,12 +50,14 @@ void RemoveEntityCommand::Undo(GameState* state) {
 
 PlaceEntityCommand::PlaceEntityCommand(std::unique_ptr<Entity> entity)
     : m_entity(std::move(entity)) {
-    m_entityId = m_entity->GetId();
+    m_entityId = m_entity ? m_entity->GetId() : 0;
 }
 
 void PlaceEntityCommand::Execute(GameState* state) {
     if (m_entity) {
+        Entity* ptr = m_entity.get();
         state->AddEntity(std::move(m_entity));
+        m_entityId = ptr->GetId();
     }
 }
 

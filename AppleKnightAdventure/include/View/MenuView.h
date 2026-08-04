@@ -26,6 +26,8 @@ public:
     void Render();
     void SetVisible(bool v) { m_visible = v; }
     MenuMode GetMode() const { return m_mode; }
+    
+    int GetHoveredItem(Vector2 mousePos) const;
 
     void ShowMainMenu();
     void ShowPauseOverlay();

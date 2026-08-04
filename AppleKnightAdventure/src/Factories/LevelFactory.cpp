@@ -191,6 +191,13 @@ std::unique_ptr<GameState> LevelFactory::LoadLevel(const std::string& filepath,
             #include "Model/TriggerZone.h"
             auto tz = std::make_unique<TriggerZone>(Vector2{tx * TILE_SIZE, ty * TILE_SIZE}, Vector2{64.0f, 64.0f}, target);
             state->AddEntity(std::move(tz));
+        } else if (token == "portal") {
+            float tx = 0.0f, ty = 0.0f;
+            std::string pType;
+            int colorId = 1, targetLevel = -1;
+            file >> tx >> ty >> pType >> colorId >> targetLevel;
+            PortalType pt = pType == "transition" ? PortalType::LevelTransition : PortalType::Local;
+            state->AddEntity(std::make_unique<TeleportPortal>(Vector2{tx * TILE_SIZE, ty * TILE_SIZE}, pt, colorId, targetLevel));
         } else if (token == "fake_wall") {
             float tx = 0.0f, ty = 0.0f;
             file >> tx >> ty;
@@ -250,6 +257,10 @@ bool LevelFactory::SaveLevel(const std::string& filepath, GameState* state) {
         float ty = pos.y / TILE_SIZE;
 
         switch (entity->GetType()) {
+            case EntityType::Player: {
+                file << "spawn_solo " << tx << " " << ty << "\n";
+                break;
+            }
             case EntityType::Enemy: {
                 Enemy* e = static_cast<Enemy*>(entity.get());
                 std::string typeStr = "melee";
@@ -294,6 +305,12 @@ bool LevelFactory::SaveLevel(const std::string& filepath, GameState* state) {
             }
             case EntityType::FakeWall: {
                 file << "fake_wall " << tx << " " << ty << "\n";
+                break;
+            }
+            case EntityType::TeleportPortal: {
+                TeleportPortal* portal = static_cast<TeleportPortal*>(entity.get());
+                std::string typeStr = portal->GetPortalType() == PortalType::Local ? "local" : "transition";
+                file << "portal " << tx << " " << ty << " " << typeStr << " " << portal->GetColorId() << " " << portal->GetTargetLevelId() << "\n";
                 break;
             }
             default: break;

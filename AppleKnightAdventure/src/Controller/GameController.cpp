@@ -216,15 +216,8 @@ void GameController::RegisterBossVisuals(Boss* boss) {
     auto& cr = View::CharacterRenderer::GetInstance();
     const uint32_t id = static_cast<uint32_t>(boss->GetId());
 
-    // Determine boss tier by entity size set during LDtk load:
-    // 128×128 → Boss3,  96×96 → Boss1 or Boss2
-    Vector2 sz = boss->GetSize();
-    std::string root;
-    if (sz.x >= 127.0f) {
-        root = "assets/textures/boss/boss3/phase1/";
-    } else {
-        root = "assets/textures/boss/boss1/phase1/";
-    }
+    // Determine boss tier by m_bossType
+    std::string root = "assets/textures/boss/boss" + std::to_string(boss->GetBossType()) + "/phase1/";
 
     cr.Register(boss, root + "idle.json", "idle");
     cr.MergeAtlas(id,  root + "walk.json");
@@ -237,7 +230,7 @@ void GameController::RegisterEntityVisuals(Entity* entity) {
     if (!entity) return;
     switch (entity->GetType()) {
         case EntityType::Player:
-            RegisterPlayerVisuals(static_cast<Player*>(entity), m_gameState->GetPlayerClass());
+            RegisterPlayerVisuals(static_cast<Player*>(entity), m_gameState ? m_gameState->GetPlayerClass() : CharacterClass::Knight);
             break;
         case EntityType::Enemy:
             RegisterEnemyVisuals(static_cast<Enemy*>(entity));
@@ -335,6 +328,8 @@ void GameController::StartLevel(int levelNumber) {
 
     SoundManager::GetInstance().StopMusic("bgm_menu");
     SoundManager::GetInstance().PlayMusic("bgm_gameplay");
+    
+    View::HUDView::GetInstance().SetPlaytestMode(IsPlaytest());
 
     // Reset endgame checkpoint animation tracking
     m_endgameFlagRevealedIds.clear();
@@ -1100,6 +1095,12 @@ void GameController::CheckLevelComplete() {
 void GameController::Update(float dt) {
     if (!m_running || !m_gameState) return;
 
+    if (View::HUDView::GetInstance().WantsQuitTest()) {
+        m_returnToMenu = true;
+        m_running = false;
+        return;
+    }
+
     // Cap delta time to prevent physics tunneling during asset loading spikes
     if (dt > 0.1f) dt = 0.1f;
 
@@ -1113,6 +1114,7 @@ void GameController::Update(float dt) {
             View::MenuView::GetInstance().SetVisible(false);
         } else {
             m_paused = true;
+            m_pauseSelected = 0;
             m_gameState->SetTimerRunning(false);
             View::MenuView::GetInstance().ShowPauseOverlay();
             View::MenuView::GetInstance().SetVisible(true);
@@ -1122,17 +1124,38 @@ void GameController::Update(float dt) {
     }
 
     if (m_paused) {
-        if (cmd.menuConfirm) {
+        if (cmd.menuDelta != 0) {
+            m_pauseSelected += cmd.menuDelta;
+            if (m_pauseSelected < 0) m_pauseSelected = 1;
+            if (m_pauseSelected > 1) m_pauseSelected = 0;
+        }
+
+        Vector2 mousePos = GetMousePosition();
+        int hovered = View::MenuView::GetInstance().GetHoveredItem(mousePos);
+        if (hovered != -1) {
+            m_pauseSelected = hovered;
+        }
+
+        if (cmd.menuConfirm || (hovered != -1 && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))) {
             if (View::MenuView::GetInstance().GetMode() == View::MenuMode::Pause) {
-                m_returnToMenu = true;
-                m_running = false;
+                if (m_pauseSelected == 0) {
+                    // Resume
+                    m_paused = false;
+                    m_gameState->SetTimerRunning(true);
+                    View::UIStateManager::GetInstance().Pop();
+                    View::MenuView::GetInstance().SetVisible(false);
+                } else if (m_pauseSelected == 1) {
+                    // Quit to Menu
+                    m_returnToMenu = true;
+                    m_running = false;
+                }
             }
         }
-        View::MenuView::GetInstance().Update(dt, 0);
+        View::MenuView::GetInstance().Update(dt, m_pauseSelected);
         return;
     }
 
-    if (m_levelComplete && cmd.menuConfirm) {
+    if (m_levelComplete && (cmd.menuConfirm || IsMouseButtonPressed(MOUSE_BUTTON_LEFT))) {
         m_returnToMenu = true;
         m_running = false;
         return;
@@ -1210,9 +1233,15 @@ void GameController::Render() {
 }
 
 void GameController::Shutdown() {
-    SoundManager::GetInstance().StopMusic("bgm_gameplay");
+    SoundManager::GetInstance().StopAllMusic();
+    SoundManager::GetInstance().StopAllSounds();
     m_gameState.reset();
     m_running = false;
+    View::CharacterRenderer::GetInstance().Clear();
+    View::EntityRenderer::GetInstance().Clear();
+    View::UIStateManager::GetInstance().Clear();
+    View::HUDView::GetInstance().SetVisible(false);
+    View::MenuView::GetInstance().SetVisible(false);
 }
 
 // ============================================================

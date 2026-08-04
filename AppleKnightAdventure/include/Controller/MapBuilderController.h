@@ -6,6 +6,8 @@
 #include "Model/Command.h"
 #include <memory>
 #include <string>
+#include <set>
+#include <vector>
 
 class MapBuilderController {
 private:
@@ -14,12 +16,16 @@ private:
 
     std::unique_ptr<GameState> m_gameState;
     std::unique_ptr<CommandManager> m_commandManager;
-    
-    Camera2D m_camera;
+    std::string m_currentFile;
+
+    // Track which entities have visuals registered so we can sync automatically
+    std::set<uint32_t> m_registeredEntities;
+
+    // Editor State
+    Camera2D m_camera{};
     Vector2 m_dragStart;
     bool m_isDragging;
     
-    std::string m_currentFile;
     bool m_isRunning;
     bool m_returnToMenu;
     bool m_playtestMode;
@@ -53,6 +59,13 @@ public:
     Rectangle GetSelectionBox() const { return m_selectionBox; }
     
     bool WantsToPlaytest() { bool v = m_playtestMode; m_playtestMode = false; return v; }
+
+    void ResumeEditor() {
+        m_isRunning = true;
+        m_returnToMenu = false;
+        m_playtestMode = false;
+        m_registeredEntities.clear(); // force re-registration of visuals since GameController cleared them
+    }
 };
 
 #endif

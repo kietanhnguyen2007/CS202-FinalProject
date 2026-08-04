@@ -11,9 +11,14 @@
 #include "Model/Player.h"
 #include "Model/Checkpoint.h"
 #include "Model/Chest.h"
-#include "Model/FakeWall.h"
 #include "Model/TriggerZone.h"
 #include "Model/Boss.h"
+#include "Model/TeleportPortal.h"
+#include "Model/FakeWall.h"
+#include "Factories/LevelFactory.h"
+#include "Platform/FileDialog.h"
+#include "View/CharacterRenderer.h"
+#include "View/EntityRenderer.h"
 #include <iostream>
 #include <queue>
 #include <set>
@@ -87,6 +92,11 @@ void MapBuilderController::StartEditor(const std::string& filepath) {
     m_gameState = LevelFactory::LoadLevel(m_currentFile, GameMode::SinglePlayer, 0);
     m_commandManager = std::make_unique<CommandManager>(m_gameState.get());
     
+    // Clear renderers to prevent stale visuals
+    View::CharacterRenderer::GetInstance().Clear();
+    View::EntityRenderer::GetInstance().Clear();
+    m_registeredEntities.clear();
+    
     View::MapBuilderView::GetInstance().Init();
     
     m_camera = {0};
@@ -134,14 +144,32 @@ void MapBuilderController::Update(float dt) {
     if (view.WantsSave()) SaveMap(view.GetFileName());
     if (view.WantsPlaytest()) Playtest();
     if (view.WantsLoad()) {
-        StartEditor("assets/levels/" + view.GetFileName() + ".lvl");
+        std::string selectedFile = FileDialog::OpenFile("Level Files (*.lvl)\0*.lvl\0All Files (*.*)\0*.*\0");
+        if (!selectedFile.empty()) {
+            // Re-start editor with the selected absolute path
+            StartEditor(selectedFile);
+            
+            // Optionally, update the filename in view so it can be saved back
+            // We can extract just the filename without extension to set it back to view:
+            size_t lastSlash = selectedFile.find_last_of("/\\");
+            size_t lastDot = selectedFile.find_last_of('.');
+            if (lastSlash != std::string::npos && lastDot != std::string::npos && lastDot > lastSlash) {
+                std::string baseName = selectedFile.substr(lastSlash + 1, lastDot - lastSlash - 1);
+                view.SetFileName(baseName); // Wait, SetFileName might not exist
+            }
+        }
     }
     if (view.WantsClearAll()) {
         int w = m_gameState->GetMapWidth();
         int h = m_gameState->GetMapHeight();
         m_gameState = std::make_unique<GameState>(GameMode::SinglePlayer);
         m_gameState->SetMapSize(w, h);
-        m_commandManager->Clear();
+        m_commandManager = std::make_unique<CommandManager>(m_gameState.get());
+        
+        // Clear visuals for old entities
+        View::CharacterRenderer::GetInstance().Clear();
+        View::EntityRenderer::GetInstance().Clear();
+        m_registeredEntities.clear();
     }
 
     int rw = view.WantsResizeW();
@@ -169,6 +197,28 @@ void MapBuilderController::Update(float dt) {
     View::GameView::GetInstance().Update(dt);
 
     HandleInput(dt);
+
+    // Sync newly added entities to the visual renderers
+    std::set<uint32_t> currentIds;
+    for (const auto& u_entity : m_gameState->GetAllEntities()) {
+        auto* entity = u_entity.get();
+        uint32_t id = entity->GetId();
+        currentIds.insert(id);
+        if (m_registeredEntities.find(id) == m_registeredEntities.end()) {
+            GameController::GetInstance().RegisterEntityVisuals(entity);
+            m_registeredEntities.insert(id);
+        }
+    }
+
+    // Unregister deleted entities
+    for (auto it = m_registeredEntities.begin(); it != m_registeredEntities.end(); ) {
+        if (currentIds.find(*it) == currentIds.end()) {
+            GameController::GetInstance().UnregisterEntityVisuals(*it);
+            it = m_registeredEntities.erase(it);
+        } else {
+            ++it;
+        }
+    }
 
     // Rendering
     BeginDrawing();
@@ -318,14 +368,27 @@ void MapBuilderController::HandleTool(Vector2 mouseWorldPos) {
                     case EntityType::Enemy: 
                         newEntity = EnemyFactory::CreateEnemy(pos, sub == 0 ? EnemyType::Melee : EnemyType::Ranged); 
                         break;
-                    case EntityType::Boss: newEntity = std::make_unique<Boss>(pos, Vector2{96,96}); break;
+                    case EntityType::Boss: 
+                        if (sub == 3) newEntity = std::make_unique<Boss>(pos, Vector2{128,128}, 3); 
+                        else if (sub == 2) newEntity = std::make_unique<Boss>(pos, Vector2{96,96}, 2);
+                        else newEntity = std::make_unique<Boss>(pos, Vector2{96,96}, 1); 
+                        break;
                     case EntityType::Chest: newEntity = std::make_unique<Chest>(pos); break;
                     case EntityType::Checkpoint: newEntity = std::make_unique<Checkpoint>(pos); break;
-                    case EntityType::FakeWall: newEntity = std::make_unique<FakeWall>(pos, Vector2{64,64}); break;
-                    case EntityType::TriggerZone: newEntity = std::make_unique<TriggerZone>(pos, Vector2{64,64}, "level2.lvl"); break;
+                    case EntityType::TeleportPortal: {
+                        PortalType pt = (sub >= 200) ? PortalType::LevelTransition : PortalType::Local;
+                        int colIndex = (sub >= 200) ? (sub - 200) : (sub - 100);
+                        int colorId = 2; // Default Blue
+                        if (colIndex == 0) colorId = 2; // Blue
+                        else if (colIndex == 1) colorId = 4; // Brown
+                        else if (colIndex == 2) colorId = 3; // Green
+                        else if (colIndex == 3) colorId = 5; // Purple
+                        else if (colIndex == 4) colorId = 1; // Red
+                        newEntity = std::make_unique<TeleportPortal>(pos, pt, colorId, -1);
+                        break;
+                    }
                     case EntityType::Item: 
                         if (sub == 0) newEntity = ItemFactory::CreateCoin(pos, 10);
-                        else if (sub == 1) newEntity = ItemFactory::CreateApple(pos);
                         else if (sub == 2) newEntity = ItemFactory::CreateKey(pos);
                         else if (sub == 3) newEntity = ItemFactory::CreatePotion(pos, 1);
                         break;

@@ -15,6 +15,7 @@
 
 int main() {
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Apple Knight Adventure");
+    SetExitKey(0); // Disable ESC to quit so we can use it for Pause Menu
     SetWindowState(FLAG_WINDOW_RESIZABLE);
     SetWindowMinSize(640, 360);  // minimum 16:9 at half base resolution
     WindowManager::GetInstance().Init(SCREEN_WIDTH, SCREEN_HEIGHT);
@@ -108,18 +109,25 @@ int main() {
         } else {
             game.Update(dt);
             if (game.ShouldReturnToMenu()) {
+                bool wasPlaytest = game.IsPlaytest();
                 game.Shutdown();
                 inGame = false;
-                menu.ShowMainMenu();
                 
-                // Render one frame of menu to consume the input and pump events
-                BeginDrawing();
-                ClearBackground(BLACK);
-                View::Renderer::GetInstance().BeginFrame();
-                View::MenuView::GetInstance().Update(dt, menu.GetSelected());
-                View::MenuView::GetInstance().Render();
-                View::Renderer::GetInstance().EndFrameAndFlush();
-                EndDrawing();
+                if (wasPlaytest) {
+                    inMapBuilder = true;
+                    MapBuilderController::GetInstance().ResumeEditor();
+                } else {
+                    menu.ShowMainMenu();
+                    
+                    // Render one frame of menu to consume the input and pump events
+                    BeginDrawing();
+                    ClearBackground(BLACK);
+                    View::Renderer::GetInstance().BeginFrame();
+                    View::MenuView::GetInstance().Update(dt, menu.GetSelected());
+                    View::MenuView::GetInstance().Render();
+                    View::Renderer::GetInstance().EndFrameAndFlush();
+                    EndDrawing();
+                }
                 
                 continue;
             }
