@@ -36,10 +36,16 @@ public:
     void SetDamage(int damage) { m_damage = damage; }
     void SetVelocity(Vector2 vel) { m_velocity = vel; }
 
+    // Hit tracking
+    bool      m_hasHit           = false;
+
     // Homing
     bool IsHoming() const { return m_isHoming; }
     void SetHoming(bool homing) { m_isHoming = homing; }
     void SetHomingTargetPos(Vector2 pos) { m_homingTargetPos = pos; }
+
+    bool HasHit() const { return m_hasHit; }
+    void SetHasHit(bool hit) { m_hasHit = hit; }
 };
 
 #endif

@@ -1033,15 +1033,19 @@ void GameController::UpdateCombat(float dt) {
             }
         } else if (entity->GetType() == EntityType::Projectile) {
             auto* proj = static_cast<Projectile*>(entity.get());
-            if (RectOverlap(proj->GetBoundingBox(), player->GetBoundingBox())) {
+            if (!proj->HasHit() && RectOverlap(proj->GetBoundingBox(), player->GetBoundingBox())) {
                 if (!player->IsInvincible()) {
                     player->TakeDamage(proj->GetDamage());
                     SoundManager::GetInstance().PlaySound("player_hurt");
                     View::FloatingTextManager::GetInstance().Emit(
                         player->GetPosition(), "-" + std::to_string(proj->GetDamage()), RED, 1.0f);
                     View::GameView::GetInstance().Shake(4.0f, 0.2f);
+                    proj->SetHasHit(true);
                 }
-                proj->OnHit();
+                // Despawn moving projectiles on hit; keep stationary AoE explosions active so visuals complete
+                if (proj->GetDirection() != Direction::None) {
+                    proj->OnHit();
+                }
                 if (!player->IsAlive()) RespawnPlayer();
             }
             continue; // Skip the regular attack check for Projectiles
@@ -1841,6 +1845,20 @@ void GameController::UpdateProjectiles(float dt) {
                 return false;
             }),
         m_petProjectiles.end());
+
+    // Clean up expired Boss/World projectiles in m_gameState
+    if (m_gameState) {
+        std::vector<int> expiredIds;
+        for (const auto& e : m_gameState->GetAllEntities()) {
+            if (e->GetType() == EntityType::Projectile && !e->IsActive()) {
+                expiredIds.push_back(e->GetId());
+            }
+        }
+        for (int id : expiredIds) {
+            UnregisterEntityVisuals(id);
+            m_gameState->RemoveEntity(id);
+        }
+    }
 }
 
 // ============================================================

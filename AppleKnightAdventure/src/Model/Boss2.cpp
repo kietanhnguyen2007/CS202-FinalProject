@@ -167,7 +167,7 @@ void Boss2::UpdateState(float deltaTime, Vector2 playerPos) {
         }
         m_activeTimer -= deltaTime;
         if (m_activeTimer <= 0.0f) {
-            m_cooldownTimer = 10.0f; // Increased cooldown to avoid spam
+            m_cooldownTimer = 3.0f; // Reduced cooldown
             ChangeState(BossState::Idle);
         }
         return;
@@ -193,7 +193,7 @@ void Boss2::UpdateState(float deltaTime, Vector2 playerPos) {
             if (m_currentPhase == BossPhase::Phase3 && (rand() % 2 == 0)) {
                 if (!IsPointSolid(playerPos)) {
                     ChangeState(BossState::Skill3);
-                    m_chargeTimer = 1.0f;
+                    m_chargeTimer = 0.5f; // Reduced from 1.0f to make it harder to dodge
                     m_activeTimer = m_chargeTimer + 0.5f;
                     m_aoeTarget = playerPos;
                     CheckAndSpawnTelegraph(m_aoeTarget);
@@ -281,16 +281,15 @@ void Boss2::ExecuteHealing() {
 void Boss2::ExecuteTargetedAoE(Vector2 playerPos) {
     if (!m_gameState) return;
     // Spawn an AoE damage volume
-    // To simplify, we can just spawn an invisible projectile with 0 speed and large hitbox that lives for 0.5s
-    Vector2 pSize = {64.0f, 64.0f};
+    Vector2 pSize = {120.0f, 120.0f};
     Vector2 spawnPos = {
         playerPos.x - pSize.x * 0.5f,
-        playerPos.y - pSize.y * 0.5f
+        playerPos.y - pSize.y * 0.7f
     };
     
     auto proj = std::make_unique<Projectile>(spawnPos, pSize, ProjectileType::BossAttack, Direction::None, 40, m_id);
     proj->SetVelocity({0.0f, 0.0f});
-    proj->SetLifetime(0.5f); // Limit lifetime so it doesn't stay forever and cause crash
+    proj->SetLifetime(0.5f); // 0.5s matches animation duration
     m_gameState->AddEntity(std::move(proj));
 }
 

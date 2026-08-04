@@ -302,6 +302,16 @@ void CharacterRenderer::RenderAll() {
             visualScale = 0.6f * 1.7f; // Enemy: large, same as big tiles
         } else if (entity->GetType() == EntityType::Boss) {
             visualScale = 0.77f * 1.7f * 0.5f;
+            auto phaseIt = m_bossPhases.find(id);
+            if (phaseIt != m_bossPhases.end()) {
+                if (phaseIt->second == BossPhase::Phase3) {
+                    visualScale *= 1.35f; // Scale up Phase 3 character size to match Phase 2
+                } else if (phaseIt->second == BossPhase::Phase1) {
+                    visualScale *= 0.74f; // Shrink Phase 1 character size to match Phase 2
+                }
+            } else {
+                visualScale *= 0.74f; // Default (Phase 1)
+            }
         }
 
         // Apply per-clip scale (e.g. oversized boss hurt frames normalized to idle size)
@@ -498,7 +508,12 @@ bool CharacterRenderer::SwitchPhase(uint32_t entityId, BossPhase phase) {
         animator.AddClip(c.second);
     }
 
-    if (!anyLoaded) return false;
+    if (!anyLoaded) {
+        if (phase == BossPhase::Phase3) {
+            return SwitchPhase(entityId, BossPhase::Phase2);
+        }
+        return false;
+    }
 
     m_bossPhases[entityId] = phase;
     return true;
