@@ -97,7 +97,21 @@ enum class BossPhase {
     Phase1,
     Phase2,
     Phase3,
+    Phase4,
     Enraged
 };
+
+enum class BossState {
+    Idle,
+    Walk,
+    Hurt,
+    Die,
+    Transition,
+    Skill1,
+    Skill2,
+    Skill3,
+    Skill4
+};
+
 
 #endif

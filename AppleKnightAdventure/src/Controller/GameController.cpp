@@ -610,7 +610,20 @@ void GameController::UpdateEnemyAI(float dt) {
     };
 
     for (auto& entity : m_gameState->GetAllEntities()) {
-        if (entity->GetType() != EntityType::Enemy || !entity->IsActive()) continue;
+        if (!entity->IsActive()) continue;
+        
+        if (entity->GetType() == EntityType::Boss) {
+            auto* boss = static_cast<Boss*>(entity.get());
+            BossPhase oldPhase = boss->GetPhase();
+            boss->UpdateAI(playerCenter, dt, m_gameState.get());
+            if (boss->GetPhase() != oldPhase) {
+                View::CharacterRenderer::GetInstance().SwitchPhase(boss->GetId(), boss->GetPhase());
+            }
+            continue;
+        }
+
+        if (entity->GetType() != EntityType::Enemy) continue;
+        
         auto* enemy = static_cast<Enemy*>(entity.get());
         enemy->UpdateAI(playerCenter, dt);
 
@@ -662,19 +675,36 @@ void GameController::UpdateCombat(float dt) {
     // ---- Helper: deal damage to enemies in a rect ----
     auto HitEnemiesInBox = [&](Rectangle attackBox, int damage) {
         for (auto& entity : m_gameState->GetAllEntities()) {
-            if (entity->GetType() != EntityType::Enemy || !entity->IsActive()) continue;
-            auto* enemy = static_cast<Enemy*>(entity.get());
-            if (!RectOverlap(attackBox, enemy->GetBoundingBox())) continue;
-            if (enemy->GetState() == EnemyState::Hurt || enemy->GetState() == EnemyState::Dead) continue;
+            if (!entity->IsActive()) continue;
 
-            enemy->TakeDamage(damage);
-            SoundManager::GetInstance().PlaySound("enemy_hurt");
-            View::FloatingTextManager::GetInstance().Emit(
-                enemy->GetPosition(), "-" + std::to_string(damage), YELLOW, 1.0f);
-            View::ParticleRenderer::GetInstance().EmitBurst(enemy->GetPosition(), 8, WHITE);
-            View::GameView::GetInstance().Shake(3.0f, 0.15f);
+            if (entity->GetType() == EntityType::Enemy) {
+                auto* enemy = static_cast<Enemy*>(entity.get());
+                if (!RectOverlap(attackBox, enemy->GetBoundingBox())) continue;
+                if (enemy->GetState() == EnemyState::Hurt || enemy->GetState() == EnemyState::Dead) continue;
 
-            if (!enemy->IsActive()) OnEntityRemoved(enemy);
+                enemy->TakeDamage(damage);
+                SoundManager::GetInstance().PlaySound("enemy_hurt");
+                View::FloatingTextManager::GetInstance().Emit(
+                    enemy->GetPosition(), "-" + std::to_string(damage), YELLOW, 1.0f);
+                View::ParticleRenderer::GetInstance().EmitBurst(enemy->GetPosition(), 8, WHITE);
+                View::GameView::GetInstance().Shake(3.0f, 0.15f);
+
+                if (!enemy->IsActive()) OnEntityRemoved(enemy);
+            } 
+            else if (entity->GetType() == EntityType::Boss) {
+                auto* boss = static_cast<Boss*>(entity.get());
+                if (!RectOverlap(attackBox, boss->GetBoundingBox())) continue;
+                if (boss->GetBossState() == BossState::Hurt || boss->GetBossState() == BossState::Die) continue;
+
+                boss->TakeDamage(damage);
+                SoundManager::GetInstance().PlaySound("enemy_hurt"); 
+                View::FloatingTextManager::GetInstance().Emit(
+                    boss->GetPosition(), "-" + std::to_string(damage), YELLOW, 1.0f);
+                View::ParticleRenderer::GetInstance().EmitBurst(boss->GetPosition(), 16, WHITE);
+                View::GameView::GetInstance().Shake(4.0f, 0.2f);
+                
+                if (!boss->IsActive()) OnEntityRemoved(boss);
+            }
         }
     };
 
@@ -908,24 +938,51 @@ void GameController::UpdateCombat(float dt) {
     };
 
     for (auto& entity : m_gameState->GetAllEntities()) {
-        if (entity->GetType() != EntityType::Enemy || !entity->IsActive()) continue;
-        auto* enemy = static_cast<Enemy*>(entity.get());
-        if (enemy->GetState() != EnemyState::Attack) continue;
-
-        Vector2 enemyCenter = {
-            enemy->GetPosition().x + enemy->GetSize().x * 0.5f,
-            enemy->GetPosition().y + enemy->GetSize().y * 0.5f
-        };
-        if (Distance(playerCenter, enemyCenter) > enemy->GetAttackRange()) continue;
-        if (!enemy->CanAttack()) continue;
-
-        enemy->Attack();
+        if (!entity->IsActive()) continue;
+        
+        bool isAttacking = false;
+        int attackDamage = 0;
+        float attackRange = 0.0f;
+        Vector2 attackCenter;
+        Rectangle attackBox;
+        
+        if (entity->GetType() == EntityType::Enemy) {
+            auto* enemy = static_cast<Enemy*>(entity.get());
+            if (enemy->GetState() == EnemyState::Attack) {
+                if (enemy->CanAttack()) {
+                    isAttacking = true;
+                    attackDamage = enemy->GetDamage();
+                    attackRange = enemy->GetAttackRange();
+                    attackCenter = {
+                        enemy->GetPosition().x + enemy->GetSize().x * 0.5f,
+                        enemy->GetPosition().y + enemy->GetSize().y * 0.5f
+                    };
+                    enemy->Attack();
+                }
+            }
+        } else if (entity->GetType() == EntityType::Boss) {
+            auto* boss = static_cast<Boss*>(entity.get());
+            BossState bs = boss->GetBossState();
+            if (bs == BossState::Skill1 || bs == BossState::Skill2 || bs == BossState::Skill3 || bs == BossState::Skill4) {
+                isAttacking = true;
+                attackDamage = boss->GetDamage();
+                attackRange = boss->GetAttackRange();
+                attackCenter = {
+                    boss->GetPosition().x + boss->GetSize().x * 0.5f,
+                    boss->GetPosition().y + boss->GetSize().y * 0.5f
+                };
+            }
+        }
+        
+        if (!isAttacking) continue;
+        if (Distance(playerCenter, attackCenter) > attackRange) continue;
+        
         // Invincibility from dash blocks all damage
         if (!player->IsInvincible()) {
-            player->TakeDamage(enemy->GetDamage());
+            player->TakeDamage(attackDamage);
             SoundManager::GetInstance().PlaySound("player_hurt");
             View::FloatingTextManager::GetInstance().Emit(
-                player->GetPosition(), "-" + std::to_string(enemy->GetDamage()), RED, 1.0f);
+                player->GetPosition(), "-" + std::to_string(attackDamage), RED, 1.0f);
             View::GameView::GetInstance().Shake(4.0f, 0.2f);
         }
         m_enemyAttackCooldown = 0.4f;

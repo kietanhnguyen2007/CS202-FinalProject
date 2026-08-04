@@ -34,6 +34,7 @@ public:
     void OnHit();
     void SetLifetime(float lifetime) { m_lifetime = lifetime; }
     void SetDamage(int damage) { m_damage = damage; }
+    void SetVelocity(Vector2 vel) { m_velocity = vel; }
 
     // Homing
     bool IsHoming() const { return m_isHoming; }

@@ -9,6 +9,9 @@
 #include "Factories/ItemFactory.h"
 #include "Model/Command.h"
 #include "Model/Player.h"
+#include "Model/Boss1.h"
+#include "Model/Boss2.h"
+#include "Model/Boss3.h"
 #include "Model/Checkpoint.h"
 #include "Model/Chest.h"
 #include "Model/TriggerZone.h"
@@ -369,9 +372,9 @@ void MapBuilderController::HandleTool(Vector2 mouseWorldPos) {
                         newEntity = EnemyFactory::CreateEnemy(pos, sub == 0 ? EnemyType::Melee : EnemyType::Ranged); 
                         break;
                     case EntityType::Boss: 
-                        if (sub == 3) newEntity = std::make_unique<Boss>(pos, Vector2{128,128}, 3); 
-                        else if (sub == 2) newEntity = std::make_unique<Boss>(pos, Vector2{96,96}, 2);
-                        else newEntity = std::make_unique<Boss>(pos, Vector2{96,96}, 1); 
+                        if (sub == 3) newEntity = std::make_unique<Boss3>(pos, Vector2{128,128}); 
+                        else if (sub == 2) newEntity = std::make_unique<Boss2>(pos, Vector2{96,96});
+                        else newEntity = std::make_unique<Boss1>(pos, Vector2{96,96}); 
                         break;
                     case EntityType::Chest: newEntity = std::make_unique<Chest>(pos); break;
                     case EntityType::Checkpoint: newEntity = std::make_unique<Checkpoint>(pos); break;
