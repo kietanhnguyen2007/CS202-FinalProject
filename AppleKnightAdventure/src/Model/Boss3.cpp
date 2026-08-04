@@ -49,10 +49,38 @@ void Boss3::UpdateState(float deltaTime, Vector2 playerPos) {
         return;
     }
     
-    if (m_currentState == BossState::Transition || m_currentState == BossState::Hurt) {
+    if (m_currentState == BossState::Transition) { // Using Transition for Counter Attack!
         m_activeTimer -= deltaTime;
         if (m_activeTimer <= 0.0f) {
             ChangeState(BossState::Idle);
+            m_superArmor = false;
+        }
+        return;
+    }
+    
+    // Counter Attack Trigger
+    if (m_recentDamage > 100 && m_currentState != BossState::Transition) {
+        ChangeState(BossState::Transition); // Counter!
+        m_recentDamage = 0;
+        m_activeTimer = 1.0f;
+        m_superArmor = true; // Invincible during counter
+        
+        // Push player away / Energy blast
+        if (m_gameState) {
+            Vector2 pSize = {128.0f, 128.0f};
+            Vector2 spawnPos = {m_position.x + m_size.x/2 - pSize.x/2, m_position.y + m_size.y/2 - pSize.y/2};
+            auto proj = std::make_unique<Projectile>(spawnPos, pSize, ProjectileType::BossAttack, Direction::None, m_damage, m_id);
+            proj->SetVelocity({0.0f, 0.0f}); // Blast wave
+            m_gameState->AddEntity(std::move(proj));
+        }
+        return;
+    }
+
+    if (m_currentState == BossState::Hurt) {
+        m_chargeTimer -= deltaTime;
+        if (m_chargeTimer <= 0.0f && !m_skillFired) {
+            m_skillFired = true;
+            ExecuteMeleeAttack(playerPos);
         }
         return;
     }
@@ -83,6 +111,7 @@ void Boss3::UpdateState(float deltaTime, Vector2 playerPos) {
         m_activeTimer -= deltaTime;
         if (m_activeTimer <= 0.0f) {
             m_cooldownTimer = 4.0f;
+            m_superArmor = false;
             ChangeState(BossState::Idle);
         }
         return;
@@ -97,7 +126,8 @@ void Boss3::UpdateState(float deltaTime, Vector2 playerPos) {
         }
         m_activeTimer -= deltaTime;
         if (m_activeTimer <= 0.0f) {
-            m_cooldownTimer = 6.0f;
+            m_cooldownTimer = 2.0f;
+            m_superArmor = false;
             ChangeState(BossState::Idle);
         }
         return;
@@ -117,6 +147,7 @@ void Boss3::UpdateState(float deltaTime, Vector2 playerPos) {
         m_activeTimer -= deltaTime;
         if (m_activeTimer <= 0.0f) {
             m_cooldownTimer = 8.0f;
+            m_superArmor = false;
             ChangeState(BossState::Idle);
         }
         return;
@@ -132,30 +163,33 @@ void Boss3::UpdateState(float deltaTime, Vector2 playerPos) {
         
         if (m_cooldownTimer <= 0.0f) {
             if (m_currentPhase == BossPhase::Phase4) {
-                int r = rand() % 4;
-                if (r == 0 && dist <= 150.0f) {
-                    ChangeState(BossState::Skill2); // Smash
-                    m_chargeTimer = 1.0f;
-                    m_activeTimer = m_chargeTimer + 0.3f;
-                } else if (r == 1) {
+                // Sequenced Pattern
+                if (m_comboStep == 0) {
                     ChangeState(BossState::Skill3); // Blast
                     m_chargeTimer = 1.2f;
                     m_activeTimer = m_chargeTimer + 0.5f;
-                    m_aoeTarget = playerPos;
-                } else if (r == 2) {
+                    m_aoeTarget = playerPos; // Predictive aim could be added here
+                    m_superArmor = true;
+                    m_comboStep = 1;
+                } else if (m_comboStep == 1) {
+                    ChangeState(BossState::Skill2); // Smash
+                    m_chargeTimer = 1.0f;
+                    m_activeTimer = m_chargeTimer + 0.3f;
+                    m_superArmor = true;
+                    m_comboStep = 2;
+                } else {
                     ChangeState(BossState::Skill4); // Beam
                     m_chargeTimer = 1.5f;
-                    m_activeTimer = m_chargeTimer + 2.0f; // 2s active
-                } else {
-                    ChangeState(BossState::Skill1); // Melee
-                    m_chargeTimer = 0.4f;
-                    m_activeTimer = m_chargeTimer + 0.2f;
+                    m_activeTimer = m_chargeTimer + 2.0f;
+                    m_superArmor = true;
+                    m_comboStep = 0;
                 }
             } else if (m_currentPhase == BossPhase::Phase3) {
                 if (rand() % 2 == 0) {
                     ChangeState(BossState::Skill2); // Sphere
                     m_chargeTimer = 1.0f;
                     m_activeTimer = m_chargeTimer + 0.5f;
+                    m_superArmor = true;
                 } else {
                     ChangeState(BossState::Skill1); // Melee
                     m_chargeTimer = 0.4f;

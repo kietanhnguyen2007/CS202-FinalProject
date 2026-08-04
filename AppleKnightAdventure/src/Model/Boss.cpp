@@ -17,6 +17,10 @@ Boss::Boss(Vector2 position, Vector2 size, int bossType)
     , m_activeTimer(0.0f)
     , m_cooldownTimer(0.0f)
     , m_skillFired(false)
+    , m_comboStep(0)
+    , m_superArmor(false)
+    , m_recentDamage(0)
+    , m_damageTimer(0.0f)
     , m_gameState(nullptr)
 {
     m_speed = BOSS_SPEED;
@@ -31,6 +35,13 @@ void Boss::Update(float deltaTime) {
     
     if (m_cooldownTimer > 0.0f) {
         m_cooldownTimer -= deltaTime;
+    }
+    
+    if (m_damageTimer > 0.0f) {
+        m_damageTimer -= deltaTime;
+        if (m_damageTimer <= 0.0f) {
+            m_recentDamage = 0; // Reset counter
+        }
     }
 }
 
@@ -67,15 +78,27 @@ void Boss::ChangeState(BossState newState) {
 
 void Boss::TakeDamage(int damage) {
     m_health -= damage;
+    
+    // Accumulate recent damage for anti-stunlock
+    m_recentDamage += damage;
+    if (m_damageTimer <= 0.0f) {
+        m_damageTimer = 2.0f; // 2 seconds window
+    }
+
     if (m_health <= 0) {
         m_health = 0;
         ChangeState(BossState::Die);
         return;
     }
     
-    // Hurt state interrupts skills unless transitioning
+    // Hurt state interrupts skills unless transitioning or SuperArmor
     if (m_currentState != BossState::Transition && m_currentState != BossState::Die) {
-        ChangeState(BossState::Hurt);
+        if (!m_superArmor) {
+            ChangeState(BossState::Hurt);
+        } else {
+            // Flash color when hit during super armor?
+            // Could add m_isFlashing logic if desired
+        }
     }
 }
 

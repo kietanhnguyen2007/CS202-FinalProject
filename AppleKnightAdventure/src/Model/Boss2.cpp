@@ -60,16 +60,43 @@ void Boss2::UpdateState(float deltaTime, Vector2 playerPos) {
         return;
     }
 
+    // Skill 4: Teleport (Tactical Retreat)
+    if (m_currentState == BossState::Skill4) {
+        m_chargeTimer -= deltaTime;
+        if (m_chargeTimer <= 0.0f && !m_skillFired) {
+            m_skillFired = true;
+            // Execute Teleport
+            float teleportDist = 300.0f;
+            Vector2 dir = { (m_direction == Direction::Right) ? -1.0f : 1.0f, 0 }; // Retreat
+            Vector2 targetPos = {m_position.x + dir.x * teleportDist, m_position.y};
+            
+            // Check wall using DDA Raycast
+            if (!CheckLineOfSight(GetCenter(), {targetPos.x + m_size.x/2, targetPos.y + m_size.y/2})) {
+                // Blocked by wall, just teleport 100px or fallback
+                targetPos.x = m_position.x + dir.x * 100.0f;
+            }
+            // Move instantly
+            m_position.x = targetPos.x;
+        }
+        
+        m_activeTimer -= deltaTime;
+        if (m_activeTimer <= 0.0f) {
+            ChangeState(BossState::Idle);
+            m_cooldownTimer = 2.0f;
+        }
+        return;
+    }
+
     // Skill 1: Projectile
     if (m_currentState == BossState::Skill1) {
         m_chargeTimer -= deltaTime;
         if (m_chargeTimer <= 0.0f && !m_skillFired) {
             m_skillFired = true;
-            ExecuteProjectileAttack();
+            ExecuteProjectileAttack(); // Now shoots spread
         }
         m_activeTimer -= deltaTime;
         if (m_activeTimer <= 0.0f) {
-            m_cooldownTimer = (m_currentPhase == BossPhase::Phase1) ? 3.0f : (m_currentPhase == BossPhase::Phase2 ? 2.5f : 2.0f);
+            m_cooldownTimer = (m_currentPhase == BossPhase::Phase1) ? 2.5f : 1.5f;
             ChangeState(BossState::Idle);
         }
         return;
@@ -114,12 +141,15 @@ void Boss2::UpdateState(float deltaTime, Vector2 playerPos) {
         m_direction = (dx > 0) ? Direction::Right : Direction::Left;
         
         if (m_cooldownTimer <= 0.0f) {
+            if (dist < 150.0f) { // Player too close, Teleport
+                ChangeState(BossState::Skill4);
+                m_chargeTimer = 0.3f; // Wind-up
+                m_activeTimer = m_chargeTimer + 0.1f;
+                return;
+            }
+            
             // Decide skill
             if (m_currentPhase == BossPhase::Phase3 && (rand() % 2 == 0)) {
-                // Try Targeted AoE
-                // Check if player is in camera bounds and not solid
-                // We don't have direct access to camera here, but we can assume GameState has map bounds. 
-                // As per plan, AoE target must be non-solid.
                 if (!IsPointSolid(playerPos)) {
                     ChangeState(BossState::Skill3);
                     m_chargeTimer = 1.0f;
@@ -132,16 +162,16 @@ void Boss2::UpdateState(float deltaTime, Vector2 playerPos) {
                     m_activeTimer = m_chargeTimer + 0.2f;
                 }
             } else if ((m_currentPhase == BossPhase::Phase2 || m_currentPhase == BossPhase::Phase3) && hpRatio < 0.5f && (rand() % 3 == 0)) {
-                ChangeState(BossState::Skill2); // Heal
+                ChangeState(BossState::Skill2); // Heal + Zoning
                 m_chargeTimer = 1.0f;
                 m_activeTimer = m_chargeTimer + 0.5f;
             } else {
-                ChangeState(BossState::Skill1); // Projectile
-                m_chargeTimer = (m_currentPhase == BossPhase::Phase1) ? 0.6f : (m_currentPhase == BossPhase::Phase2 ? 0.5f : 0.4f);
+                ChangeState(BossState::Skill1); // Spread Projectile
+                m_chargeTimer = (m_currentPhase == BossPhase::Phase1) ? 0.6f : 0.4f;
                 m_activeTimer = m_chargeTimer + 0.2f; 
             }
         } else {
-            // Ranged boss tries to keep distance
+            // Keep distance using walk if teleport is on CD
             if (dist < 200.0f) {
                 ChangeState(BossState::Walk);
                 Vector2 dir = { (dx > 0) ? -1.0f : 1.0f, 0 }; // Run away
@@ -169,18 +199,32 @@ void Boss2::ExecuteProjectileAttack() {
         m_position.y + m_size.y * 0.5f
     };
     
-    auto proj = std::make_unique<Projectile>(spawnPos, pSize, ProjectileType::BossAttack, m_direction, m_damage, m_id);
-    proj->SetVelocity({(m_direction == Direction::Right ? 300.0f : -300.0f), 0.0f});
-    // Projectile lifetime logic should be added to Projectile class. Let's just pass it or set a custom type.
-    // For now, it travels until solid tile overlap which is handled by GameController::UpdateProjectiles.
+    auto proj1 = std::make_unique<Projectile>(spawnPos, pSize, ProjectileType::BossAttack, m_direction, m_damage, m_id);
+    proj1->SetVelocity({(m_direction == Direction::Right ? 300.0f : -300.0f), 0.0f});
     
-    m_gameState->AddEntity(std::move(proj));
+    // Spread 2 more projectiles for Hard Mode
+    auto proj2 = std::make_unique<Projectile>(spawnPos, pSize, ProjectileType::BossAttack, m_direction, m_damage, m_id);
+    proj2->SetVelocity({(m_direction == Direction::Right ? 300.0f : -300.0f), -50.0f});
+
+    auto proj3 = std::make_unique<Projectile>(spawnPos, pSize, ProjectileType::BossAttack, m_direction, m_damage, m_id);
+    proj3->SetVelocity({(m_direction == Direction::Right ? 300.0f : -300.0f), 50.0f});
+    
+    m_gameState->AddEntity(std::move(proj1));
+    m_gameState->AddEntity(std::move(proj2));
+    m_gameState->AddEntity(std::move(proj3));
 }
 
 void Boss2::ExecuteHealing() {
+    if (!m_gameState) return;
+    Attack(); // Play attack2 animation
     m_health += 50;
     if (m_health > m_maxHealth) m_health = m_maxHealth;
-    // We could emit a heal particle here via GameController or just rely on the GameController/View to notice the health change
+    
+    // Zoning Combo: Spawn AoE on self to prevent player melee interrupts
+    Vector2 selfTarget = {m_position.x + m_size.x/2, m_position.y + m_size.y - 1};
+    CheckAndSpawnTelegraph(selfTarget); // Spawn telegraph, actual explosion is synced with charge timer?
+    // Note: Skill3 normally handles the explosion, but here we can just do a fake telegraph or immediate spawn.
+    // For simplicity, we just heal and let telegraph play.
 }
 
 void Boss2::ExecuteTargetedAoE(Vector2 playerPos) {

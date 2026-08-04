@@ -27,6 +27,11 @@ protected:
     float m_cooldownTimer;
     bool m_skillFired;
 
+    int m_comboStep;
+    bool m_superArmor;
+    int m_recentDamage;
+    float m_damageTimer;
+
     GameState* m_gameState;
 
 public:
