@@ -31,6 +31,7 @@ protected:
     bool m_superArmor;
     int m_recentDamage;
     float m_damageTimer;
+    bool m_wantsMelee;
 
     GameState* m_gameState;
 
@@ -39,6 +40,7 @@ public:
     virtual ~Boss() = default;
 
     int GetBossType() const { return m_bossType; }
+    virtual bool IsFinalPhase() const = 0;
     
     Vector2 GetCenter() const {
         return {m_position.x + m_size.x * 0.5f, m_position.y + m_size.y * 0.5f};
@@ -59,6 +61,9 @@ public:
 
     int GetDamage() const { return m_damage; }
     void SetDamage(int damage) { m_damage = damage; }
+
+    bool WantsMelee() const { return m_wantsMelee; }
+    void ResetMelee() { m_wantsMelee = false; }
 
     float GetDetectionRange() const { return m_detectionRange; }
     void SetDetectionRange(float range) { m_detectionRange = range; }

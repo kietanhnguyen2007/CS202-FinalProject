@@ -6,6 +6,14 @@ Boss1::Boss1(Vector2 position, Vector2 size)
 {
     m_damage = 20; // Phase 1 default
     m_cooldownTimer = 2.0f;
+    m_attackRange = 50.0f; // scaled to the half-size hitbox
+}
+
+void Boss1::ChangeState(BossState newState) {
+    Boss::ChangeState(newState);
+    if (newState == BossState::Skill3) {
+        m_state = Character::State::Walk; // Use walk animation for dodge/backstep
+    }
 }
 
 void Boss1::TransitionToNextPhase() {
@@ -14,17 +22,16 @@ void Boss1::TransitionToNextPhase() {
         ChangeState(BossState::Transition);
         m_damage = 30; // Stronger phase 2
         m_cooldownTimer = 1.5f;
-        m_activeTimer = 1.0f; // 1s transition animation
-    } else {
-        SetPhase(BossPhase::Enraged);
+        m_activeTimer = 3.0f; // 3s transition animation
+        m_health = m_maxHealth; // Refill health for Phase 2
     }
 }
 
 void Boss1::UpdateState(float deltaTime, Vector2 playerPos) {
     if (m_currentState == BossState::Die) return;
 
-    // Check health threshold for phase 2
-    if (m_currentPhase == BossPhase::Phase1 && (float)m_health / m_maxHealth <= 0.5f) {
+    // Transition when health drops to 0 (clamped to 1 by Boss::TakeDamage)
+    if (m_currentPhase == BossPhase::Phase1 && m_health <= 1) {
         TransitionToNextPhase();
         return;
     }
@@ -47,35 +54,20 @@ void Boss1::UpdateState(float deltaTime, Vector2 playerPos) {
         return;
     }
 
-    if (m_currentState == BossState::Skill3) { // Backstep
-        m_activeTimer -= deltaTime;
-        Vector2 dir = { (m_direction == Direction::Right) ? -1.0f : 1.0f, 0 }; // Move away from facing direction
-        Vector2 nextPos = {m_position.x + dir.x * (m_speed * 2.5f) * deltaTime, m_position.y};
-        if (!IsPointSolid({nextPos.x + (dir.x > 0 ? m_size.x : 0), nextPos.y + m_size.y - 1})) {
-             Move(dir, deltaTime * 2.5f);
-        }
-        if (m_activeTimer <= 0.0f) {
-            ChangeState(BossState::Idle);
-            m_cooldownTimer = 0.5f; // Fast counter-attack ready
-        }
-        return;
-    }
+    // Removed Backstep logic
 
     if (m_currentState == BossState::Skill2) { // Dash Attack
         m_chargeTimer -= deltaTime;
         if (m_chargeTimer > 0.0f) {
             // Wind-up: slightly move backward
             Vector2 dir = { (m_direction == Direction::Right) ? -1.0f : 1.0f, 0 };
-            Move(dir, deltaTime * 0.5f);
+            MoveX(dir.x * 0.5f, deltaTime);
             return;
         }
         
         m_activeTimer -= deltaTime;
         Vector2 dir = { (m_direction == Direction::Right) ? 1.0f : -1.0f, 0 };
-        Vector2 nextPos = {m_position.x + dir.x * (m_speed * 3.0f) * deltaTime, m_position.y};
-        if (!IsPointSolid({nextPos.x + (dir.x > 0 ? m_size.x : 0), nextPos.y + m_size.y - 1})) {
-             Move(dir, deltaTime * 3.0f);
-        }
+        MoveX(dir.x * 3.0f, deltaTime);
         
         // Execute attack if close during dash
         float curDist = std::abs(playerPos.x - m_position.x);
@@ -127,14 +119,6 @@ void Boss1::UpdateState(float deltaTime, Vector2 playerPos) {
         m_direction = (dx > 0) ? Direction::Right : Direction::Left;
         
         if (m_cooldownTimer <= 0.0f) {
-            // Reflex Dodge (Backstep)
-            if (dist < 120.0f && (rand() % 100 < 30)) {
-                ChangeState(BossState::Skill3);
-                m_chargeTimer = 0.0f;
-                m_activeTimer = 0.3f;
-                return;
-            }
-            
             if (dist > 300.0f && CheckLineOfSight(GetCenter(), playerPos)) {
                 // Dash Attack
                 ChangeState(BossState::Skill2);
@@ -142,25 +126,21 @@ void Boss1::UpdateState(float deltaTime, Vector2 playerPos) {
                 m_activeTimer = 0.6f;
                 return;
             }
-            
             if (dist <= m_attackRange) {
                 if (CheckLineOfSight(GetCenter(), playerPos)) {
                     ChangeState(BossState::Skill1);
                     m_comboStep = 0;
-                    m_chargeTimer = (m_currentPhase == BossPhase::Phase1) ? 0.5f : 0.4f;
-                    m_activeTimer = m_chargeTimer + 0.2f; 
+                    m_chargeTimer = 0.4f; // Wind-up for first hit
+                    m_activeTimer = m_chargeTimer + 0.2f;
+                    return;
                 }
-                return;
             }
         }
         
         if (dist > m_attackRange) {
             ChangeState(BossState::Walk);
             Vector2 dir = { dx/dist, 0 };
-            Vector2 nextPos = {m_position.x + dir.x * m_speed * deltaTime, m_position.y};
-            if (!IsPointSolid({nextPos.x + (dir.x > 0 ? m_size.x : 0), nextPos.y + m_size.y - 1})) {
-                 Move(dir, deltaTime);
-            }
+            MoveX(dir.x, deltaTime);
         } else {
             ChangeState(BossState::Idle);
         }
@@ -176,5 +156,6 @@ void Boss1::ExecuteMeleeAttack(Vector2 playerPos) {
     
     if (dist <= m_attackRange) {
         Attack(); // Sets m_isAttacking = true which GameController reads
+        m_wantsMelee = true;
     }
 }

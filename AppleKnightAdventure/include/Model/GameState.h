@@ -37,6 +37,7 @@ protected:
     GameMode m_mode;
     std::unique_ptr<Player> m_localPlayer;
     std::vector<std::unique_ptr<Entity>> m_entities;
+    std::vector<std::unique_ptr<Entity>> m_newEntities; // Buffer for dynamically added entities
     std::vector<Tile> m_tiles[static_cast<int>(MapLayer::Count)];
     int m_currentLevel;
     int m_totalLevels;

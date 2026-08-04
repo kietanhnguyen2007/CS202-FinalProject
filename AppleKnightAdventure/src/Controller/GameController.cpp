@@ -217,13 +217,11 @@ void GameController::RegisterBossVisuals(Boss* boss) {
     const uint32_t id = static_cast<uint32_t>(boss->GetId());
 
     // Determine boss tier by m_bossType
-    std::string root = "assets/textures/boss/boss" + std::to_string(boss->GetBossType()) + "/phase1/";
+    std::string root = "assets/textures/boss/boss" + std::to_string(boss->GetBossType()) + "/";
+    cr.SetBossAssetRoot(id, root);
 
-    cr.Register(boss, root + "idle.json", "idle");
-    cr.MergeAtlas(id,  root + "walk.json");
-    cr.MergeAtlas(id,  root + "attack_1.json");
-    if (std::filesystem::exists(root + "hurt.json"))
-        cr.MergeAtlas(id, root + "hurt.json");
+    cr.Register(boss, root + "phase1/idle.json", "idle"); // Initialize animator
+    cr.SwitchPhase(id, BossPhase::Phase1); // Load all Phase 1 clips including projectiles
 }
 
 void GameController::RegisterEntityVisuals(Entity* entity) {
@@ -253,6 +251,57 @@ void GameController::RegisterEntityVisuals(Entity* entity) {
         case EntityType::FakeWall:
             // FakeWall trông như tile thường — không cần Register visuals riêng
             break;
+        case EntityType::Projectile: {
+            auto proj = static_cast<Projectile*>(entity);
+            if (proj->GetProjectileType() == ProjectileType::BossAttack) {
+                bool foundBoss = false;
+                for (auto& e : m_gameState->GetAllEntities()) {
+                    if (e->GetType() == EntityType::Boss && e->GetId() == proj->GetOwnerId()) {
+                        foundBoss = true;
+                        auto boss = static_cast<Boss*>(e.get());
+                        std::string texPath;
+                        Vector2 sz = proj->GetSize();
+                        if (boss->GetBossType() == 2) {
+                            if (proj->GetDirection() == Direction::None) {
+                                texPath = "assets/textures/boss/boss2/phase3/projectile_attack2.json";
+                            } else {
+                                if (boss->GetPhase() == BossPhase::Phase3) {
+                                    texPath = "assets/textures/boss/boss2/phase3/projectile_attack1.json";
+                                } else if (boss->GetPhase() == BossPhase::Phase2) {
+                                    texPath = "assets/textures/boss/boss2/phase2/projectile_attack1.json";
+                                } else {
+                                    texPath = "assets/textures/boss/boss2/phase1/projectile_attack1.json";
+                                }
+                            }
+                        } else if (boss->GetBossType() == 3) {
+                            if (sz.y == 32.0f && sz.x == 32.0f) {
+                                texPath = "assets/textures/boss/boss3/projectiles/energy_sphere.json";
+                            } else if (sz.y == 32.0f && sz.x > 32.0f) {
+                                texPath = "assets/textures/boss/boss3/projectiles/energy_beam.json";
+                            } else if (sz.x == 128.0f) {
+                                texPath = "assets/textures/boss/boss3/projectiles/energy_blast.json";
+                            } else if (sz.x == 200.0f) {
+                                texPath = "assets/textures/boss/boss3/ground_animate/default.json";
+                            }
+                        }
+                        if (!texPath.empty()) {
+                            // std::cout << "[DEBUG] Registering Boss Projectile! texPath=" << texPath << ", size=" << sz.x << "x" << sz.y << std::endl;
+                            bool flipX = (proj->GetDirection() == Direction::Left);
+                            proj->SetRotation(0.0f); // Fix rotation bug so it doesn't offset from hitbox
+                            View::EntityRenderer::GetInstance().RegisterAnimated(
+                                proj, texPath, "default", {0, 0}, flipX);
+                        } else {
+                            std::cout << "[DEBUG] Boss Projectile texPath is EMPTY! size=" << sz.x << "x" << sz.y << std::endl;
+                        }
+                        break;
+                    }
+                }
+                if (!foundBoss) {
+                    std::cout << "[DEBUG] Boss Projectile could not find boss owner! ownerId=" << proj->GetOwnerId() << std::endl;
+                }
+            }
+            break;
+        }
         default:
             break;
     }
@@ -614,11 +663,18 @@ void GameController::UpdateEnemyAI(float dt) {
         
         if (entity->GetType() == EntityType::Boss) {
             auto* boss = static_cast<Boss*>(entity.get());
-            BossPhase oldPhase = boss->GetPhase();
             boss->UpdateAI(playerCenter, dt, m_gameState.get());
-            if (boss->GetPhase() != oldPhase) {
-                View::CharacterRenderer::GetInstance().SwitchPhase(boss->GetId(), boss->GetPhase());
+            
+            // Sync visual phase
+            BossPhase currentPhase = boss->GetPhase();
+            if (View::CharacterRenderer::GetInstance().GetBossPhase(boss->GetId()) != currentPhase) {
+                View::CharacterRenderer::GetInstance().SwitchPhase(boss->GetId(), currentPhase);
             }
+            
+            // Apply physics
+            ApplyGravity(boss, dt);
+            ResolveTileCollisions(boss, dt);
+            
             continue;
         }
 
@@ -694,7 +750,7 @@ void GameController::UpdateCombat(float dt) {
             else if (entity->GetType() == EntityType::Boss) {
                 auto* boss = static_cast<Boss*>(entity.get());
                 if (!RectOverlap(attackBox, boss->GetBoundingBox())) continue;
-                if (boss->GetBossState() == BossState::Hurt || boss->GetBossState() == BossState::Die) continue;
+                if (!boss->IsAlive() || boss->GetBossState() == BossState::Hurt || boss->GetBossState() == BossState::Die || boss->GetBossState() == BossState::Transition) continue;
 
                 boss->TakeDamage(damage);
                 SoundManager::GetInstance().PlaySound("enemy_hurt"); 
@@ -964,14 +1020,31 @@ void GameController::UpdateCombat(float dt) {
             auto* boss = static_cast<Boss*>(entity.get());
             BossState bs = boss->GetBossState();
             if (bs == BossState::Skill1 || bs == BossState::Skill2 || bs == BossState::Skill3 || bs == BossState::Skill4) {
-                isAttacking = true;
-                attackDamage = boss->GetDamage();
-                attackRange = boss->GetAttackRange();
-                attackCenter = {
-                    boss->GetPosition().x + boss->GetSize().x * 0.5f,
-                    boss->GetPosition().y + boss->GetSize().y * 0.5f
-                };
+                // Only deal direct body damage if it's a melee attack (range <= 150)
+                if (boss->GetAttackRange() <= 150.0f) {
+                    isAttacking = true;
+                    attackDamage = boss->GetDamage();
+                    attackRange = boss->GetAttackRange();
+                    attackCenter = {
+                        boss->GetPosition().x + boss->GetSize().x * 0.5f,
+                        boss->GetPosition().y + boss->GetSize().y * 0.5f
+                    };
+                }
             }
+        } else if (entity->GetType() == EntityType::Projectile) {
+            auto* proj = static_cast<Projectile*>(entity.get());
+            if (RectOverlap(proj->GetBoundingBox(), player->GetBoundingBox())) {
+                if (!player->IsInvincible()) {
+                    player->TakeDamage(proj->GetDamage());
+                    SoundManager::GetInstance().PlaySound("player_hurt");
+                    View::FloatingTextManager::GetInstance().Emit(
+                        player->GetPosition(), "-" + std::to_string(proj->GetDamage()), RED, 1.0f);
+                    View::GameView::GetInstance().Shake(4.0f, 0.2f);
+                }
+                proj->OnHit();
+                if (!player->IsAlive()) RespawnPlayer();
+            }
+            continue; // Skip the regular attack check for Projectiles
         }
         
         if (!isAttacking) continue;
@@ -1315,6 +1388,20 @@ void GameController::Update(float dt) {
     }
 
     m_gameState->Update(dt);
+    
+    // Check and register visuals for newly spawned entities (like projectiles or items)
+    for (const auto& entity : m_gameState->GetAllEntities()) {
+        if (!entity->IsActive()) continue;
+        uint32_t id = static_cast<uint32_t>(entity->GetId());
+        
+        bool isAnimated = View::EntityRenderer::GetInstance().IsRegistered(id) || 
+                          View::CharacterRenderer::GetInstance().IsRegistered(id);
+        
+        if (!isAnimated) {
+            RegisterEntityVisuals(entity.get());
+        }
+    }
+
     UpdateEnemyAI(dt);
 
     if (player && player->IsActive()) {
@@ -1713,18 +1800,32 @@ void GameController::UpdateProjectiles(float dt) {
         // Check collision with enemies
         if (player) {
             for (const auto& e : m_gameState->GetAllEntities()) {
-                if (e->GetType() != EntityType::Enemy || !e->IsActive()) continue;
-                auto* enemy = static_cast<Enemy*>(e.get());
-                if (enemy->GetState() == EnemyState::Dead) continue;
-                if (!RectOverlap(proj->GetBoundingBox(), enemy->GetBoundingBox())) continue;
+                if (!e->IsActive()) continue;
+                if (e->GetType() == EntityType::Enemy) {
+                    auto* enemy = static_cast<Enemy*>(e.get());
+                    if (enemy->GetState() == EnemyState::Dead) continue;
+                    if (!RectOverlap(proj->GetBoundingBox(), enemy->GetBoundingBox())) continue;
 
-                enemy->TakeDamage(proj->GetDamage());
-                SoundManager::GetInstance().PlaySound("enemy_hurt");
-                View::FloatingTextManager::GetInstance().Emit(
-                    enemy->GetPosition(), "-" + std::to_string(proj->GetDamage()), ORANGE, 1.0f);
-                if (!enemy->IsActive()) OnEntityRemoved(enemy);
-                proj->OnHit();
-                break;
+                    enemy->TakeDamage(proj->GetDamage());
+                    SoundManager::GetInstance().PlaySound("enemy_hurt");
+                    View::FloatingTextManager::GetInstance().Emit(
+                        enemy->GetPosition(), "-" + std::to_string(proj->GetDamage()), ORANGE, 1.0f);
+                    if (!enemy->IsActive()) OnEntityRemoved(enemy);
+                    proj->OnHit();
+                    break;
+                } else if (e->GetType() == EntityType::Boss) {
+                    auto* boss = static_cast<Boss*>(e.get());
+                    if (!boss->IsAlive() || boss->GetBossState() == BossState::Die || boss->GetBossState() == BossState::Transition) continue;
+                    if (!RectOverlap(proj->GetBoundingBox(), boss->GetBoundingBox())) continue;
+
+                    boss->TakeDamage(proj->GetDamage());
+                    SoundManager::GetInstance().PlaySound("enemy_hurt");
+                    View::FloatingTextManager::GetInstance().Emit(
+                        boss->GetPosition(), "-" + std::to_string(proj->GetDamage()), ORANGE, 1.0f);
+                    if (!boss->IsActive()) OnEntityRemoved(boss);
+                    proj->OnHit();
+                    break;
+                }
             }
         }
     }
@@ -1807,17 +1908,30 @@ void GameController::SpawnLightningAt(Vector2 targetPos, int damage, float lifet
     // rather than the visual projectile's bounding box which might be offset.
     Rectangle hitBox = { targetPos.x - 30.0f, targetPos.y - 30.0f, 60.0f, 60.0f };
     for (auto& e : m_gameState->GetAllEntities()) {
-        if (e->GetType() != EntityType::Enemy || !e->IsActive()) continue;
-        auto* enemy = static_cast<Enemy*>(e.get());
-        if (enemy->GetState() == EnemyState::Dead) continue;
-        if (!RectOverlap(hitBox, enemy->GetBoundingBox())) continue;
-        enemy->TakeDamage(damage);
-        SoundManager::GetInstance().PlaySound("enemy_hurt");
-        View::FloatingTextManager::GetInstance().Emit(
-            enemy->GetPosition(), "-" + std::to_string(damage), PURPLE, 1.0f);
-        View::ParticleRenderer::GetInstance().EmitBurst(enemy->GetPosition(), 12, PURPLE);
-        View::GameView::GetInstance().Shake(4.0f, 0.2f);
-        if (!enemy->IsActive()) OnEntityRemoved(enemy);
+        if (!e->IsActive()) continue;
+        if (e->GetType() == EntityType::Enemy) {
+            auto* enemy = static_cast<Enemy*>(e.get());
+            if (enemy->GetState() == EnemyState::Dead) continue;
+            if (!RectOverlap(hitBox, enemy->GetBoundingBox())) continue;
+            enemy->TakeDamage(damage);
+            SoundManager::GetInstance().PlaySound("enemy_hurt");
+            View::FloatingTextManager::GetInstance().Emit(
+                enemy->GetPosition(), "-" + std::to_string(damage), PURPLE, 1.0f);
+            View::ParticleRenderer::GetInstance().EmitBurst(enemy->GetPosition(), 12, PURPLE);
+            View::GameView::GetInstance().Shake(4.0f, 0.2f);
+            if (!enemy->IsActive()) OnEntityRemoved(enemy);
+        } else if (e->GetType() == EntityType::Boss) {
+            auto* boss = static_cast<Boss*>(e.get());
+            if (!boss->IsAlive() || boss->GetBossState() == BossState::Die || boss->GetBossState() == BossState::Transition) continue;
+            if (!RectOverlap(hitBox, boss->GetBoundingBox())) continue;
+            boss->TakeDamage(damage);
+            SoundManager::GetInstance().PlaySound("enemy_hurt");
+            View::FloatingTextManager::GetInstance().Emit(
+                boss->GetPosition(), "-" + std::to_string(damage), PURPLE, 1.0f);
+            View::ParticleRenderer::GetInstance().EmitBurst(boss->GetPosition(), 12, PURPLE);
+            View::GameView::GetInstance().Shake(4.0f, 0.2f);
+            if (!boss->IsActive()) OnEntityRemoved(boss);
+        }
     }
 
     m_playerProjectiles.push_back(std::move(proj));
@@ -1856,28 +1970,52 @@ void GameController::UpdatePlayerProjectiles(float dt) {
         if (std::abs(vel.x) < 1.0f && std::abs(vel.y) < 1.0f) continue; // stationary (lightning)
 
         for (auto& e : m_gameState->GetAllEntities()) {
-            if (e->GetType() != EntityType::Enemy || !e->IsActive()) continue;
-            auto* enemy = static_cast<Enemy*>(e.get());
-            if (enemy->GetState() == EnemyState::Dead) continue;
-            if (!RectOverlap(proj->GetBoundingBox(), enemy->GetBoundingBox())) continue;
+            if (!e->IsActive()) continue;
+            if (e->GetType() == EntityType::Enemy) {
+                auto* enemy = static_cast<Enemy*>(e.get());
+                if (enemy->GetState() == EnemyState::Dead) continue;
+                if (!RectOverlap(proj->GetBoundingBox(), enemy->GetBoundingBox())) continue;
 
-            enemy->TakeDamage(proj->GetDamage());
-            SoundManager::GetInstance().PlaySound("enemy_hurt");
-            View::FloatingTextManager::GetInstance().Emit(
-                enemy->GetPosition(), "-" + std::to_string(proj->GetDamage()), ORANGE, 1.0f);
-            View::ParticleRenderer::GetInstance().EmitBurst(enemy->GetPosition(), 8, ORANGE);
-            View::GameView::GetInstance().Shake(3.0f, 0.15f);
-            if (!enemy->IsActive()) OnEntityRemoved(enemy);
-            
-            if ((proj->GetLifetime() == 0.9f && proj->GetScale() == 0.8f) || // Fighter H
-                (proj->GetLifetime() == 1.0f && proj->GetScale() == 1.0f) || // MC U
-                (proj->GetLifetime() == 0.7f && proj->GetScale() == 0.5f)) { // Ninja H
-                proj->SetVelocity({0.0f, 0.0f});
-                proj->SetDamage(0); // stops further collision and finishes animation
-            } else {
-                proj->OnHit();
+                enemy->TakeDamage(proj->GetDamage());
+                SoundManager::GetInstance().PlaySound("enemy_hurt");
+                View::FloatingTextManager::GetInstance().Emit(
+                    enemy->GetPosition(), "-" + std::to_string(proj->GetDamage()), ORANGE, 1.0f);
+                View::ParticleRenderer::GetInstance().EmitBurst(enemy->GetPosition(), 8, ORANGE);
+                View::GameView::GetInstance().Shake(3.0f, 0.15f);
+                if (!enemy->IsActive()) OnEntityRemoved(enemy);
+                
+                if ((proj->GetLifetime() == 0.9f && proj->GetScale() == 0.8f) || // Fighter H
+                    (proj->GetLifetime() == 1.0f && proj->GetScale() == 1.0f) || // MC U
+                    (proj->GetLifetime() == 0.7f && proj->GetScale() == 0.5f)) { // Ninja H
+                    proj->SetVelocity({0.0f, 0.0f});
+                    proj->SetDamage(0); // stops further collision and finishes animation
+                } else {
+                    proj->OnHit();
+                }
+                break;
+            } else if (e->GetType() == EntityType::Boss) {
+                auto* boss = static_cast<Boss*>(e.get());
+                if (!boss->IsAlive() || boss->GetBossState() == BossState::Die || boss->GetBossState() == BossState::Transition) continue;
+                if (!RectOverlap(proj->GetBoundingBox(), boss->GetBoundingBox())) continue;
+
+                boss->TakeDamage(proj->GetDamage());
+                SoundManager::GetInstance().PlaySound("enemy_hurt");
+                View::FloatingTextManager::GetInstance().Emit(
+                    boss->GetPosition(), "-" + std::to_string(proj->GetDamage()), ORANGE, 1.0f);
+                View::ParticleRenderer::GetInstance().EmitBurst(boss->GetPosition(), 8, ORANGE);
+                View::GameView::GetInstance().Shake(3.0f, 0.15f);
+                if (!boss->IsActive()) OnEntityRemoved(boss);
+                
+                if ((proj->GetLifetime() == 0.9f && proj->GetScale() == 0.8f) || // Fighter H
+                    (proj->GetLifetime() == 1.0f && proj->GetScale() == 1.0f) || // MC U
+                    (proj->GetLifetime() == 0.7f && proj->GetScale() == 0.5f)) { // Ninja H
+                    proj->SetVelocity({0.0f, 0.0f});
+                    proj->SetDamage(0); // stops further collision and finishes animation
+                } else {
+                    proj->OnHit();
+                }
+                break;
             }
-            break;
         }
     }
 

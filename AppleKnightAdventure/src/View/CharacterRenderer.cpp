@@ -248,8 +248,9 @@ void CharacterRenderer::UpdateAll(float dt) {
                     {"skill",         {"attack", "idle"}},
                     {"parry",         {"idle"}},
                     {"ultimate_skill",{"skill", "attack", "idle"}},
-                    {"attack_2",      {"attack", "idle"}},
-                    {"attack_3",      {"attack", "idle"}},
+                    {"attack",        {"attack_1", "idle"}},
+                    {"attack_2",      {"attack", "attack_1", "idle"}},
+                    {"attack_3",      {"attack", "attack_1", "idle"}},
                 };
                 auto it = fallback.find(clipName);
                 if (it != fallback.end()) {
@@ -299,7 +300,7 @@ void CharacterRenderer::RenderAll() {
         } else if (entity->GetType() == EntityType::Enemy) {
             visualScale = 0.6f * 1.7f; // Enemy: large, same as big tiles
         } else if (entity->GetType() == EntityType::Boss) {
-            visualScale = 0.77f * 1.7f;
+            visualScale = 0.77f * 1.7f * 0.5f;
         }
 
         // Bounding box bottom center
@@ -307,9 +308,10 @@ void CharacterRenderer::RenderAll() {
         Rectangle srcRect = animator.GetCurrentSrcRect();
         
         float originYFactor = 1.0f;
-        if (entity->GetType() == EntityType::Enemy || entity->GetType() == EntityType::Boss) {
+        if (entity->GetType() == EntityType::Enemy) {
             originYFactor = 0.6667f; // Adjust for empty space at the bottom of the sprite frames
         }
+        // Boss uses 1.0f by default, removing the 0.6667f which caused them to sink
         
         Vector2 customOrigin = { srcRect.width * 0.5f * visualScale, srcRect.height * originYFactor * visualScale };
 
@@ -384,6 +386,14 @@ void CharacterRenderer::SetBossPhase(uint32_t entityId, BossPhase phase) {
     m_bossPhases[entityId] = phase;
 }
 
+BossPhase CharacterRenderer::GetBossPhase(uint32_t entityId) const {
+    auto it = m_bossPhases.find(entityId);
+    if (it != m_bossPhases.end()) {
+        return it->second;
+    }
+    return BossPhase::Phase1;
+}
+
 void CharacterRenderer::ClearBossPhase(uint32_t entityId) {
     m_bossPhases.erase(entityId);
 }
@@ -418,7 +428,7 @@ bool CharacterRenderer::SwitchPhase(uint32_t entityId, BossPhase phase) {
         "attack_1", "attack_2", "attack_3",
         "projectile_attack1", "projectile_attack2",
         "hurt", "dead", "healing", "skill",
-        "fall", "parry", "ultimate_skill"
+        "fall", "parry", "ultimate_skill", "transition"
     };
 
     auto& animator = animIt->second;
@@ -432,12 +442,23 @@ bool CharacterRenderer::SwitchPhase(uint32_t entityId, BossPhase phase) {
             if (!PreloadAtlas(path)) continue;
             cacheIt = m_atlasCache.find(path);
         }
-        for (const auto& clipName : cacheIt->second->GetClipNames()) {
-            auto clip = cacheIt->second->GetClip(clipName);
-            if (clip) {
+        for (const auto& rawClip : cacheIt->second->GetClipNames()) {
+            auto clip = cacheIt->second->GetClip(rawClip);
+            if (!clip) continue;
+            // Alias the raw clip so the state->clip map in UpdateAll keeps working.
+            // attack_1 -> attack, transition -> skill; others keep their names.
+            std::string alias;
+            if (rawClip == "attack_1") alias = "attack";
+            else if (rawClip == "transition") alias = "skill";
+            else if (rawClip == "healing") alias = "attack_2";
+            if (!alias.empty()) {
+                auto cloned = std::make_shared<Animations::AnimationClip>(*clip);
+                cloned->name = alias;
+                animator.AddClip(cloned);
+            } else {
                 animator.AddClip(clip);
-                anyLoaded = true;
             }
+            anyLoaded = true;
         }
     }
 
@@ -483,7 +504,7 @@ void CharacterRenderer::RenderBossPhaseOverlay(uint32_t entityId, const Entity* 
         Vector2 size = entity->GetSize();
         float baseScale = entity->GetScale();
         
-        float visualScale = 0.77f * 1.7f; // Boss visual scale matches RenderAll
+        float visualScale = 0.77f * 1.7f * 0.5f; // Boss visual scale matches RenderAll
         if (phaseIt->second == BossPhase::Enraged) visualScale *= 1.3f;
         
         Vector2 bottomCenter = { pos.x + size.x * 0.5f * baseScale, pos.y + size.y * baseScale };

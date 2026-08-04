@@ -570,19 +570,19 @@ std::unique_ptr<GameState> LevelFactory::LoadLDtkLevel(const std::string& filepa
 
             // ── Bosses (size distinguishes Boss1/2 from Boss3) ────
             } else if (eid == "Boss1") {
-                auto boss = std::make_unique<Boss1>(pos, Vector2{96.0f, 96.0f});
+                auto boss = std::make_unique<Boss1>(pos, Vector2{48.0f, 48.0f});
                 float patrol = (float)GetEntityFieldInt(ei, "PatrolRight", (int)wx + 400);
                 boss->SetDetectionRange(patrol - wx);
                 state->AddEntity(std::move(boss));
                 ++autoEnemies;
             } else if (eid == "Boss2") {
-                auto boss = std::make_unique<Boss2>(pos, Vector2{96.0f, 96.0f});
+                auto boss = std::make_unique<Boss2>(pos, Vector2{48.0f, 48.0f});
                 float patrol = (float)GetEntityFieldInt(ei, "PatrolRight", (int)wx + 400);
                 boss->SetDetectionRange(patrol - wx);
                 state->AddEntity(std::move(boss));
                 ++autoEnemies;
             } else if (eid == "Boss3") {
-                auto boss = std::make_unique<Boss3>(pos, Vector2{128.0f, 128.0f});
+                auto boss = std::make_unique<Boss3>(pos, Vector2{64.0f, 64.0f});
                 float patrol = (float)GetEntityFieldInt(ei, "PatrolRight", (int)wx + 500);
                 boss->SetDetectionRange(patrol - wx);
                 state->AddEntity(std::move(boss));

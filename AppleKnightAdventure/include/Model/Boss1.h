@@ -8,7 +8,9 @@ public:
     Boss1(Vector2 position, Vector2 size);
     
     void UpdateState(float deltaTime, Vector2 playerPos) override;
-    void TransitionToNextPhase() override;
+    virtual void ChangeState(BossState newState) override;
+    virtual void TransitionToNextPhase() override;
+    virtual bool IsFinalPhase() const override { return m_currentPhase == BossPhase::Phase2; }
 
 private:
     void ExecuteMeleeAttack(Vector2 playerPos);

@@ -2,6 +2,7 @@
 #include "Model/GameState.h"
 #include "Model/Projectile.h"
 #include "Controller/GameController.h" // For spawning projectiles maybe? Wait, Boss needs to spawn projectiles via GameState
+#include "View/FloatingText.h"
 #include <cmath>
 #include <algorithm>
 
@@ -20,26 +21,29 @@ void Boss2::TransitionToNextPhase() {
         SetPhase(BossPhase::Phase2);
         ChangeState(BossState::Transition);
         m_cooldownTimer = 2.5f;
-        m_activeTimer = 1.0f;
+        m_activeTimer = 3.0f;
+        m_health = m_maxHealth;
     } else if (m_currentPhase == BossPhase::Phase2) {
         SetPhase(BossPhase::Phase3);
         ChangeState(BossState::Transition);
         m_damage = 30;
         m_cooldownTimer = 2.0f;
-        m_activeTimer = 1.0f;
+        m_activeTimer = 3.0f;
+        m_health = m_maxHealth;
     }
 }
 
 void Boss2::UpdateState(float deltaTime, Vector2 playerPos) {
     if (m_currentState == BossState::Die) return;
 
-    // Check health threshold
-    float hpRatio = (float)m_health / m_maxHealth;
-    if (m_currentPhase == BossPhase::Phase1 && hpRatio <= 0.66f) {
+    float hpRatio = (float)m_health / (float)m_maxHealth;
+
+    // Transition when health drops to 0 (clamped to 1 by Boss::TakeDamage)
+    if (m_currentPhase == BossPhase::Phase1 && m_health <= 1) {
         TransitionToNextPhase();
         return;
     }
-    if (m_currentPhase == BossPhase::Phase2 && hpRatio <= 0.33f) {
+    if (m_currentPhase == BossPhase::Phase2 && m_health <= 1) {
         TransitionToNextPhase();
         return;
     }
@@ -70,19 +74,56 @@ void Boss2::UpdateState(float deltaTime, Vector2 playerPos) {
             Vector2 dir = { (m_direction == Direction::Right) ? -1.0f : 1.0f, 0 }; // Retreat
             Vector2 targetPos = {m_position.x + dir.x * teleportDist, m_position.y};
             
-            // Check wall using DDA Raycast
-            if (!CheckLineOfSight(GetCenter(), {targetPos.x + m_size.x/2, targetPos.y + m_size.y/2})) {
-                // Blocked by wall, just teleport 100px or fallback
-                targetPos.x = m_position.x + dir.x * 100.0f;
+            // Scan backwards to find a valid teleport destination
+            bool foundSpot = false;
+            auto scanForSpot = [&](Vector2 scanDir) {
+                Vector2 scanPos = {m_position.x + scanDir.x * teleportDist, m_position.y};
+                while (std::abs(scanPos.x - m_position.x) > 10.0f) {
+                    bool wallClear = CheckLineOfSight(GetCenter(), {scanPos.x + m_size.x/2, scanPos.y + m_size.y/2});
+                    float floorCheckY = scanPos.y + m_size.y + 10.0f;
+                    bool floorSolid = IsPointSolid({scanPos.x + m_size.x/2, floorCheckY});
+                    
+                    if (wallClear && floorSolid) {
+                        targetPos = scanPos;
+                        return true;
+                    }
+                    scanPos.x -= scanDir.x * 20.0f;
+                }
+                return false;
+            };
+
+            foundSpot = scanForSpot(dir);
+            if (!foundSpot) {
+                // If cornered, try teleporting to the OTHER side (past the player)
+                foundSpot = scanForSpot({-dir.x, dir.y});
+            }
+            
+            if (!foundSpot) {
+                targetPos.x = m_position.x; // Don't teleport if no safe spot
+            }
+
+            // Keep teleport destination inside the map so the boss never escapes
+            if (m_gameState) {
+                float mapW = m_gameState->GetMapWidth() * TILE_SIZE;
+                float mapH = m_gameState->GetMapHeight() * TILE_SIZE;
+                float minX = 0.0f, minY = 0.0f;
+                float maxX = mapW - m_size.x, maxY = mapH - m_size.y;
+                if (maxX < minX) maxX = minX;
+                if (maxY < minY) maxY = minY;
+                if (targetPos.x < minX) targetPos.x = minX;
+                else if (targetPos.x > maxX) targetPos.x = maxX;
+                if (targetPos.y < minY) targetPos.y = minY;
+                else if (targetPos.y > maxY) targetPos.y = maxY;
             }
             // Move instantly
             m_position.x = targetPos.x;
+            m_position.y = targetPos.y;
         }
         
         m_activeTimer -= deltaTime;
         if (m_activeTimer <= 0.0f) {
             ChangeState(BossState::Idle);
-            m_cooldownTimer = 2.0f;
+            m_cooldownTimer = 0.0f; // Attack immediately after retreating
         }
         return;
     }
@@ -126,7 +167,7 @@ void Boss2::UpdateState(float deltaTime, Vector2 playerPos) {
         }
         m_activeTimer -= deltaTime;
         if (m_activeTimer <= 0.0f) {
-            m_cooldownTimer = 5.0f;
+            m_cooldownTimer = 10.0f; // Increased cooldown to avoid spam
             ChangeState(BossState::Idle);
         }
         return;
@@ -161,7 +202,7 @@ void Boss2::UpdateState(float deltaTime, Vector2 playerPos) {
                     m_chargeTimer = 0.4f;
                     m_activeTimer = m_chargeTimer + 0.2f;
                 }
-            } else if ((m_currentPhase == BossPhase::Phase2 || m_currentPhase == BossPhase::Phase3) && hpRatio < 0.5f && (rand() % 3 == 0)) {
+            } else if ((m_currentPhase == BossPhase::Phase2 || m_currentPhase == BossPhase::Phase3) && hpRatio < 0.75f && (rand() % 2 == 0)) {
                 ChangeState(BossState::Skill2); // Heal + Zoning
                 m_chargeTimer = 1.0f;
                 m_activeTimer = m_chargeTimer + 0.5f;
@@ -174,11 +215,17 @@ void Boss2::UpdateState(float deltaTime, Vector2 playerPos) {
             // Keep distance using walk if teleport is on CD
             if (dist < 200.0f) {
                 ChangeState(BossState::Walk);
-                Vector2 dir = { (dx > 0) ? -1.0f : 1.0f, 0 }; // Run away
-                Vector2 nextPos = {m_position.x + dir.x * m_speed * deltaTime, m_position.y};
-                if (!IsPointSolid({nextPos.x + (dir.x > 0 ? m_size.x : 0), nextPos.y + m_size.y - 1})) {
-                    Move(dir, deltaTime);
+                float dirX = (dx > 0) ? -1.0f : 1.0f; // Run away
+                
+                // Cliff detection
+                float checkX = m_position.x + (dirX > 0 ? m_size.x + 10.0f : -10.0f);
+                float checkY = m_position.y + m_size.y + 10.0f; // 10 pixels below feet
+                if (!IsPointSolid({checkX, checkY})) {
+                    dirX = 0.0f; // Stop moving if there's no ground
+                    ChangeState(BossState::Idle);
                 }
+                
+                MoveX(dirX, deltaTime);
             } else {
                 ChangeState(BossState::Idle);
             }
@@ -193,10 +240,10 @@ void Boss2::ExecuteProjectileAttack() {
     
     Attack(); // Play attack animation
     
-    Vector2 pSize = {16.0f, 16.0f};
+    Vector2 pSize = {64.0f, 64.0f};
     Vector2 spawnPos = {
         m_position.x + (m_direction == Direction::Right ? m_size.x : -pSize.x),
-        m_position.y + m_size.y * 0.5f
+        m_position.y + (m_size.y - pSize.y) * 0.5f
     };
     
     auto proj1 = std::make_unique<Projectile>(spawnPos, pSize, ProjectileType::BossAttack, m_direction, m_damage, m_id);
@@ -220,6 +267,10 @@ void Boss2::ExecuteHealing() {
     m_health += 50;
     if (m_health > m_maxHealth) m_health = m_maxHealth;
     
+    // Emit floating text
+    View::FloatingTextManager::GetInstance().Emit(
+        {m_position.x + m_size.x * 0.5f, m_position.y}, "+50", GREEN, 1.0f);
+    
     // Zoning Combo: Spawn AoE on self to prevent player melee interrupts
     Vector2 selfTarget = {m_position.x + m_size.x/2, m_position.y + m_size.y - 1};
     CheckAndSpawnTelegraph(selfTarget); // Spawn telegraph, actual explosion is synced with charge timer?
@@ -239,7 +290,7 @@ void Boss2::ExecuteTargetedAoE(Vector2 playerPos) {
     
     auto proj = std::make_unique<Projectile>(spawnPos, pSize, ProjectileType::BossAttack, Direction::None, 40, m_id);
     proj->SetVelocity({0.0f, 0.0f});
-    // In Projectile logic, we can add a lifetime field.
+    proj->SetLifetime(0.5f); // Limit lifetime so it doesn't stay forever and cause crash
     m_gameState->AddEntity(std::move(proj));
 }
 

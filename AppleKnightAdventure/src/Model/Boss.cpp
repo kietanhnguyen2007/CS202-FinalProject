@@ -21,6 +21,7 @@ Boss::Boss(Vector2 position, Vector2 size, int bossType)
     , m_superArmor(false)
     , m_recentDamage(0)
     , m_damageTimer(0.0f)
+    , m_wantsMelee(false)
     , m_gameState(nullptr)
 {
     m_speed = BOSS_SPEED;
@@ -31,6 +32,16 @@ Boss::Boss(Vector2 position, Vector2 size, int bossType)
 
 void Boss::Update(float deltaTime) {
     Character::Update(deltaTime);
+    if (!m_active) return;
+
+    if (m_currentState == BossState::Die) {
+        m_activeTimer -= deltaTime;
+        if (m_activeTimer <= 0.0f) {
+            m_active = false;
+        }
+        return;
+    }
+
     m_phaseTimer += deltaTime;
     
     if (m_cooldownTimer > 0.0f) {
@@ -58,6 +69,10 @@ void Boss::ChangeState(BossState newState) {
     m_activeTimer = 0.0f;
     m_skillFired = false;
     
+    if (newState != BossState::Walk) {
+        m_velocity.x = 0.0f; // Stop horizontal movement when not walking
+    }
+    
     if (newState == BossState::Hurt) {
         m_activeTimer = 0.5f; // Hurt animation time
     }
@@ -77,6 +92,8 @@ void Boss::ChangeState(BossState newState) {
 }
 
 void Boss::TakeDamage(int damage) {
+    if (m_currentState == BossState::Transition || m_currentState == BossState::Die) return;
+
     m_health -= damage;
     
     // Accumulate recent damage for anti-stunlock
@@ -86,9 +103,14 @@ void Boss::TakeDamage(int damage) {
     }
 
     if (m_health <= 0) {
-        m_health = 0;
-        ChangeState(BossState::Die);
-        return;
+        if (IsFinalPhase()) {
+            m_health = 0;
+            ChangeState(BossState::Die);
+            m_activeTimer = 2.0f;
+            return;
+        } else {
+            m_health = 1; // leave 1 HP so it triggers phase transition in UpdateState
+        }
     }
     
     // Hurt state interrupts skills unless transitioning or SuperArmor

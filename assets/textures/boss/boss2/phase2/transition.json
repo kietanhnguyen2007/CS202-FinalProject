@@ -1,0 +1,54 @@
+{
+    "clips": {
+        "transition": {
+            "loop": false,
+            "frames": [
+                "transition_0",
+                "transition_1",
+                "transition_2",
+                "transition_3",
+                "transition_4"
+            ],
+            "durations": [
+                0.125,
+                0.125,
+                0.125,
+                0.125,
+                0.125
+            ]
+        }
+    },
+    "frames": {
+        "transition_0": {
+            "x": 0,
+            "y": 0,
+            "w": 145,
+            "h": 224
+        },
+        "transition_1": {
+            "x": 146,
+            "y": 0,
+            "w": 170,
+            "h": 229
+        },
+        "transition_2": {
+            "x": 317,
+            "y": 0,
+            "w": 180,
+            "h": 229
+        },
+        "transition_3": {
+            "x": 498,
+            "y": 0,
+            "w": 193,
+            "h": 236
+        },
+        "transition_4": {
+            "x": 692,
+            "y": 0,
+            "w": 189,
+            "h": 256
+        }
+    },
+    "image": "transition.png"
+}

@@ -8,7 +8,8 @@ public:
     Boss2(Vector2 position, Vector2 size);
     
     void UpdateState(float deltaTime, Vector2 playerPos) override;
-    void TransitionToNextPhase() override;
+    virtual void TransitionToNextPhase() override;
+    virtual bool IsFinalPhase() const override { return m_currentPhase == BossPhase::Phase3; }
 
 private:
     void ExecuteProjectileAttack();

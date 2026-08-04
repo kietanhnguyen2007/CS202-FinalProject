@@ -8,7 +8,7 @@ Boss3::Boss3(Vector2 position, Vector2 size)
 {
     m_damage = 30; // Phase 1
     m_cooldownTimer = 2.0f;
-    m_attackRange = 100.0f;
+    m_attackRange = 60.0f;
     m_detectionRange = 800.0f;
     m_maxHealth = 2000;
     m_health = m_maxHealth;
@@ -20,31 +20,33 @@ void Boss3::TransitionToNextPhase() {
         ChangeState(BossState::Transition);
         m_damage = 40;
         m_cooldownTimer = 1.5f;
-        m_activeTimer = 1.0f;
+        m_activeTimer = 3.0f;
+        m_health = m_maxHealth;
     } else if (m_currentPhase == BossPhase::Phase2) {
         SetPhase(BossPhase::Phase3);
         ChangeState(BossState::Transition);
-        m_activeTimer = 1.0f;
+        m_activeTimer = 3.0f;
+        m_health = m_maxHealth;
     } else if (m_currentPhase == BossPhase::Phase3) {
         SetPhase(BossPhase::Phase4);
         ChangeState(BossState::Transition);
-        m_activeTimer = 1.0f;
+        m_activeTimer = 3.0f;
+        m_health = m_maxHealth;
     }
 }
 
 void Boss3::UpdateState(float deltaTime, Vector2 playerPos) {
     if (m_currentState == BossState::Die) return;
 
-    float hpRatio = (float)m_health / m_maxHealth;
-    if (m_currentPhase == BossPhase::Phase1 && hpRatio <= 0.75f) {
+    if (m_currentPhase == BossPhase::Phase1 && m_health <= 1) {
         TransitionToNextPhase();
         return;
     }
-    if (m_currentPhase == BossPhase::Phase2 && hpRatio <= 0.50f) {
+    if (m_currentPhase == BossPhase::Phase2 && m_health <= 1) {
         TransitionToNextPhase();
         return;
     }
-    if (m_currentPhase == BossPhase::Phase3 && hpRatio <= 0.25f) {
+    if (m_currentPhase == BossPhase::Phase3 && m_health <= 1) {
         TransitionToNextPhase();
         return;
     }
@@ -77,10 +79,9 @@ void Boss3::UpdateState(float deltaTime, Vector2 playerPos) {
     }
 
     if (m_currentState == BossState::Hurt) {
-        m_chargeTimer -= deltaTime;
-        if (m_chargeTimer <= 0.0f && !m_skillFired) {
-            m_skillFired = true;
-            ExecuteMeleeAttack(playerPos);
+        m_activeTimer -= deltaTime;
+        if (m_activeTimer <= 0.0f) {
+            ChangeState(BossState::Idle);
         }
         return;
     }
@@ -204,10 +205,7 @@ void Boss3::UpdateState(float deltaTime, Vector2 playerPos) {
             if (dist > m_attackRange) {
                 ChangeState(BossState::Walk);
                 Vector2 dir = { dx/dist, 0 };
-                Vector2 nextPos = {m_position.x + dir.x * m_speed * deltaTime, m_position.y};
-                if (!IsPointSolid({nextPos.x + (dir.x > 0 ? m_size.x : 0), nextPos.y + m_size.y - 1})) {
-                     Move(dir, deltaTime);
-                }
+                MoveX(dir.x, deltaTime);
             } else {
                 ChangeState(BossState::Idle);
             }
@@ -220,6 +218,7 @@ void Boss3::UpdateState(float deltaTime, Vector2 playerPos) {
 void Boss3::ExecuteMeleeAttack(Vector2 playerPos) {
     if (Distance(GetCenter(), playerPos) <= m_attackRange) {
         Attack();
+        m_wantsMelee = true;
     }
 }
 
