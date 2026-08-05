@@ -2310,7 +2310,7 @@
 							"px": [464,688],
 							"fieldInstances": [
 								{ "__identifier": "PortalType", "__type": "String", "__value": "Local", "__tile": null, "defUid": 110, "realEditorValues": [] },
-								{ "__identifier": "ColorId", "__type": "Int", "__value": 1, "__tile": null, "defUid": 111, "realEditorValues": [] },
+								{ "__identifier": "ColorId", "__type": "Int", "__value": 1, "__tile": null, "defUid": 111, "realEditorValues": [{ "id": "V_Int", "params": [1] }] },
 								{ "__identifier": "TargetLevelId", "__type": "Int", "__value": -1, "__tile": null, "defUid": 112, "realEditorValues": [] }
 							],
 							"__worldX": -96,
