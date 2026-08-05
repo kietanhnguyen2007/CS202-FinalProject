@@ -270,14 +270,9 @@ void Boss3::ExecuteEnergySphere() {
     Attack(); // Play attack_2 animation for Phase 3
     Vector2 pSize = {32.0f, 32.0f};
     
-    // Align Y coordinate with player center
-    Player* player = m_gameState->GetLocalPlayer();
     float scaledWidth = m_size.x * m_scale;
     float scaledHeight = m_size.y * m_scale;
     float spawnY = m_position.y + (scaledHeight - pSize.y) * 0.5f;
-    if (player) {
-        spawnY = player->GetPosition().y + (player->GetSize().y - pSize.y) * 0.5f;
-    }
     
     Vector2 spawnPos = { 
         m_position.x + (m_direction == Direction::Right ? scaledWidth : -pSize.x), 

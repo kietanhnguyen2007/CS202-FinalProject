@@ -1035,7 +1035,7 @@ void GameController::UpdateCombat(float dt) {
                         Vector2 pSize = {32.0f, 32.0f}; // size of bomb
                         Vector2 spawnPos = {
                             enemy->GetPosition().x + (enemy->GetDirection() == Direction::Right ? enemy->GetSize().x : -pSize.x),
-                            enemy->GetPosition().y + (enemy->GetSize().y - pSize.y) * 0.5f
+                            enemy->GetPosition().y + (enemy->GetSize().y - pSize.y) * 0.5f - 15.0f
                         };
                         auto proj = std::make_unique<Projectile>(
                             spawnPos, pSize, ProjectileType::RangedBomb, enemy->GetDirection(), attackDamage, enemy->GetId());
