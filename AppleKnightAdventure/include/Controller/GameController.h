@@ -71,6 +71,7 @@ private:
     void HandlePlayerInput(const struct InputCommand& cmd, float dt);
     void ApplyGravity(Character* character, float dt);
     void ResolveTileCollisions(Character* character, float dt);
+    void ClampEntityToMapBounds(Entity* entity);
     bool IsOnGround(const Character* character) const;
     bool IsRectOnGround(Rectangle box) const;  // item/entity ground check
     void UpdateEnemyAI(float dt);
@@ -137,10 +138,12 @@ private:
 
     // Endgame checkpoint animation state machine
     // Phase: uncaptured -> flag_out playing -> captured (loop)
-    std::set<int> m_endgameFlagRevealedIds;  // IDs where flag_out has been triggered
-    std::set<int> m_endgameFlagCapturedIds;  // IDs now showing checkpoint_captured loop
-    std::unordered_map<int, float> m_flagOutTimers; // tracks time since flag_out started
-    static constexpr float FLAG_OUT_DURATION = 1.35f; // 27 frames x 0.05s
+    std::set<int> m_endgameFlagRevealedIds;
+    std::set<int> m_endgameFlagCapturedIds;
+    std::unordered_map<int, float> m_flagOutTimers;
+    static constexpr float FLAG_OUT_DURATION = 1.35f;
+
+    std::set<uint32_t> m_registeredEntities;
 
     // Boss Arena transition state
     int              m_previousLevelId = -1;          // level to return to after boss arena

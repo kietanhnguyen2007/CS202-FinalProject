@@ -36,6 +36,7 @@ struct AnimationClip {
     std::vector<AnimationFrame> frames;
     bool loop = true;
     float totalDuration = 0.0f; // cached sum of all frame durations
+    float scale = 1.0f;         // per-clip scale multiplier (e.g. normalize oversized hurt frames)
 };
 
 class Animator {
@@ -74,6 +75,7 @@ public:
     // Query for rendering
     Rectangle GetCurrentSrcRect() const;
     Vector2 GetCurrentOrigin() const;
+    float GetCurrentClipScale() const;
     bool GetFlipX() const;
     void SetFlipX(bool flip);
     bool HasTexture() const;

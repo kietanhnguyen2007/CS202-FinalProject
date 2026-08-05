@@ -30,6 +30,7 @@ protected:
     Vector2 m_velocity;
     float m_rotation;
     float m_scale;
+    Vector2 m_scale2D;
     bool m_active;
 
 public:
@@ -56,6 +57,8 @@ public:
     void SetRotation(float rotation);
     float GetScale() const;
     void SetScale(float scale);
+    Vector2 GetScale2D() const;
+    void SetScale2D(Vector2 scale2D);
 
     // Lifecycle
     bool IsActive() const;

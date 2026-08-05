@@ -6,6 +6,7 @@
 #include <iostream>
 #include <cmath>
 #include <cassert>
+#include <algorithm>
 
 namespace View {
 
@@ -247,9 +248,10 @@ void CharacterRenderer::UpdateAll(float dt) {
                     {"dead",          {"death", "idle"}},
                     {"skill",         {"attack", "idle"}},
                     {"parry",         {"idle"}},
-                    {"ultimate_skill",{"skill", "attack", "idle"}},
-                    {"attack_2",      {"attack", "idle"}},
-                    {"attack_3",      {"attack", "idle"}},
+                    {"ultimate_skill",{"attack", "skill", "idle"}},
+                    {"attack",        {"attack_1", "idle"}},
+                    {"attack_2",      {"attack", "attack_1", "idle"}},
+                    {"attack_3",      {"attack", "attack_1", "idle"}},
                 };
                 auto it = fallback.find(clipName);
                 if (it != fallback.end()) {
@@ -299,17 +301,33 @@ void CharacterRenderer::RenderAll() {
         } else if (entity->GetType() == EntityType::Enemy) {
             visualScale = 0.6f * 1.7f; // Enemy: large, same as big tiles
         } else if (entity->GetType() == EntityType::Boss) {
-            visualScale = 0.77f * 1.7f;
+            visualScale = 0.77f * 1.7f * 0.5f;
+            auto phaseIt = m_bossPhases.find(id);
+            if (phaseIt != m_bossPhases.end()) {
+                if (phaseIt->second == BossPhase::Phase4) {
+                    visualScale *= 2.085f; // Scale up Phase 4 character size to match Phase 3
+                } else if (phaseIt->second == BossPhase::Phase3) {
+                    visualScale *= 1.35f; // Scale up Phase 3 character size to match Phase 2
+                } else if (phaseIt->second == BossPhase::Phase1) {
+                    visualScale *= 0.74f; // Shrink Phase 1 character size to match Phase 2
+                }
+            } else {
+                visualScale *= 0.74f; // Default (Phase 1)
+            }
         }
+
+        // Apply per-clip scale (e.g. oversized boss hurt frames normalized to idle size)
+        visualScale *= animator.GetCurrentClipScale();
 
         // Bounding box bottom center
         Vector2 bottomCenter = { pos.x + size.x * 0.5f * baseScale, pos.y + size.y * baseScale };
         Rectangle srcRect = animator.GetCurrentSrcRect();
         
         float originYFactor = 1.0f;
-        if (entity->GetType() == EntityType::Enemy || entity->GetType() == EntityType::Boss) {
+        if (entity->GetType() == EntityType::Enemy) {
             originYFactor = 0.6667f; // Adjust for empty space at the bottom of the sprite frames
         }
+        // Boss uses 1.0f by default, removing the 0.6667f which caused them to sink
         
         Vector2 customOrigin = { srcRect.width * 0.5f * visualScale, srcRect.height * originYFactor * visualScale };
 
@@ -384,6 +402,14 @@ void CharacterRenderer::SetBossPhase(uint32_t entityId, BossPhase phase) {
     m_bossPhases[entityId] = phase;
 }
 
+BossPhase CharacterRenderer::GetBossPhase(uint32_t entityId) const {
+    auto it = m_bossPhases.find(entityId);
+    if (it != m_bossPhases.end()) {
+        return it->second;
+    }
+    return BossPhase::Phase1;
+}
+
 void CharacterRenderer::ClearBossPhase(uint32_t entityId) {
     m_bossPhases.erase(entityId);
 }
@@ -397,6 +423,7 @@ static const char* PhaseSubdir(BossPhase phase) {
         case BossPhase::Phase1:   return "phase1";
         case BossPhase::Phase2:   return "phase2";
         case BossPhase::Phase3:   return "phase3";
+        case BossPhase::Phase4:
         case BossPhase::Enraged:  return "phase4";
         default:                  return "phase1";
     }
@@ -418,13 +445,23 @@ bool CharacterRenderer::SwitchPhase(uint32_t entityId, BossPhase phase) {
         "attack_1", "attack_2", "attack_3",
         "projectile_attack1", "projectile_attack2",
         "hurt", "dead", "healing", "skill",
-        "fall", "parry", "ultimate_skill"
+        "fall", "parry", "ultimate_skill", "transition",
+        "transition1", "transition2", "transition3"
     };
 
     auto& animator = animIt->second;
     animator.ClearClips();
 
     bool anyLoaded = false;
+    float referenceHeight = 0.0f; // reference clip height (idle) for normalizing oversized frames
+    std::vector<std::pair<std::string, std::shared_ptr<Animations::AnimationClip>>> loadedClips;
+
+    auto clipMaxHeight = [](const Animations::AnimationClip& c) {
+        float h = 0.0f;
+        for (const auto& f : c.frames) h = std::max(h, f.src.height);
+        return h;
+    };
+
     for (const char* name : clipFiles) {
         std::string path = phaseDir + name + ".json";
         auto cacheIt = m_atlasCache.find(path);
@@ -432,16 +469,55 @@ bool CharacterRenderer::SwitchPhase(uint32_t entityId, BossPhase phase) {
             if (!PreloadAtlas(path)) continue;
             cacheIt = m_atlasCache.find(path);
         }
-        for (const auto& clipName : cacheIt->second->GetClipNames()) {
-            auto clip = cacheIt->second->GetClip(clipName);
-            if (clip) {
-                animator.AddClip(clip);
-                anyLoaded = true;
+        for (const auto& rawClip : cacheIt->second->GetClipNames()) {
+            auto clip = cacheIt->second->GetClip(rawClip);
+            if (!clip) continue;
+            // Alias the raw clip so the state->clip map in UpdateAll keeps working.
+            // attack_1 -> attack, transition -> skill; others keep their names.
+            std::string alias;
+            if (rawClip == "attack_1") alias = "attack";
+            else if (rawClip == "transition" || rawClip == "transition1" || rawClip == "transition2" || rawClip == "transition3") alias = "skill";
+            else if (rawClip == "healing") alias = "attack_2";
+            if (!alias.empty()) {
+                auto cloned = std::make_shared<Animations::AnimationClip>(*clip);
+                cloned->name = alias;
+                loadedClips.emplace_back(alias, cloned);
+            } else {
+                loadedClips.emplace_back(rawClip, clip);
             }
+            anyLoaded = true;
         }
     }
 
-    if (!anyLoaded) return false;
+    // Normalize oversized clips (e.g. boss2 hurt at 284x259 vs idle 123x226) so they
+    // render at the same size as the idle clip. Falls back to walk/attack when no idle.
+    std::string refKey = "idle";
+    if (std::find_if(loadedClips.begin(), loadedClips.end(),
+            [&](const auto& c){ return c.first == refKey; }) == loadedClips.end()) {
+        if (std::find_if(loadedClips.begin(), loadedClips.end(),
+                [&](const auto& c){ return c.first == "walk"; }) != loadedClips.end()) refKey = "walk";
+        else if (!loadedClips.empty()) refKey = loadedClips.front().first;
+    }
+    for (const auto& c : loadedClips) {
+        if (c.first == refKey) {
+            referenceHeight = clipMaxHeight(*c.second);
+            break;
+        }
+    }
+    for (auto& c : loadedClips) {
+        float h = clipMaxHeight(*c.second);
+        if (referenceHeight > 0.0f && h > referenceHeight) {
+            c.second->scale = referenceHeight / h;
+        }
+        animator.AddClip(c.second);
+    }
+
+    if (!anyLoaded) {
+        if (phase == BossPhase::Phase3) {
+            return SwitchPhase(entityId, BossPhase::Phase2);
+        }
+        return false;
+    }
 
     m_bossPhases[entityId] = phase;
     return true;
@@ -483,7 +559,7 @@ void CharacterRenderer::RenderBossPhaseOverlay(uint32_t entityId, const Entity* 
         Vector2 size = entity->GetSize();
         float baseScale = entity->GetScale();
         
-        float visualScale = 0.77f * 1.7f; // Boss visual scale matches RenderAll
+        float visualScale = 0.77f * 1.7f * 0.5f; // Boss visual scale matches RenderAll
         if (phaseIt->second == BossPhase::Enraged) visualScale *= 1.3f;
         
         Vector2 bottomCenter = { pos.x + size.x * 0.5f * baseScale, pos.y + size.y * baseScale };

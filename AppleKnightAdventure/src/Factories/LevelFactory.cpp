@@ -1,7 +1,9 @@
 #include "Factories/LevelFactory.h"
 #include "Factories/EnemyFactory.h"
 #include "Factories/ItemFactory.h"
-#include "Model/Boss.h"
+#include "Model/Boss1.h"
+#include "Model/Boss2.h"
+#include "Model/Boss3.h"
 #include "Model/Chest.h"
 #include "Model/Checkpoint.h"
 #include "Model/FakeWall.h"
@@ -154,10 +156,20 @@ std::unique_ptr<GameState> LevelFactory::LoadLevel(const std::string& filepath,
                 enemyType = EnemyType::Flying;
             }
             state->AddEntity(EnemyFactory::CreateEnemy({tx * TILE_SIZE, ty * TILE_SIZE}, enemyType));
-        } else if (token == "boss") {
+        } else if (token == "boss1") {
             float tx = 0.0f, ty = 0.0f, sx = 0.0f, sy = 0.0f;
             file >> tx >> ty >> sx >> sy;
-            auto boss = std::make_unique<Boss>(Vector2{tx * TILE_SIZE, ty * TILE_SIZE}, Vector2{sx, sy});
+            auto boss = std::make_unique<Boss1>(Vector2{tx * TILE_SIZE, ty * TILE_SIZE}, Vector2{sx, sy});
+            state->AddEntity(std::move(boss));
+        } else if (token == "boss2") {
+            float tx = 0.0f, ty = 0.0f, sx = 0.0f, sy = 0.0f;
+            file >> tx >> ty >> sx >> sy;
+            auto boss = std::make_unique<Boss2>(Vector2{tx * TILE_SIZE, ty * TILE_SIZE}, Vector2{sx, sy});
+            state->AddEntity(std::move(boss));
+        } else if (token == "boss3") {
+            float tx = 0.0f, ty = 0.0f, sx = 0.0f, sy = 0.0f;
+            file >> tx >> ty >> sx >> sy;
+            auto boss = std::make_unique<Boss3>(Vector2{tx * TILE_SIZE, ty * TILE_SIZE}, Vector2{sx, sy});
             state->AddEntity(std::move(boss));
         } else if (token == "chest") {
             float tx = 0.0f;
@@ -271,7 +283,8 @@ bool LevelFactory::SaveLevel(const std::string& filepath, GameState* state) {
                 break;
             }
             case EntityType::Boss: {
-                file << "boss " << tx << " " << ty << " " << entity->GetSize().x << " " << entity->GetSize().y << "\n";
+                auto bossType = static_cast<Boss*>(entity.get())->GetBossType();
+                file << "boss" << bossType << " " << tx << " " << ty << " " << entity->GetSize().x << " " << entity->GetSize().y << "\n";
                 break;
             }
             case EntityType::Chest: {
@@ -557,19 +570,19 @@ std::unique_ptr<GameState> LevelFactory::LoadLDtkLevel(const std::string& filepa
 
             // ── Bosses (size distinguishes Boss1/2 from Boss3) ────
             } else if (eid == "Boss1") {
-                auto boss = std::make_unique<Boss>(pos, Vector2{96.0f, 96.0f});
+                auto boss = std::make_unique<Boss1>(pos, Vector2{48.0f, 48.0f});
                 float patrol = (float)GetEntityFieldInt(ei, "PatrolRight", (int)wx + 400);
                 boss->SetDetectionRange(patrol - wx);
                 state->AddEntity(std::move(boss));
                 ++autoEnemies;
             } else if (eid == "Boss2") {
-                auto boss = std::make_unique<Boss>(pos, Vector2{96.0f, 96.0f});
+                auto boss = std::make_unique<Boss2>(pos, Vector2{48.0f, 48.0f});
                 float patrol = (float)GetEntityFieldInt(ei, "PatrolRight", (int)wx + 400);
                 boss->SetDetectionRange(patrol - wx);
                 state->AddEntity(std::move(boss));
                 ++autoEnemies;
             } else if (eid == "Boss3") {
-                auto boss = std::make_unique<Boss>(pos, Vector2{128.0f, 128.0f});
+                auto boss = std::make_unique<Boss3>(pos, Vector2{64.0f, 64.0f});
                 float patrol = (float)GetEntityFieldInt(ei, "PatrolRight", (int)wx + 500);
                 boss->SetDetectionRange(patrol - wx);
                 state->AddEntity(std::move(boss));

@@ -30,15 +30,28 @@ public:
     Direction GetDirection() const;
     int GetOwnerId() const;
     float GetLifetime() const;
+    float GetLifeTimer() const { return m_lifeTimer; }
     bool HasExpired() const;
     void OnHit();
     void SetLifetime(float lifetime) { m_lifetime = lifetime; }
     void SetDamage(int damage) { m_damage = damage; }
+    void SetVelocity(Vector2 vel) { m_velocity = vel; }
+
+    // Hit tracking
+    bool      m_hasHit           = false;
+
+    // Subtype for specific projectile identification (e.g., Boss3 has multiple projectiles)
+    int       m_subType          = 0;
+    int       GetSubType() const { return m_subType; }
+    void      SetSubType(int subType) { m_subType = subType; }
 
     // Homing
     bool IsHoming() const { return m_isHoming; }
     void SetHoming(bool homing) { m_isHoming = homing; }
     void SetHomingTargetPos(Vector2 pos) { m_homingTargetPos = pos; }
+
+    bool HasHit() const { return m_hasHit; }
+    void SetHasHit(bool hit) { m_hasHit = hit; }
 };
 
 #endif

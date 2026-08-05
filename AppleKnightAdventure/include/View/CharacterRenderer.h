@@ -62,6 +62,7 @@ public:
 
     // Boss phase visual override
     void SetBossPhase(uint32_t entityId, BossPhase phase);
+    BossPhase GetBossPhase(uint32_t entityId) const;
     void ClearBossPhase(uint32_t entityId);
 
     // Set the asset root path for a boss entity (e.g. "assets/textures/boss/boss2/")

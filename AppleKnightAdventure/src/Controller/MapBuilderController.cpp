@@ -9,6 +9,9 @@
 #include "Factories/ItemFactory.h"
 #include "Model/Command.h"
 #include "Model/Player.h"
+#include "Model/Boss1.h"
+#include "Model/Boss2.h"
+#include "Model/Boss3.h"
 #include "Model/Checkpoint.h"
 #include "Model/Chest.h"
 #include "Model/TriggerZone.h"
@@ -134,11 +137,13 @@ void MapBuilderController::Playtest() {
     // For now, I'll let the user know we need to integrate this.
 }
 
-void MapBuilderController::Update(float dt) {
+void MapBuilderController::Update(float deltaTime) {
     if (!m_isRunning || !m_gameState) return;
 
+    m_gameState->Update(deltaTime); // Merges m_newEntities
+
     auto& view = View::MapBuilderView::GetInstance();
-    view.Update(dt);
+    view.Update(deltaTime);
 
     if (view.WantsExit()) ExitEditor();
     if (view.WantsSave()) SaveMap(view.GetFileName());
@@ -194,9 +199,9 @@ void MapBuilderController::Update(float dt) {
     View::GameView::GetInstance().SetTiles(MapLayer::Background, &m_gameState->GetTiles(MapLayer::Background));
     View::GameView::GetInstance().SetTiles(MapLayer::Main, &m_gameState->GetTiles(MapLayer::Main));
     View::GameView::GetInstance().SetTiles(MapLayer::Foreground, &m_gameState->GetTiles(MapLayer::Foreground));
-    View::GameView::GetInstance().Update(dt);
+    View::GameView::GetInstance().Update(deltaTime);
 
-    HandleInput(dt);
+    HandleInput(deltaTime);
 
     // Sync newly added entities to the visual renderers
     std::set<uint32_t> currentIds;
@@ -230,7 +235,7 @@ void MapBuilderController::Update(float dt) {
     // We don't call GameView::Render because it clears background and flushes buffers with its own logic.
     // Instead we render tilemaps manually or use GameView. Let's just use GameView::Render for now,
     // but pass empty particles.
-    View::GameView::GetInstance().Render(m_camera, {}, dt);
+    View::GameView::GetInstance().Render(m_camera, {}, deltaTime);
 
     BeginMode2D(m_camera);
     view.RenderWorldOverlay(m_camera, m_gameState.get(), GetScreenToWorld2D(GetMousePosition(), m_camera));
@@ -364,18 +369,37 @@ void MapBuilderController::HandleTool(Vector2 mouseWorldPos) {
                 EntityType et = view.GetSelectedEntityType();
                 int sub = view.GetSelectedEntitySubType();
                 switch (et) {
-                    case EntityType::Player: newEntity = std::make_unique<Player>(pos); break;
+                    case EntityType::Player: 
+                        pos.y += TILE_SIZE - 48.0f; // Player is 48 high
+                        newEntity = std::make_unique<Player>(pos); 
+                        break;
+
                     case EntityType::Enemy: 
+                        pos.y += TILE_SIZE - 48.0f; // Enemies are 48 high
                         newEntity = EnemyFactory::CreateEnemy(pos, sub == 0 ? EnemyType::Melee : EnemyType::Ranged); 
                         break;
                     case EntityType::Boss: 
-                        if (sub == 3) newEntity = std::make_unique<Boss>(pos, Vector2{128,128}, 3); 
-                        else if (sub == 2) newEntity = std::make_unique<Boss>(pos, Vector2{96,96}, 2);
-                        else newEntity = std::make_unique<Boss>(pos, Vector2{96,96}, 1); 
+                        if (sub == 3) {
+                            pos.y += TILE_SIZE - 64.0f;
+                            newEntity = std::make_unique<Boss3>(pos, Vector2{64,64}); 
+                        } else if (sub == 2) {
+                            pos.y += TILE_SIZE - 48.0f;
+                            newEntity = std::make_unique<Boss2>(pos, Vector2{48,48});
+                        } else {
+                            pos.y += TILE_SIZE - 48.0f;
+                            newEntity = std::make_unique<Boss1>(pos, Vector2{48,48}); 
+                        }
                         break;
-                    case EntityType::Chest: newEntity = std::make_unique<Chest>(pos); break;
-                    case EntityType::Checkpoint: newEntity = std::make_unique<Checkpoint>(pos); break;
+                    case EntityType::Chest: 
+                        pos.y += TILE_SIZE - 32.0f; // Chests are 32 high
+                        newEntity = std::make_unique<Chest>(pos); 
+                        break;
+                    case EntityType::Checkpoint: 
+                        pos.y += TILE_SIZE - 64.0f;
+                        newEntity = std::make_unique<Checkpoint>(pos); 
+                        break;
                     case EntityType::TeleportPortal: {
+                        pos.y += TILE_SIZE - 64.0f; // Teleport portal is 64 high
                         PortalType pt = (sub >= 200) ? PortalType::LevelTransition : PortalType::Local;
                         int colIndex = (sub >= 200) ? (sub - 200) : (sub - 100);
                         int colorId = 2; // Default Blue
@@ -388,6 +412,7 @@ void MapBuilderController::HandleTool(Vector2 mouseWorldPos) {
                         break;
                     }
                     case EntityType::Item: 
+                        pos.y += TILE_SIZE - 16.0f; // Items are 16 high
                         if (sub == 0) newEntity = ItemFactory::CreateCoin(pos, 10);
                         else if (sub == 2) newEntity = ItemFactory::CreateKey(pos);
                         else if (sub == 3) newEntity = ItemFactory::CreatePotion(pos, 1);

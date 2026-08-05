@@ -8,6 +8,7 @@ Entity::Entity()
     , m_velocity({0, 0})
     , m_rotation(0.0f)
     , m_scale(1.0f)
+    , m_scale2D({1.0f, 1.0f})
     , m_active(true)
 {
 }
@@ -20,6 +21,7 @@ Entity::Entity(EntityType type)
     , m_velocity({0, 0})
     , m_rotation(0.0f)
     , m_scale(1.0f)
+    , m_scale2D({1.0f, 1.0f})
     , m_active(true)
 {
 }
@@ -32,6 +34,7 @@ Entity::Entity(Vector2 position, Vector2 size, EntityType type)
     , m_velocity({0, 0})
     , m_rotation(0.0f)
     , m_scale(1.0f)
+    , m_scale2D({1.0f, 1.0f})
     , m_active(true)
 {
 }
@@ -50,6 +53,8 @@ float Entity::GetRotation() const { return m_rotation; }
 void Entity::SetRotation(float rotation) { m_rotation = rotation; }
 float Entity::GetScale() const { return m_scale; }
 void Entity::SetScale(float scale) { m_scale = scale; }
+Vector2 Entity::GetScale2D() const { return m_scale2D; }
+void Entity::SetScale2D(Vector2 scale2D) { m_scale2D = scale2D; }
 
 bool Entity::IsActive() const { return m_active; }
 void Entity::SetActive(bool active) { m_active = active; }

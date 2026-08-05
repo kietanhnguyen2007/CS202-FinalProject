@@ -34,7 +34,7 @@ void GameState::AddEntity(std::unique_ptr<Entity> entity) {
     if (entity && entity->GetId() == 0) {
         entity->SetId(GenerateEntityId());
     }
-    m_entities.push_back(std::move(entity));
+    m_newEntities.push_back(std::move(entity));
 }
 
 void GameState::RemoveEntity(int entityId) {
@@ -257,11 +257,21 @@ bool GameState::IsLevelComplete() const {
 }
 
 void GameState::Update(float deltaTime) {
+    // Always merge new entities immediately so they are visible (e.g. in Map Builder)
+    for (auto& entity : m_newEntities) {
+        m_entities.push_back(std::move(entity));
+    }
+    m_newEntities.clear();
+
+    if (!m_timerRunning) return;
+
     if (m_localPlayer) {
         m_localPlayer->Update(deltaTime);
     }
     for (auto& entity : m_entities) {
-        entity->Update(deltaTime);
+        if (entity->IsActive()) {
+            entity->Update(deltaTime);
+        }
     }
 }
 
