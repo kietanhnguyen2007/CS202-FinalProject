@@ -304,7 +304,9 @@ void CharacterRenderer::RenderAll() {
             visualScale = 0.77f * 1.7f * 0.5f;
             auto phaseIt = m_bossPhases.find(id);
             if (phaseIt != m_bossPhases.end()) {
-                if (phaseIt->second == BossPhase::Phase3) {
+                if (phaseIt->second == BossPhase::Phase4) {
+                    visualScale *= 2.085f; // Scale up Phase 4 character size to match Phase 3
+                } else if (phaseIt->second == BossPhase::Phase3) {
                     visualScale *= 1.35f; // Scale up Phase 3 character size to match Phase 2
                 } else if (phaseIt->second == BossPhase::Phase1) {
                     visualScale *= 0.74f; // Shrink Phase 1 character size to match Phase 2
@@ -421,6 +423,7 @@ static const char* PhaseSubdir(BossPhase phase) {
         case BossPhase::Phase1:   return "phase1";
         case BossPhase::Phase2:   return "phase2";
         case BossPhase::Phase3:   return "phase3";
+        case BossPhase::Phase4:
         case BossPhase::Enraged:  return "phase4";
         default:                  return "phase1";
     }
@@ -442,7 +445,8 @@ bool CharacterRenderer::SwitchPhase(uint32_t entityId, BossPhase phase) {
         "attack_1", "attack_2", "attack_3",
         "projectile_attack1", "projectile_attack2",
         "hurt", "dead", "healing", "skill",
-        "fall", "parry", "ultimate_skill", "transition"
+        "fall", "parry", "ultimate_skill", "transition",
+        "transition1", "transition2", "transition3"
     };
 
     auto& animator = animIt->second;
@@ -472,7 +476,7 @@ bool CharacterRenderer::SwitchPhase(uint32_t entityId, BossPhase phase) {
             // attack_1 -> attack, transition -> skill; others keep their names.
             std::string alias;
             if (rawClip == "attack_1") alias = "attack";
-            else if (rawClip == "transition") alias = "skill";
+            else if (rawClip == "transition" || rawClip == "transition1" || rawClip == "transition2" || rawClip == "transition3") alias = "skill";
             else if (rawClip == "healing") alias = "attack_2";
             if (!alias.empty()) {
                 auto cloned = std::make_shared<Animations::AnimationClip>(*clip);

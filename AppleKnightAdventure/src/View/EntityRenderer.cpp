@@ -1,6 +1,7 @@
 #include "View/EntityRenderer.h"
 #include "View/Renderer.h"
 #include "View/AssetManager.h"
+#include "Model/Projectile.h"
 #include <functional>
 #include <cassert>
 #include <iostream>
@@ -110,11 +111,73 @@ void EntityRenderer::RenderAll() {
         if (!ad.animator.HasTexture()) continue;
 
         Rectangle src = ad.animator.GetCurrentSrcRect();
+
+        if (entity->GetType() == EntityType::Projectile) {
+            auto* proj = static_cast<const Projectile*>(entity);
+            if (proj->GetSubType() == 3) {
+                // Beam sequential drawing logic: 9 segments, drawn side-by-side but OVERLAPPING
+                // The overlapping (segStep = 110) removes gaps and creates a solid continuous beam.
+                int maxSegments = 9;
+                float lifeRatio = proj->GetLifeTimer() / proj->GetLifetime();
+                int visibleSegments = static_cast<int>(lifeRatio * maxSegments) + 1;
+                if (visibleSegments > maxSegments) visibleSegments = maxSegments;
+
+                const auto& clipNames = ad.atlas->GetClipNames();
+                if (!clipNames.empty()) {
+                    auto clip = ad.atlas->GetClip(clipNames.front());
+                    if (clip) {
+                        Vector2 basePos = entity->GetPosition();
+                        bool faceLeft = (proj->GetDirection() == Direction::Left);
+                        
+                        // We overlap the segments by setting segStep to 110.0f (half of 220px)
+                        // This removes the gaps. Total length will be ~ 8*110 + 220 = 1100px.
+                        float segStep = 110.0f; 
+
+                        for (int i = 0; i < visibleSegments; ++i) {
+                            if (i >= clip->frames.size()) break;
+                            Rectangle segSrc = clip->frames[i].src; 
+                            
+                            Vector2 pos = basePos;
+                            if (faceLeft) {
+                                // Boss is at basePos.x + 1000. Beam grows leftwards.
+                                pos.x = basePos.x + 1000.0f - (i * segStep) - segSrc.width;
+                            } else {
+                                // Boss is at basePos.x. Beam grows rightwards.
+                                pos.x = basePos.x + i * segStep;
+                            }
+                            
+                            Vector2 segScale = { entity->GetScale(), entity->GetScale() };
+                            
+                            View::Renderer::GetInstance().SubmitSprite(
+                                ad.animator.GetTexture(),
+                                segSrc,
+                                pos,
+                                segScale,
+                                entity->GetRotation(),
+                                {0.0f, 67.5f}, // Align Y axis
+                                WHITE,
+                                View::Layer::World,
+                                0.0f,
+                                faceLeft,
+                                id
+                            );
+                        }
+                    }
+                }
+                continue; // Skip the default SubmitSprite for the beam
+            }
+        }
+
+        Vector2 scale2d = entity->GetScale2D();
+
+        scale2d.x *= entity->GetScale();
+        scale2d.y *= entity->GetScale();
+        
         View::Renderer::GetInstance().SubmitSprite(
             ad.animator.GetTexture(),
             src,
             entity->GetPosition(),
-            {entity->GetScale(), entity->GetScale()},
+            scale2d,
             entity->GetRotation(),
             ad.origin,
             WHITE,
@@ -131,11 +194,15 @@ void EntityRenderer::RenderAll() {
         if (!data.visible) continue;
         if (!entity || !entity->IsActive() || !data.texture) continue;
 
+        Vector2 scale2d = entity->GetScale2D();
+        scale2d.x *= entity->GetScale();
+        scale2d.y *= entity->GetScale();
+
         View::Renderer::GetInstance().SubmitSprite(
             data.texture,
             data.src,
             entity->GetPosition(),
-            {entity->GetScale(), entity->GetScale()},
+            scale2d,
             entity->GetRotation(),
             data.origin,
             WHITE,             // Màu tint mặc định

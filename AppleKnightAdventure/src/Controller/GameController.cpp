@@ -274,13 +274,14 @@ void GameController::RegisterEntityVisuals(Entity* entity) {
                                 }
                             }
                         } else if (boss->GetBossType() == 3) {
-                            if (sz.y == 32.0f && sz.x == 32.0f) {
+                            int subType = proj->GetSubType();
+                            if (subType == 1) {
                                 texPath = "assets/textures/boss/boss3/projectiles/energy_sphere.json";
-                            } else if (sz.y == 32.0f && sz.x > 32.0f) {
-                                texPath = "assets/textures/boss/boss3/projectiles/energy_beam.json";
-                            } else if (sz.x == 128.0f) {
+                            } else if (subType == 2) {
                                 texPath = "assets/textures/boss/boss3/projectiles/energy_blast.json";
-                            } else if (sz.x == 200.0f) {
+                            } else if (subType == 3) {
+                                texPath = "assets/textures/boss/boss3/projectiles/energy_beam.json";
+                            } else if (subType == 4) {
                                 texPath = "assets/textures/boss/boss3/ground_animate/default.json";
                             }
                         }
@@ -288,8 +289,18 @@ void GameController::RegisterEntityVisuals(Entity* entity) {
                             // std::cout << "[DEBUG] Registering Boss Projectile! texPath=" << texPath << ", size=" << sz.x << "x" << sz.y << std::endl;
                             bool flipX = (proj->GetDirection() == Direction::Left);
                             proj->SetRotation(0.0f); // Fix rotation bug so it doesn't offset from hitbox
+                            
+                            Vector2 origin = {0.0f, 0.0f};
+                            if (texPath.find("energy_sphere.json") != std::string::npos) {
+                                origin = {219.5f, 154.0f}; // Centers 471x340 on 32x32
+                            } else if (texPath.find("energy_blast.json") != std::string::npos) {
+                                origin = {13.0f, 24.5f}; // Centers 154x177 on 128x128
+                            } else if (texPath.find("energy_beam.json") != std::string::npos) {
+                                origin = {0.0f, 67.5f}; // Centers 167 height on 32 height, aligns left edge
+                            }
+                            
                             View::EntityRenderer::GetInstance().RegisterAnimated(
-                                proj, texPath, "default", {0, 0}, flipX);
+                                proj, texPath, "default", origin, flipX);
                         } else {
                             std::cout << "[DEBUG] Boss Projectile texPath is EMPTY! size=" << sz.x << "x" << sz.y << std::endl;
                         }
@@ -1021,7 +1032,7 @@ void GameController::UpdateCombat(float dt) {
             BossState bs = boss->GetBossState();
             if (bs == BossState::Skill1 || bs == BossState::Skill2 || bs == BossState::Skill3 || bs == BossState::Skill4) {
                 // Only deal direct body damage if it's a melee attack (range <= 150)
-                if (boss->GetAttackRange() <= 150.0f) {
+                if (boss->GetAttackRange() <= 150.0f && boss->WantsMelee()) {
                     isAttacking = true;
                     attackDamage = boss->GetDamage();
                     attackRange = boss->GetAttackRange();
@@ -1029,10 +1040,32 @@ void GameController::UpdateCombat(float dt) {
                         boss->GetPosition().x + boss->GetSize().x * 0.5f,
                         boss->GetPosition().y + boss->GetSize().y * 0.5f
                     };
+                    boss->ResetMelee();
                 }
             }
         } else if (entity->GetType() == EntityType::Projectile) {
             auto* proj = static_cast<Projectile*>(entity.get());
+            if (!proj->IsActive()) continue;
+
+            // Resolve tile collision (stop on wall)
+            Rectangle box = proj->GetBoundingBox();
+            bool hitTile = false;
+            for (const auto& tile : m_gameState->GetTiles(MapLayer::Main)) {
+                if (!tile.solid) continue;
+                Rectangle tr = { (float)tile.x * TILE_SIZE, (float)tile.y * TILE_SIZE, (float)TILE_SIZE, (float)TILE_SIZE };
+                if (RectOverlap(box, tr)) {
+                    hitTile = true;
+                    break;
+                }
+            }
+            if (hitTile) {
+                // Despawn moving projectiles on hit; keep stationary AoE/beams active
+                if (proj->GetDirection() != Direction::None && proj->GetSubType() != 3) { // Exempt stationary beams
+                    proj->OnHit();
+                    continue; // Skip player collision if destroyed by wall
+                }
+            }
+
             if (!proj->HasHit() && RectOverlap(proj->GetBoundingBox(), player->GetBoundingBox())) {
                 if (!player->IsInvincible()) {
                     player->TakeDamage(proj->GetDamage());
@@ -1042,8 +1075,8 @@ void GameController::UpdateCombat(float dt) {
                     View::GameView::GetInstance().Shake(4.0f, 0.2f);
                     proj->SetHasHit(true);
                 }
-                // Despawn moving projectiles on hit; keep stationary AoE explosions active so visuals complete
-                if (proj->GetDirection() != Direction::None) {
+                // Despawn moving projectiles on hit; keep stationary AoE/beams active so visuals complete
+                if (proj->GetDirection() != Direction::None && proj->GetSubType() != 3) {
                     proj->OnHit();
                 }
                 if (!player->IsAlive()) RespawnPlayer();
@@ -1800,6 +1833,20 @@ void GameController::UpdateProjectiles(float dt) {
     for (auto& proj : m_petProjectiles) {
         if (!proj->IsActive()) continue;
         proj->Update(dt);
+
+        // Resolve tile collision (stop on wall)
+        Rectangle box = proj->GetBoundingBox();
+        bool hitTile = false;
+        for (const auto& tile : m_gameState->GetTiles(MapLayer::Main)) {
+            if (!tile.solid) continue;
+            Rectangle tr = { (float)tile.x * TILE_SIZE, (float)tile.y * TILE_SIZE, (float)TILE_SIZE, (float)TILE_SIZE };
+            if (RectOverlap(box, tr)) {
+                proj->OnHit();
+                hitTile = true;
+                break;
+            }
+        }
+        if (hitTile) continue;
 
         // Check collision with enemies
         if (player) {

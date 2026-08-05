@@ -30,6 +30,7 @@ public:
     Direction GetDirection() const;
     int GetOwnerId() const;
     float GetLifetime() const;
+    float GetLifeTimer() const { return m_lifeTimer; }
     bool HasExpired() const;
     void OnHit();
     void SetLifetime(float lifetime) { m_lifetime = lifetime; }
@@ -38,6 +39,11 @@ public:
 
     // Hit tracking
     bool      m_hasHit           = false;
+
+    // Subtype for specific projectile identification (e.g., Boss3 has multiple projectiles)
+    int       m_subType          = 0;
+    int       GetSubType() const { return m_subType; }
+    void      SetSubType(int subType) { m_subType = subType; }
 
     // Homing
     bool IsHoming() const { return m_isHoming; }
