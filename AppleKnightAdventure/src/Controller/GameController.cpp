@@ -310,6 +310,11 @@ void GameController::RegisterEntityVisuals(Entity* entity) {
                 if (!foundBoss) {
                     std::cout << "[DEBUG] Boss Projectile could not find boss owner! ownerId=" << proj->GetOwnerId() << std::endl;
                 }
+            } else if (proj->GetProjectileType() == ProjectileType::RangedBomb) {
+                bool flipX = (proj->GetDirection() == Direction::Left);
+                proj->SetRotation(0.0f);
+                View::EntityRenderer::GetInstance().RegisterAnimated(
+                    proj, "assets/textures/enemies/ranged_bomb.json", "default", {0, 0}, flipX);
             }
             break;
         }
@@ -1025,6 +1030,20 @@ void GameController::UpdateCombat(float dt) {
                         enemy->GetPosition().y + enemy->GetSize().y * 0.5f
                     };
                     enemy->Attack();
+                    
+                    if (enemy->GetEnemyType() == EnemyType::Ranged) {
+                        Vector2 pSize = {32.0f, 32.0f}; // size of bomb
+                        Vector2 spawnPos = {
+                            enemy->GetPosition().x + (enemy->GetDirection() == Direction::Right ? enemy->GetSize().x : -pSize.x),
+                            enemy->GetPosition().y + (enemy->GetSize().y - pSize.y) * 0.5f
+                        };
+                        auto proj = std::make_unique<Projectile>(
+                            spawnPos, pSize, ProjectileType::RangedBomb, enemy->GetDirection(), attackDamage, enemy->GetId());
+                        // Bỏ gia tốc Y (-100.0f) vì Projectile không có trọng lực, bay thẳng ngang để trúng Player.
+                        proj->SetVelocity({(enemy->GetDirection() == Direction::Right ? 250.0f : -250.0f), 0.0f});
+                        m_gameState->AddEntity(std::move(proj));
+                        isAttacking = false; // Ranged enemies spawn projectile, no melee hit
+                    }
                 }
             }
         } else if (entity->GetType() == EntityType::Boss) {
@@ -1219,16 +1238,17 @@ void GameController::UpdateInteractions(const InputCommand& cmd) {
                     Vector2 dest = { destBox.x + destBox.width / 2.0f - player->GetSize().x / 2.0f, destBox.y + destBox.height - player->GetSize().y };
                     player->SetPosition(dest);
                     player->SetVelocity({0, 0});
+                    return; // Prevent instant back-teleportation in the same frame!
                 }
             } else if (portal->GetPortalType() == PortalType::LevelTransition) {
                 if (portal->GetTargetLevelId() != -1) {
                     StartLevel(portal->GetTargetLevelId());
+                    return; // Stop iterating, m_gameState was replaced
                 }
             } else if (portal->GetPortalType() == PortalType::BossArena) {
                 int target = portal->GetTargetLevelId();
                 if (target == -1) {
                     // Cổng thoát (boss arena → level cũ)
-                    // portal->IsLocked() đã được check trong CanInteract() nên không vào được đây khi khóa
                     if (m_previousLevelId != -1) {
                         // Lưu trạng thái player sau khi đánh boss (có thể được thưởng items)
                         SavePlayerState(player);
@@ -1242,6 +1262,7 @@ void GameController::UpdateInteractions(const InputCommand& cmd) {
                             RestorePlayerState(newPlayer);
                             m_hasSavedState = false;
                         }
+                        return; // Stop iterating
                     }
                 } else {
                     // Cổng vào boss arena
@@ -1255,6 +1276,7 @@ void GameController::UpdateInteractions(const InputCommand& cmd) {
                     if (Player* newPlayer = m_gameState ? m_gameState->GetLocalPlayer() : nullptr) {
                         RestorePlayerState(newPlayer);
                     }
+                    return; // Stop iterating
                 }
             }
             return;

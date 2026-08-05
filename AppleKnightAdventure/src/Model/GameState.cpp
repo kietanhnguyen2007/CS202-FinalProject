@@ -256,12 +256,16 @@ bool GameState::IsLevelComplete() const {
     return (!enemiesAlive && touchingEndCheckpoint);
 }
 
-void GameState::Update(float deltaTime) {
-    // Always merge new entities immediately so they are visible (e.g. in Map Builder)
+void GameState::MergeNewEntities() {
     for (auto& entity : m_newEntities) {
         m_entities.push_back(std::move(entity));
     }
     m_newEntities.clear();
+}
+
+void GameState::Update(float deltaTime) {
+    // Always merge new entities immediately so they are visible (e.g. in Map Builder)
+    MergeNewEntities();
 
     if (!m_timerRunning) return;
 

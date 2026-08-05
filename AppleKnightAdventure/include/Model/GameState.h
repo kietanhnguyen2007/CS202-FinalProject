@@ -60,8 +60,8 @@ public:
 
     Player* GetLocalPlayer() const;
     void SetLocalPlayer(std::unique_ptr<Player> player);
-
     void AddEntity(std::unique_ptr<Entity> entity);
+    void MergeNewEntities();
     void RemoveEntity(int entityId);
     std::unique_ptr<Entity> ExtractEntity(int entityId);
     Entity* GetEntity(int entityId) const;
