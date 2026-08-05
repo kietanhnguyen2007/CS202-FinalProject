@@ -31,6 +31,7 @@ std::unique_ptr<Enemy> EnemyFactory::CreateRanged(Vector2 position) {
     enemy->SetDetectionRange(300.0f);
     enemy->SetAttackRange(ENEMY_RANGED_RANGE);
     enemy->SetPatrolRange(120.0f);
+    enemy->SetAttackCooldown(2.0f);
     return enemy;
 }
 

@@ -4,7 +4,7 @@
 #include <raymath.h>
 
 TeleportPortal::TeleportPortal(Vector2 position, PortalType type, int colorId, int targetLevelId)
-    : Entity({position.x + 10.0f, position.y + 40.0f}, {283.0f, 308.0f}, EntityType::TeleportPortal),
+    : Entity(position, {283.0f, 308.0f}, EntityType::TeleportPortal),
       m_portalType(type),
       m_colorId(colorId),
       m_linkedPortal(nullptr),

@@ -224,6 +224,30 @@ std::unique_ptr<GameState> LevelFactory::LoadLevel(const std::string& filepath,
         }
     }
 
+    // Merge new entities so they are available in GetAllEntities()
+    state->MergeNewEntities();
+
+    // Link local portals
+    std::vector<TeleportPortal*> localPortals;
+    for (auto& entity : state->GetAllEntities()) {
+        if (entity->GetType() == EntityType::TeleportPortal) {
+            auto* portal = static_cast<TeleportPortal*>(entity.get());
+            if (portal->GetPortalType() == PortalType::Local) {
+                localPortals.push_back(portal);
+            }
+        }
+    }
+    
+    // Connect portals with the same colorId
+    for (size_t i = 0; i < localPortals.size(); ++i) {
+        for (size_t j = i + 1; j < localPortals.size(); ++j) {
+            if (localPortals[i]->GetColorId() == localPortals[j]->GetColorId()) {
+                localPortals[i]->SetLinkedPortal(localPortals[j]);
+                localPortals[j]->SetLinkedPortal(localPortals[i]);
+            }
+        }
+    }
+
     if (!hasLocalSpawn) {
         return CreateDefaultLevel(1);
     }
@@ -572,19 +596,19 @@ std::unique_ptr<GameState> LevelFactory::LoadLDtkLevel(const std::string& filepa
             } else if (eid == "Boss1") {
                 auto boss = std::make_unique<Boss1>(pos, Vector2{48.0f, 48.0f});
                 float patrol = (float)GetEntityFieldInt(ei, "PatrolRight", (int)wx + 400);
-                boss->SetDetectionRange(patrol - wx);
+                if (patrol > wx) boss->SetDetectionRange(patrol - wx);
                 state->AddEntity(std::move(boss));
                 ++autoEnemies;
             } else if (eid == "Boss2") {
                 auto boss = std::make_unique<Boss2>(pos, Vector2{48.0f, 48.0f});
                 float patrol = (float)GetEntityFieldInt(ei, "PatrolRight", (int)wx + 400);
-                boss->SetDetectionRange(patrol - wx);
+                if (patrol > wx) boss->SetDetectionRange(patrol - wx);
                 state->AddEntity(std::move(boss));
                 ++autoEnemies;
             } else if (eid == "Boss3") {
                 auto boss = std::make_unique<Boss3>(pos, Vector2{64.0f, 64.0f});
                 float patrol = (float)GetEntityFieldInt(ei, "PatrolRight", (int)wx + 500);
-                boss->SetDetectionRange(patrol - wx);
+                if (patrol > wx) boss->SetDetectionRange(patrol - wx);
                 state->AddEntity(std::move(boss));
                 ++autoEnemies;
 
@@ -636,10 +660,17 @@ std::unique_ptr<GameState> LevelFactory::LoadLDtkLevel(const std::string& filepa
                 int colorId    = GetEntityFieldInt(ei, "ColorId", 1);
                 int targetLevel = GetEntityFieldInt(ei, "TargetLevelId", -1);
 
+                // Add the visual offset that was previously hardcoded in TeleportPortal constructor
+                pos.x += 10.0f;
+                pos.y += 40.0f;
+                
                 state->AddEntity(std::make_unique<TeleportPortal>(pos, pType, colorId, targetLevel));
             }
         }
     }
+
+    // Merge new entities so they are available in GetAllEntities()
+    state->MergeNewEntities();
 
     // Link local portals
     std::vector<TeleportPortal*> localPortals;

@@ -399,7 +399,7 @@ void MapBuilderController::HandleTool(Vector2 mouseWorldPos) {
                         newEntity = std::make_unique<Checkpoint>(pos); 
                         break;
                     case EntityType::TeleportPortal: {
-                        pos.y += TILE_SIZE - 64.0f; // Teleport portal is 64 high
+                        pos.y += TILE_SIZE - (308.0f * 0.44f); // Teleport portal is ~135 high, align bottom to ground
                         PortalType pt = (sub >= 200) ? PortalType::LevelTransition : PortalType::Local;
                         int colIndex = (sub >= 200) ? (sub - 200) : (sub - 100);
                         int colorId = 2; // Default Blue
@@ -426,7 +426,7 @@ void MapBuilderController::HandleTool(Vector2 mouseWorldPos) {
             } else if (tool == View::BuilderTool::Eraser) {
                 // We'll just loop and check bounds
                 for (const auto& e : m_gameState->GetAllEntities()) {
-                    if (CheckCollisionPointRec(mouseWorldPos, {e->GetPosition().x, e->GetPosition().y, e->GetSize().x, e->GetSize().y})) {
+                    if (CheckCollisionPointRec(mouseWorldPos, e->GetBoundingBox())) {
                         m_commandManager->ExecuteCommand(std::make_unique<RemoveEntityCommand>(e->GetId()));
                         if (view.GetSelectedEntity() == e.get()) view.SetSelectedEntity(nullptr);
                         break; // Only erase one
@@ -435,7 +435,7 @@ void MapBuilderController::HandleTool(Vector2 mouseWorldPos) {
             } else if (tool == View::BuilderTool::Select) {
                 Entity* selected = nullptr;
                 for (const auto& e : m_gameState->GetAllEntities()) {
-                    if (CheckCollisionPointRec(mouseWorldPos, {e->GetPosition().x, e->GetPosition().y, e->GetSize().x, e->GetSize().y})) {
+                    if (CheckCollisionPointRec(mouseWorldPos, e->GetBoundingBox())) {
                         selected = e.get();
                         break;
                     }
