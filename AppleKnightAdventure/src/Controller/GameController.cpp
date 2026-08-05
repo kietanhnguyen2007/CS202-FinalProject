@@ -399,6 +399,7 @@ void GameController::StartLevel(int levelNumber) {
     SoundManager::GetInstance().StopMusic("bgm_menu");
     SoundManager::GetInstance().PlayMusic("bgm_gameplay");
     
+    View::HUDView::GetInstance().SetVisible(true);
     View::HUDView::GetInstance().SetPlaytestMode(IsPlaytest());
 
     // Reset endgame checkpoint animation tracking
