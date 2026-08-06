@@ -319,6 +319,15 @@ void CharacterRenderer::RenderAll() {
         // Apply per-clip scale (e.g. oversized boss hurt frames normalized to idle size)
         visualScale *= animator.GetCurrentClipScale();
 
+        if (entity->GetType() == EntityType::Boss) {
+            // Dynamic scale adjustment for boss based on native sprite height and desired bounding box height
+            float currentHeight = (float)animator.GetCurrentSrcRect().height;
+            if (currentHeight > 0) {
+                // Ensure the boss is always drawn matching its logical m_size.y
+                visualScale = (entity->GetSize().y / currentHeight) * baseScale;
+            }
+        }
+
         // Bounding box bottom center
         Vector2 bottomCenter = { pos.x + size.x * 0.5f * baseScale, pos.y + size.y * baseScale };
         Rectangle srcRect = animator.GetCurrentSrcRect();

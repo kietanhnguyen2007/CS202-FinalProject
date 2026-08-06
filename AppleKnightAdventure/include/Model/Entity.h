@@ -59,6 +59,7 @@ public:
     void SetScale(float scale);
     Vector2 GetScale2D() const;
     void SetScale2D(Vector2 scale2D);
+    virtual float GetZIndex() const { return 0.0f; }
 
     // Lifecycle
     bool IsActive() const;

@@ -182,7 +182,7 @@ void EntityRenderer::RenderAll() {
             ad.origin,
             WHITE,
             View::Layer::World,
-            0.0f,
+            entity->GetZIndex(),
             ad.flipX,
             id);
     }
@@ -207,7 +207,7 @@ void EntityRenderer::RenderAll() {
             data.origin,
             WHITE,             // Màu tint mặc định
             View::Layer::World, // Hoặc Backgound/Foreground tùy loại Entity
-            0.0f,
+            entity->GetZIndex(),
             data.flipX,
             id);
     }

@@ -13,6 +13,7 @@ public:
     TeleportPortal(Vector2 position, PortalType type, int colorId, int targetLevelId = -1);
 
     void Update(float deltaTime) override;
+    virtual float GetZIndex() const override { return -0.05f; } // Render behind players
 
     PortalType GetPortalType() const;
     int GetColorId() const;

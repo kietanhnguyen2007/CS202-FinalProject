@@ -2317,25 +2317,6 @@
 							"__worldY": -1056
 						},
 						{
-							"__identifier": "Boss3",
-							"__grid": [67,15],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": { "tilesetUid": 13, "x": 0, "y": 0, "w": 103, "h": 123 },
-							"__smartColor": "#000000",
-							"iid": "95e99230-6fc0-11f1-bece-6f5ee7df8658",
-							"width": 103,
-							"height": 123,
-							"defUid": 44,
-							"px": [1072,240],
-							"fieldInstances": [
-								{ "__identifier": "PatrolLeft", "__type": "Float", "__value": 0, "__tile": null, "defUid": 42, "realEditorValues": [] },
-								{ "__identifier": "PatrolRight", "__type": "Float", "__value": 0, "__tile": null, "defUid": 43, "realEditorValues": [] }
-							],
-							"__worldX": 512,
-							"__worldY": -1504
-						},
-						{
 							"__identifier": "CheckpointEnd",
 							"__grid": [55,181],
 							"__pivot": [0,0],
@@ -3586,6 +3567,25 @@
 							"fieldInstances": [],
 							"__worldX": 144,
 							"__worldY": 560
+						},
+						{
+							"__identifier": "Boss1",
+							"__grid": [62,16],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": { "tilesetUid": 11, "x": 0, "y": 0, "w": 85, "h": 168 },
+							"__smartColor": "#8B0000",
+							"iid": "9c1d76a0-6fc0-11f1-907b-1be76e897f16",
+							"width": 85,
+							"height": 168,
+							"defUid": 38,
+							"px": [992,256],
+							"fieldInstances": [
+								{ "__identifier": "PatrolLeft", "__type": "Float", "__value": 0, "__tile": null, "defUid": 36, "realEditorValues": [] },
+								{ "__identifier": "PatrolRight", "__type": "Float", "__value": 0, "__tile": null, "defUid": 37, "realEditorValues": [] }
+							],
+							"__worldX": 432,
+							"__worldY": -1488
 						}
 					]
 				},
