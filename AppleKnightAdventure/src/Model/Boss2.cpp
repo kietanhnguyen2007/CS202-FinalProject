@@ -243,7 +243,7 @@ void Boss2::ExecuteProjectileAttack() {
     Vector2 pSize = {64.0f, 64.0f};
     Vector2 spawnPos = {
         m_position.x + (m_direction == Direction::Right ? m_size.x : -pSize.x),
-        m_position.y + (m_size.y - pSize.y) * 0.5f
+        m_position.y + (m_size.y - pSize.y) * 0.5f - 15.0f
     };
     
     auto proj1 = std::make_unique<Projectile>(spawnPos, pSize, ProjectileType::BossAttack, m_direction, m_damage, m_id);
