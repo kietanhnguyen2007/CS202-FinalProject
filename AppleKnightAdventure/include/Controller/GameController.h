@@ -150,6 +150,7 @@ private:
     Vector2          m_exitSpawnPos    = {0.0f, 0.0f};// position near entry portal
     PlayerSaveState  m_savedPlayerState;              // HP/score/inventory snapshot
     bool             m_hasSavedState   = false;       // true when snapshot is valid
+    uint32_t         m_activeCheckpointUid = 0;       // track highest checkpoint activated
 };
 
 #endif

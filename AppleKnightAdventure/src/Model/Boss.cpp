@@ -113,9 +113,13 @@ void Boss::TakeDamage(int damage) {
         }
     }
     
-    // Hurt state interrupts skills unless transitioning or SuperArmor
+    // Boss không bị interrupt khi đang trong attack skill state
+    bool inSkill = (m_currentState == BossState::Skill1 ||
+                    m_currentState == BossState::Skill2 ||
+                    m_currentState == BossState::Skill3 ||
+                    m_currentState == BossState::Skill4);
     if (m_currentState != BossState::Transition && m_currentState != BossState::Die) {
-        if (!m_superArmor) {
+        if (!m_superArmor && !inSkill) {
             ChangeState(BossState::Hurt);
         } else {
             // Flash color when hit during super armor?
@@ -179,3 +183,67 @@ bool Boss::IsPointSolid(Vector2 point) const {
     }
     return false;
 }
+
+void Boss::ResetToPhase1() {
+    m_currentPhase = BossPhase::Phase1;
+    m_currentState = BossState::Idle;
+    m_health = m_maxHealth;
+    m_chargeTimer = 0.0f;
+    m_activeTimer = 0.0f;
+    m_cooldownTimer = 2.0f;
+    m_skillFired = false;
+    m_superArmor = false;
+    m_comboStep = 0;
+    m_wantsMelee = false;
+    m_velocity = {0.0f, 0.0f};
+    // Reset character state
+    m_state = Character::State::Idle;
+}
+
+void Boss::TryJump() {
+    if (!m_isOnGround) return;
+    m_velocity.y = PLAYER_JUMP_FORCE * 0.85f; // boss nhảy thấp hơn player 1 chút
+    m_isOnGround = false;
+}
+
+bool Boss::HasWallAhead(float dirX) const {
+    if (!m_gameState) return false;
+    float checkX = m_position.x + (dirX > 0 ? m_size.x + 8.0f : -8.0f);
+    float checkY = m_position.y + m_size.y * 0.5f;
+    return IsPointSolid({checkX, checkY});
+}
+
+bool Boss::HasGroundAhead(float dirX) const {
+    if (!m_gameState) return true;
+    float checkX = m_position.x + (dirX > 0 ? m_size.x + 16.0f : -16.0f);
+    float checkY = m_position.y + m_size.y + 8.0f;
+    return IsPointSolid({checkX, checkY});
+}
+
+void Boss::NavigateToPlayer(Vector2 playerPos, float deltaTime) {
+    float dx = playerPos.x - (m_position.x + m_size.x * 0.5f);
+    float dy = playerPos.y - (m_position.y + m_size.y * 0.5f);
+    float dirX = (dx > 0) ? 1.0f : -1.0f;
+    
+    m_direction = (dx > 0) ? Direction::Right : Direction::Left;
+    
+    bool wallAhead = HasWallAhead(dirX);
+    bool groundAhead = HasGroundAhead(dirX);
+    
+    if (wallAhead) {
+        // Bị chặn ngang → thử nhảy nếu player ở trên
+        if (dy < -TILE_SIZE * 0.5f) TryJump();
+        // Nếu không nhảy được thì đứng im chờ
+    } else if (!groundAhead) {
+        // Không có ground phía trước → drop xuống (bước xuống cliff)
+        // Chỉ bước xuống nếu player thực sự ở dưới
+        if (dy > TILE_SIZE * 0.5f) MoveX(dirX, deltaTime);
+        // Nếu player ngang hoặc trên → không nhảy xuống vực
+    } else {
+        // Đường thông → đi bình thường
+        MoveX(dirX, deltaTime);
+        // Nếu player ở platform cao hơn và gần tường → nhảy
+        if (dy < -TILE_SIZE * 1.5f && m_isOnGround) TryJump();
+    }
+}
+

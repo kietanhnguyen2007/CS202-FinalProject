@@ -174,6 +174,13 @@ void GameController::RegisterChestVisuals(Chest* chest) {
 
 void GameController::RegisterCheckpointVisuals(Checkpoint* checkpoint) {
     if (!checkpoint) return;
+    
+    if (checkpoint->IsEndGame()) {
+        Vector2 pos = checkpoint->GetPosition();
+        pos.y -= TILE_SIZE; // Nâng lên 1 tile
+        checkpoint->SetPosition(pos);
+    }
+    
     // Endgame checkpoint: always start as uncaptured (hidden flag pole).
     // The flag_out -> captured transition is driven by UpdateEndgameCheckpoints().
     // Regular checkpoint: uncaptured until activated, then flag_out.
@@ -406,6 +413,7 @@ void GameController::StartLevel(int levelNumber) {
     m_endgameFlagRevealedIds.clear();
     m_endgameFlagCapturedIds.clear();
     m_flagOutTimers.clear();
+    m_activeCheckpointUid = 0;
 }
 
 bool GameController::IsOnGround(const Character* character) const {
@@ -691,6 +699,7 @@ void GameController::UpdateEnemyAI(float dt) {
             // Apply physics
             ApplyGravity(boss, dt);
             ResolveTileCollisions(boss, dt);
+            boss->SetOnGround(IsOnGround(boss));
             
             continue;
         }
@@ -1220,14 +1229,17 @@ void GameController::UpdateInteractions(const InputCommand& cmd) {
             auto* checkpoint = static_cast<Checkpoint*>(entity.get());
             if (checkpoint->IsEndGame() || checkpoint->IsActivated()) continue;
 
-            checkpoint->Activate();
-            m_respawnPoint = checkpoint->GetPosition();
+            uint32_t newUid = static_cast<uint32_t>(checkpoint->GetId());
+            if (newUid > m_activeCheckpointUid) {
+                m_activeCheckpointUid = newUid;
+                checkpoint->Activate();
+                m_respawnPoint = checkpoint->GetPosition();
 
-            // Switch visual: uncaptured -> flag_out animation
-            uint32_t cpUid = static_cast<uint32_t>(checkpoint->GetId());
-            View::EntityRenderer::GetInstance().Unregister(cpUid);
-            View::EntityRenderer::GetInstance().RegisterAnimated(
-                checkpoint, "assets/textures/objects/checkpoint_flag_out.json", "flag_out");
+                // Switch visual: uncaptured -> flag_out animation
+                View::EntityRenderer::GetInstance().Unregister(newUid);
+                View::EntityRenderer::GetInstance().RegisterAnimated(
+                    checkpoint, "assets/textures/objects/checkpoint_flag_out.json", "flag_out");
+            }
             return;
         }
 
@@ -1305,6 +1317,16 @@ void GameController::RespawnPlayer() {
     player->SetVelocity({0.0f, 0.0f});
     player->SetHealth(player->GetMaxHealth());
     player->SetActive(true);
+
+    if (m_previousLevelId != -1) {
+        for (auto& entity : m_gameState->GetAllEntities()) {
+            if (entity->GetType() == EntityType::Boss) {
+                auto* boss = static_cast<Boss*>(entity.get());
+                boss->ResetToPhase1();
+                View::CharacterRenderer::GetInstance().SwitchPhase(boss->GetId(), BossPhase::Phase1);
+            }
+        }
+    }
 }
 
 void GameController::CheckLevelComplete() {

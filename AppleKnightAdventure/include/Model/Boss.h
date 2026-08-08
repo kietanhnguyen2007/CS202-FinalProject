@@ -34,10 +34,13 @@ protected:
     bool m_wantsMelee;
 
     GameState* m_gameState;
+    bool m_isOnGround = false;
 
 public:
     Boss(Vector2 position, Vector2 size, int bossType);
     virtual ~Boss() = default;
+
+    virtual void ResetToPhase1();
 
     int GetBossType() const { return m_bossType; }
     virtual bool IsFinalPhase() const = 0;
@@ -64,6 +67,12 @@ public:
 
     bool WantsMelee() const { return m_wantsMelee; }
     void ResetMelee() { m_wantsMelee = false; }
+
+    void SetOnGround(bool onGround) { m_isOnGround = onGround; }
+    void NavigateToPlayer(Vector2 playerPos, float deltaTime);
+    void TryJump();
+    bool HasWallAhead(float dirX) const;
+    bool HasGroundAhead(float dirX) const;
 
     float GetDetectionRange() const { return m_detectionRange; }
     void SetDetectionRange(float range) { m_detectionRange = range; }

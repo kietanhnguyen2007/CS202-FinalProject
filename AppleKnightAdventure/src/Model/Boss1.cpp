@@ -139,8 +139,7 @@ void Boss1::UpdateState(float deltaTime, Vector2 playerPos) {
         
         if (dist > m_attackRange) {
             ChangeState(BossState::Walk);
-            Vector2 dir = { dx/dist, 0 };
-            MoveX(dir.x, deltaTime);
+            NavigateToPlayer(playerPos, deltaTime);
         } else {
             ChangeState(BossState::Idle);
         }
