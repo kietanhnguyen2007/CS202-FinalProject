@@ -8,6 +8,8 @@ class FakeWall : public Entity {
 protected:
     bool m_destroyed;
     int m_health;
+    int m_tileX;
+    int m_tileY;
 
 public:
     FakeWall();
@@ -18,6 +20,9 @@ public:
     bool IsDestroyed() const;
     void TakeDamage(int damage);
     int GetHealth() const;
+
+    int GetTileX() const { return m_tileX; }
+    int GetTileY() const { return m_tileY; }
 };
 
 #endif

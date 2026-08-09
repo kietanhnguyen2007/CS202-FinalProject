@@ -5,6 +5,8 @@ FakeWall::FakeWall()
     , m_destroyed(false)
     , m_health(FAKE_WALL_HEALTH)
 {
+    m_tileX = 0;
+    m_tileY = 0;
 }
 
 FakeWall::FakeWall(Vector2 position, Vector2 size)
@@ -12,6 +14,8 @@ FakeWall::FakeWall(Vector2 position, Vector2 size)
     , m_destroyed(false)
     , m_health(FAKE_WALL_HEALTH)
 {
+    m_tileX = static_cast<int>(position.x / TILE_SIZE);
+    m_tileY = static_cast<int>(position.y / TILE_SIZE);
 }
 
 void FakeWall::Update(float deltaTime) {

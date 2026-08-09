@@ -44,6 +44,12 @@ public:
         }
     }
 
+    void SetEntities(const std::vector<std::unique_ptr<Entity>>* entities) {
+        m_entities = entities;
+    }
+
+    void RenderFakeWallHints(float dt);
+
     // Static textures
     Texture2D* GetMagicTex() { return &m_magicTex; }
 
@@ -83,6 +89,10 @@ private:
 
     // Tilemap reference (set by Controller)
     const std::vector<Tile>* m_tiles[static_cast<int>(MapLayer::Count)] = {nullptr};
+    
+    // Entity reference
+    const std::vector<std::unique_ptr<Entity>>* m_entities = nullptr;
+    float m_fakeWallPulseTimer = 0.0f;
 };
 
 } // namespace View

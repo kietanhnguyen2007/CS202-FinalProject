@@ -5,6 +5,7 @@
 #include "Model/Enemy.h"
 #include "Model/Chest.h"
 #include "Model/Checkpoint.h"
+#include "Model/FakeWall.h"
 #include "Model/Item.h"
 #include "Model/KnightSkillSet.h"
 #include "Model/FighterSkillSet.h"
@@ -437,6 +438,12 @@ bool GameController::IsRectOnGround(Rectangle box) const {
             return true;
         }
     }
+    for (const auto& entity : m_gameState->GetAllEntities()) {
+        if (!entity->IsActive() || entity->GetType() != EntityType::FakeWall) continue;
+        if (RectOverlap(probe, entity->GetBoundingBox())) {
+            return true;
+        }
+    }
     return false;
 }
 
@@ -522,6 +529,59 @@ void GameController::ResolveTileCollisions(Character* character, float dt) {
             }
         }
 
+        character->SetPosition(pos);
+        box = character->GetBoundingBox();
+        prevBox = { box.x - vel.x * dt, box.y - vel.y * dt, box.width, box.height };
+    }
+
+    // Resolve FakeWall collisions
+    for (const auto& entity : m_gameState->GetAllEntities()) {
+        if (!entity->IsActive() || entity->GetType() != EntityType::FakeWall) continue;
+        Rectangle tileRect = entity->GetBoundingBox();
+        if (!RectOverlap(box, tileRect)) continue;
+
+        float overlapLeft = (box.x + box.width) - tileRect.x;
+        float overlapRight = (tileRect.x + tileRect.width) - box.x;
+        float overlapTop = (box.y + box.height) - tileRect.y;
+        float overlapBottom = (tileRect.y + tileRect.height) - box.y;
+
+        bool wasOverlappingX = (prevBox.x < tileRect.x + tileRect.width) && (prevBox.x + prevBox.width > tileRect.x);
+        bool wasOverlappingY = (prevBox.y < tileRect.y + tileRect.height) && (prevBox.y + prevBox.height > tileRect.y);
+
+        bool resolveY = false;
+        bool resolveX = false;
+
+        if (wasOverlappingX && !wasOverlappingY) {
+            resolveY = true;
+        } else if (wasOverlappingY && !wasOverlappingX) {
+            resolveX = true;
+        } else {
+            float minOverlapX = std::min(overlapLeft, overlapRight);
+            float minOverlapY = std::min(overlapTop, overlapBottom);
+            if (minOverlapY < 12.0f) minOverlapX = 9999.0f;
+            if (minOverlapX < minOverlapY) resolveX = true;
+            else resolveY = true;
+        }
+
+        if (resolveX) {
+            if (overlapLeft < overlapRight) pos.x -= overlapLeft;
+            else pos.x += overlapRight;
+            vel = character->GetVelocity();
+            vel.x = 0.0f;
+            character->SetVelocity(vel);
+        } else {
+            if (overlapTop < overlapBottom) {
+                pos.y -= overlapTop;
+                vel = character->GetVelocity();
+                vel.y = 0.0f;
+                character->SetVelocity(vel);
+            } else {
+                pos.y += overlapBottom;
+                vel = character->GetVelocity();
+                if (vel.y < 0.0f) vel.y = 0.0f;
+                character->SetVelocity(vel);
+            }
+        }
         character->SetPosition(pos);
         box = character->GetBoundingBox();
         prevBox = { box.x - vel.x * dt, box.y - vel.y * dt, box.width, box.height };
@@ -786,6 +846,21 @@ void GameController::UpdateCombat(float dt) {
                 View::GameView::GetInstance().Shake(4.0f, 0.2f);
                 
                 if (!boss->IsActive()) OnEntityRemoved(boss);
+            }
+            else if (entity->GetType() == EntityType::FakeWall) {
+                auto* wall = static_cast<FakeWall*>(entity.get());
+                if (!RectOverlap(attackBox, wall->GetBoundingBox())) continue;
+                if (wall->IsDestroyed()) continue;
+
+                wall->TakeDamage(damage);
+                SoundManager::GetInstance().PlaySound("enemy_hurt");
+                View::ParticleRenderer::GetInstance().EmitBurst(wall->GetPosition(), 6, GRAY);
+                View::GameView::GetInstance().Shake(2.0f, 0.1f);
+
+                if (wall->IsDestroyed()) {
+                    m_gameState->RemoveTileAt(MapLayer::Main, wall->GetTileX(), wall->GetTileY());
+                    OnEntityRemoved(wall);
+                }
             }
         }
     };
@@ -1392,6 +1467,8 @@ void GameController::RestorePlayerState(Player* player) {
 
 void GameController::Update(float dt) {
     if (!m_running || !m_gameState) return;
+
+    View::GameView::GetInstance().SetEntities(&m_gameState->GetAllEntities());
 
     if (View::HUDView::GetInstance().WantsQuitTest()) {
         m_returnToMenu = true;

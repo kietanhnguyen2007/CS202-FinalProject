@@ -408,6 +408,8 @@ void GameView::Render(const Camera2D& camera, const std::vector<Particle*>& part
     if (m_tiles[static_cast<int>(MapLayer::Background)]) RenderTilemap(*m_tiles[static_cast<int>(MapLayer::Background)]);
     if (m_tiles[static_cast<int>(MapLayer::Main)]) RenderTilemap(*m_tiles[static_cast<int>(MapLayer::Main)]);
 
+    RenderFakeWallHints(dt);
+
     // Render entities and particles
     View::CharacterRenderer::GetInstance().RenderAll();
     View::EntityRenderer::GetInstance().RenderAll();
@@ -458,6 +460,20 @@ void GameView::Shutdown() {
     m_backgrounds.clear();
 
     View::UIResourceManager::GetInstance().Shutdown();
+}
+
+void GameView::RenderFakeWallHints(float dt) {
+    if (!m_entities) return;
+    
+    m_fakeWallPulseTimer += dt * 5.0f; // pulse speed
+    float alpha = 20.0f + 30.0f * (0.5f + 0.5f * std::sin(m_fakeWallPulseTimer));
+    Color hintColor = {255, 220, 80, (unsigned char)alpha};
+
+    for (const auto& entity : *m_entities) {
+        if (entity && entity->GetType() == EntityType::FakeWall && entity->IsActive()) {
+            DrawRectangleRec(entity->GetBoundingBox(), hintColor);
+        }
+    }
 }
 
 } // namespace View
