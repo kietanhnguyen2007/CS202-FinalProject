@@ -2380,22 +2380,6 @@
 							"__worldY": 800
 						},
 						{
-							"__identifier": "FakeWall",
-							"__grid": [34,2],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#808080",
-							"iid": "6cc67420-6fc0-11f1-9bd2-05b922babd8b",
-							"width": 64,
-							"height": 64,
-							"defUid": 48,
-							"px": [544,32],
-							"fieldInstances": [],
-							"__worldX": 448,
-							"__worldY": -224
-						},
-						{
 							"__identifier": "Portal",
 							"__grid": [200,54],
 							"__pivot": [0,0],
@@ -3077,22 +3061,6 @@
 							"fieldInstances": [],
 							"__worldX": 528,
 							"__worldY": 128
-						},
-						{
-							"__identifier": "FakeWall",
-							"__grid": [33,40],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#808080",
-							"iid": "d719fb10-6fc0-11f1-af2f-a18cdf992860",
-							"width": 64,
-							"height": 64,
-							"defUid": 48,
-							"px": [528,640],
-							"fieldInstances": [],
-							"__worldX": 432,
-							"__worldY": 384
 						},
 						{
 							"__identifier": "EnemyMelee",

@@ -14,6 +14,8 @@ Boss2::Boss2(Vector2 position, Vector2 size)
     m_cooldownTimer = 3.0f;
     m_attackRange = 600.0f; // Ranged boss
     m_detectionRange = 700.0f;
+    m_maxHealth = 5000;
+    m_health = m_maxHealth;
 }
 
 void Boss2::TransitionToNextPhase() {

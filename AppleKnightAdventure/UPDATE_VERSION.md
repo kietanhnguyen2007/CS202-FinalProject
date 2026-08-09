@@ -1,6 +1,2 @@
-# Update: Implement Fake Wall Collision and Combat
-- Added `m_tileX` and `m_tileY` to `FakeWall` to keep track of its tile location.
-- Updated `GameController` to process FakeWall correctly for collisions (`IsRectOnGround` and `ResolveTileCollisions`).
-- Updated `GameController::UpdateCombat` to process damage applied to `FakeWall` and remove the underlying tile when destroyed.
-- Updated `GameView` to draw a pulsating glow on `FakeWall` to indicate it is destructible.
-- Bound `GetAllEntities()` from `GameState` to `GameView` every frame in `GameController::Update`.
+# Update: Increase Boss Health to 5000
+- Set `m_maxHealth` to `5000` for `Boss1`, `Boss2`, and `Boss3`. Since health resets to max at the start of each phase, every single phase of all bosses now has exactly 5000 health.

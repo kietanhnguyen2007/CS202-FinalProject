@@ -113,19 +113,8 @@ void Boss::TakeDamage(int damage) {
         }
     }
     
-    // Boss không bị interrupt khi đang trong attack skill state
-    bool inSkill = (m_currentState == BossState::Skill1 ||
-                    m_currentState == BossState::Skill2 ||
-                    m_currentState == BossState::Skill3 ||
-                    m_currentState == BossState::Skill4);
-    if (m_currentState != BossState::Transition && m_currentState != BossState::Die) {
-        if (!m_superArmor && !inSkill) {
-            ChangeState(BossState::Hurt);
-        } else {
-            // Flash color when hit during super armor?
-            // Could add m_isFlashing logic if desired
-        }
-    }
+    // Boss không bị interrupt khi bị đánh
+    // Removed ChangeState(BossState::Hurt) logic
 }
 
 void Boss::Attack() {

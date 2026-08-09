@@ -10,7 +10,7 @@ Boss3::Boss3(Vector2 position, Vector2 size)
     m_cooldownTimer = 1.5f;
     m_attackRange = 70.0f;
     m_detectionRange = 800.0f;
-    m_maxHealth = 500;
+    m_maxHealth = 5000;
     m_health = m_maxHealth;
 }
 
