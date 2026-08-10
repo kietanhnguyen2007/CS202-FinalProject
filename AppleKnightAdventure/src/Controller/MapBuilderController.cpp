@@ -380,14 +380,14 @@ void MapBuilderController::HandleTool(Vector2 mouseWorldPos) {
                         break;
                     case EntityType::Boss: 
                         if (sub == 3) {
-                            pos.y += TILE_SIZE - 64.0f;
-                            newEntity = std::make_unique<Boss3>(pos, Vector2{64,64}); 
+                            pos.y += TILE_SIZE - (TILE_SIZE * 0.99f);
+                            newEntity = std::make_unique<Boss3>(pos, Vector2{TILE_SIZE * 0.5f, TILE_SIZE * 0.99f}); 
                         } else if (sub == 2) {
-                            pos.y += TILE_SIZE - 48.0f;
-                            newEntity = std::make_unique<Boss2>(pos, Vector2{48,48});
+                            pos.y += TILE_SIZE - (TILE_SIZE * 0.99f);
+                            newEntity = std::make_unique<Boss2>(pos, Vector2{TILE_SIZE * 0.5f, TILE_SIZE * 0.99f});
                         } else {
-                            pos.y += TILE_SIZE - 48.0f;
-                            newEntity = std::make_unique<Boss1>(pos, Vector2{48,48}); 
+                            pos.y += TILE_SIZE - (TILE_SIZE * 0.99f);
+                            newEntity = std::make_unique<Boss1>(pos, Vector2{TILE_SIZE * 0.5f, TILE_SIZE * 0.99f}); 
                         }
                         break;
                     case EntityType::Chest: 
