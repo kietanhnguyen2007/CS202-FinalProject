@@ -88,9 +88,16 @@ void GameController::LoadTilesets() {
 std::string GameController::GetLevelPath(int levelNumber) const {
     if (levelNumber == -99) return "assets/levels/temp_playtest.lvl";
     
-    // Ưu tiên LDtk single-world file nếu tồn tại
+    // Map Level 2 -> lvl1.ldtk, Level 3 -> lvl2.ldtk, ...
+    if (levelNumber >= 2 && levelNumber <= 5) {
+        std::string path = "assets/levels/lvl" + std::to_string(levelNumber - 1) + ".ldtk";
+        if (std::filesystem::exists(path)) return path;
+    }
+    
+    // Fallback to world.ldtk for Level 1 or if specific file doesn't exist
     const std::string ldtkPath = "assets/levels/world.ldtk";
     if (std::filesystem::exists(ldtkPath)) return ldtkPath;
+    
     return "assets/levels/level" + std::to_string(levelNumber) + ".lvl";
 }
 
@@ -354,7 +361,14 @@ void GameController::StartLevel(int levelNumber) {
     const std::string path = GetLevelPath(levelNumber);
     const bool isLDtk = (path.size() >= 5 &&
                          path.substr(path.size() - 5) == ".ldtk");
-    const int ldtkIdx = isLDtk ? (levelNumber - 1) : 0;
+    int ldtkIdx = 0;
+    if (isLDtk) {
+        if (path.find("world.ldtk") != std::string::npos) {
+            ldtkIdx = levelNumber - 1;
+        } else {
+            ldtkIdx = 0; // Independent map files usually only have 1 level (index 0)
+        }
+    }
     m_gameState = LevelFactory::LoadLevel(path, GameMode::SinglePlayer, ldtkIdx, cls);
     if (!m_gameState) {
         m_gameState = LevelFactory::CreateDefaultLevel(levelNumber);
