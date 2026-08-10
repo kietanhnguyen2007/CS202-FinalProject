@@ -41,6 +41,11 @@ void AssetManager::WorkerLoop() {
             if (!m_pendingPaths.empty()) {
                 path = m_pendingPaths.front();
                 m_pendingPaths.pop();
+                
+                std::lock_guard<std::mutex> lock(m_currentNameMutex);
+                // Extract just the filename from the path
+                size_t pos = path.find_last_of("/\\\\");
+                m_currentAssetName = (pos != std::string::npos) ? path.substr(pos + 1) : path;
             }
         }
 
@@ -77,6 +82,11 @@ void AssetManager::UpdateMainThread() {
         
         m_loadedCount++;
     }
+    
+    float target = GetProgress();
+    float current = m_displayProgress.load();
+    float next = current + (target - current) * 0.15f;
+    m_displayProgress.store(next);
 }
 
 bool AssetManager::IsLoadingComplete() const {
@@ -86,6 +96,11 @@ bool AssetManager::IsLoadingComplete() const {
 float AssetManager::GetProgress() const {
     if (m_totalToLoad == 0) return 1.0f;
     return static_cast<float>(m_loadedCount) / static_cast<float>(m_totalToLoad);
+}
+
+std::string AssetManager::GetCurrentAssetName() const {
+    std::lock_guard<std::mutex> lock(m_currentNameMutex);
+    return m_currentAssetName;
 }
 
 std::shared_ptr<Animations::TextureAtlas> AssetManager::GetAtlas(const std::string& jsonPath) {

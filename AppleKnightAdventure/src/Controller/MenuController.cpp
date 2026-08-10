@@ -1,81 +1,326 @@
+// =============================================================================
+// MenuController.cpp — Apple Knight Adventure
+// Drives the Main Menu loop: reads SaveManager, feeds MenuView,
+// handles keyboard + mouse input for all menu modes.
+// =============================================================================
 #include "Controller/MenuController.h"
 #include "Controller/InputController.h"
 #include "View/MenuView.h"
+#include "Model/SaveManager.h"
+#include "Model/MenuStateData.h"
 #include "Systems/SoundManager.h"
+#include "Systems/TweenSystem.h"
+#include "raylib.h"
+#include <algorithm>
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Singleton
+// ─────────────────────────────────────────────────────────────────────────────
 MenuController& MenuController::GetInstance() {
     static MenuController instance;
     return instance;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Init
+// ─────────────────────────────────────────────────────────────────────────────
 bool MenuController::Init() {
+    // ── Load persistent save data ─────────────────────────────────────────
+    auto& save = SaveManager::GetInstance();
+    save.Load();  // loads from "save.json"; creates defaults if missing
+
+    // ── Init & load View resources ────────────────────────────────────────
     auto& menuView = View::MenuView::GetInstance();
     menuView.Init();
     menuView.LoadResources("assets/ui/ui_atlas.json");
+
+    // Push header data (player name + coins from save)
+    RefreshHeaderData();
+
     menuView.ShowMainMenu();
 
+    // ── Background music ──────────────────────────────────────────────────
     auto& snd = SoundManager::GetInstance();
     if (snd.InitAudio()) {
         snd.LoadMusic("bgm_menu", "assets/sounds/music/bgm_menu.wav");
         snd.PlayMusic("bgm_menu");
     }
 
-    m_selected = 0;
-    m_startGame = false;
-    m_quit = false;
+    // ── Reset flags ───────────────────────────────────────────────────────
+    ResetFlags();
+    m_selected    = 0;
+    m_inShop      = false;
+    m_inLevelSelect = false;
+    m_inputCooldown = 0.0f;
+    m_headerRefreshTimer = 0.0f;
+
     return true;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Shutdown
+// ─────────────────────────────────────────────────────────────────────────────
 void MenuController::Shutdown() {
+    SaveManager::GetInstance().Save();
     View::MenuView::GetInstance().Shutdown();
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// ShowMainMenu — re-enter menu (e.g., from game → menu)
+// ─────────────────────────────────────────────────────────────────────────────
 void MenuController::ShowMainMenu() {
-    m_selected = 0;
-    m_startGame = false;
-    m_openMapBuilder = false;
-    m_quit = false;
+    ResetFlags();
+    m_selected       = 0;
+    m_inShop         = false;
+    m_inLevelSelect  = false;
+    m_inputCooldown  = kInputCooldown; // brief lock to avoid accidental input
+    RefreshHeaderData();
     View::MenuView::GetInstance().ShowMainMenu();
 }
 
-void MenuController::HandleMainMenuInput() {
-    InputCommand cmd = InputController::GetInstance().Poll();
-    auto& menuView = View::MenuView::GetInstance();
+// ─────────────────────────────────────────────────────────────────────────────
+// ResetFlags
+// ─────────────────────────────────────────────────────────────────────────────
+void MenuController::ResetFlags() {
+    m_startGame      = false;
+    m_openMapBuilder = false;
+    m_quit           = false;
+    m_openShop       = false;
+    m_openOptions    = false;
+}
 
-    if (cmd.menuDelta != 0) {
-        m_selected += cmd.menuDelta;
-        if (m_selected < 0) m_selected = 3;
-        if (m_selected > 3) m_selected = 0;
+// ─────────────────────────────────────────────────────────────────────────────
+// RefreshHeaderData — push save data into MenuView header
+// ─────────────────────────────────────────────────────────────────────────────
+void MenuController::RefreshHeaderData() {
+    auto& save = SaveManager::GetInstance();
+    View::MenuView::GetInstance().SetHeaderData(save.GetPlayerName(), save.GetCoins());
+}
+
+// =============================================================================
+// Update — master per-frame entry point
+// =============================================================================
+void MenuController::Update(float dt) {
+    // Advance TweenSystem so button animations work
+    TweenSystem::GetInstance().Update(dt);
+
+    // Cooldown ticker
+    if (m_inputCooldown > 0.0f) {
+        m_inputCooldown -= dt;
+        if (m_inputCooldown < 0.0f) m_inputCooldown = 0.0f;
     }
 
-    // Handle mouse hover
-    Vector2 mousePos = GetMousePosition();
-    int hovered = menuView.GetHoveredItem(mousePos);
-    if (hovered != -1) {
+    // Periodic save-data refresh for coins display
+    m_headerRefreshTimer += dt;
+    if (m_headerRefreshTimer >= 2.0f) {
+        m_headerRefreshTimer = 0.0f;
+        RefreshHeaderData();
+    }
+
+    // Update music
+    auto& snd = SoundManager::GetInstance();
+    if (snd.IsAudioInitialized()) snd.UpdateMusicStream("bgm_menu");
+
+    // Dispatch to the correct input handler
+    auto& view = View::MenuView::GetInstance();
+    View::MenuMode mode = view.GetMode();
+
+    switch (mode) {
+        case View::MenuMode::Main:        HandleMainMenuInput(dt); break;
+        case View::MenuMode::LevelSelect: HandleLevelSelectInput(dt); break;
+        case View::MenuMode::Shop:        HandleShopInput(dt); break;
+        case View::MenuMode::Pause:       HandlePauseInput(dt); break;
+        default: break;
+    }
+
+    // Always update the view (runs animations etc.)
+    view.Update(dt, m_selected);
+}
+
+// =============================================================================
+// HandleMainMenuInput
+// Items: 0=Play, 1=Shop, 2=Options, 3=Quit
+// =============================================================================
+void MenuController::HandleMainMenuInput(float dt) {
+    (void)dt;
+    auto& view = View::MenuView::GetInstance();
+    InputCommand cmd = InputController::GetInstance().Poll();
+
+    const int kItemCount = 4;
+
+    // ── Keyboard navigation ───────────────────────────────────────────────
+    if (m_inputCooldown <= 0.0f) {
+        if (cmd.menuDelta != 0) {
+            m_selected = (m_selected + cmd.menuDelta + kItemCount) % kItemCount;
+            m_inputCooldown = kInputCooldown;
+        }
+    }
+
+    // ── Mouse hover ───────────────────────────────────────────────────────
+    Vector2 mousePos = ::GetMousePosition();
+    int hovered = view.GetHoveredItem(mousePos);
+    if (hovered >= 0 && hovered < kItemCount) {
         m_selected = hovered;
     }
 
-    // Handle mouse click or keyboard confirm
-    if (cmd.menuConfirm || (hovered != -1 && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))) {
+    // ── Confirm (keyboard Enter or mouse click) ───────────────────────────
+    bool confirm = cmd.menuConfirm
+                   || (hovered >= 0 && ::IsMouseButtonPressed(MOUSE_BUTTON_LEFT));
+
+    if (confirm && m_inputCooldown <= 0.0f) {
+        auto& snd = SoundManager::GetInstance();
+        if (snd.IsAudioInitialized()) snd.PlaySound("ui_confirm");
+
         switch (m_selected) {
-            case 0: // Start
-                m_startGame = true;
+            case 0: // Play → go to Level Select
+                m_inLevelSelect = true;
+                m_selected = 0;
+                m_inputCooldown = kInputCooldown;
+                view.ShowLevelSelect(3, 3);
                 break;
-            case 1: // Map Builder
-                m_openMapBuilder = true;
+
+            case 1: // Shop
+                m_openShop = true;
+                m_inputCooldown = kInputCooldown;
                 break;
+
             case 2: // Options
+                m_openOptions = true;
+                m_inputCooldown = kInputCooldown;
+                view.ShowOptions();
                 break;
+
             case 3: // Quit
                 m_quit = true;
                 break;
         }
     }
-
-    menuView.Update(0.0f, m_selected);
 }
 
-void MenuController::Update(float dt) {
+// =============================================================================
+// HandleLevelSelectInput
+// =============================================================================
+void MenuController::HandleLevelSelectInput(float dt) {
     (void)dt;
-    HandleMainMenuInput();
+    auto& view = View::MenuView::GetInstance();
+    InputCommand cmd = InputController::GetInstance().Poll();
+
+    const int kLevels = 3;
+
+    // ── Keyboard navigation ───────────────────────────────────────────────
+    if (m_inputCooldown <= 0.0f) {
+        if (cmd.menuDelta != 0) {
+            m_selected = std::clamp(m_selected + cmd.menuDelta, 0, kLevels - 1);
+            m_inputCooldown = kInputCooldown;
+        }
+    }
+
+    // ── Confirm ───────────────────────────────────────────────────────────
+    if (cmd.menuConfirm && m_inputCooldown <= 0.0f) {
+        m_selectedLevel = m_selected + 1;  // levels are 1-indexed
+        m_startGame     = true;
+        m_inputCooldown = kInputCooldown;
+    }
+
+    // ── Back / Escape ─────────────────────────────────────────────────────
+    if (::IsKeyPressed(KEY_ESCAPE)) {
+        m_inLevelSelect = false;
+        m_selected      = 0;
+        m_inputCooldown = kInputCooldown;
+        view.ShowMainMenu();
+    }
+
+    view.ShowLevelSelect(kLevels, kLevels);
+}
+
+// =============================================================================
+// HandleShopInput
+// =============================================================================
+void MenuController::HandleShopInput(float dt) {
+    (void)dt;
+    auto& view = View::MenuView::GetInstance();
+    InputCommand cmd = InputController::GetInstance().Poll();
+
+    // Character prices (index 0 = Knight = free)
+    const int prices[]    = { 0, 200, 350, 500 };
+    const char* names[]   = { "Knight", "Fighter", "Magic Caster", "Ninja" };
+    constexpr int kCount  = 4;
+
+    // ── Navigation ────────────────────────────────────────────────────────
+    if (m_inputCooldown <= 0.0f && cmd.menuDelta != 0) {
+        m_selected = std::clamp(m_selected + cmd.menuDelta, 0, kCount - 1);
+        m_inputCooldown = kInputCooldown;
+    }
+
+    // ── Buy confirm ───────────────────────────────────────────────────────
+    if (cmd.menuConfirm && m_inputCooldown <= 0.0f) {
+        auto& save = SaveManager::GetInstance();
+        int idx = m_selected;
+
+        if (prices[idx] == 0 || save.IsCharUnlocked(names[idx])) {
+            // Already unlocked — select this character
+            m_selectedCharIndex = idx;
+            auto& snd = SoundManager::GetInstance();
+            if (snd.IsAudioInitialized()) snd.PlaySound("ui_confirm");
+        } else if (save.GetCoins() >= prices[idx]) {
+            // Purchase
+            save.SpendCoins(prices[idx]);
+            save.UnlockChar(names[idx]);
+            save.Save();
+            RefreshHeaderData();
+            m_selectedCharIndex = idx;
+            auto& snd = SoundManager::GetInstance();
+            if (snd.IsAudioInitialized()) snd.PlaySound("ui_confirm");
+        } else {
+            // Not enough coins
+            auto& snd = SoundManager::GetInstance();
+            if (snd.IsAudioInitialized()) snd.PlaySound("ui_error");
+        }
+        m_inputCooldown = kInputCooldown;
+    }
+
+    // ── Back / Escape ─────────────────────────────────────────────────────
+    if (::IsKeyPressed(KEY_ESCAPE)) {
+        m_inShop    = false;
+        m_selected  = 0;
+        m_inputCooldown = kInputCooldown;
+        view.ShowMainMenu();
+    }
+}
+
+// =============================================================================
+// HandlePauseInput
+// =============================================================================
+void MenuController::HandlePauseInput(float dt) {
+    (void)dt;
+    auto& view = View::MenuView::GetInstance();
+    InputCommand cmd = InputController::GetInstance().Poll();
+
+    const int kItems = 2; // Resume, Quit to Menu
+
+    Vector2 mousePos = ::GetMousePosition();
+    int hovered = view.GetHoveredItem(mousePos);
+    if (hovered >= 0) m_selected = hovered;
+
+    if (m_inputCooldown <= 0.0f && cmd.menuDelta != 0) {
+        m_selected = (m_selected + cmd.menuDelta + kItems) % kItems;
+        m_inputCooldown = kInputCooldown;
+    }
+
+    bool confirm = cmd.menuConfirm
+                   || (hovered >= 0 && ::IsMouseButtonPressed(MOUSE_BUTTON_LEFT));
+
+    if (confirm && m_inputCooldown <= 0.0f) {
+        switch (m_selected) {
+            case 0: // Resume — signal caller to unpause (startGame acts as "resume")
+                m_startGame = true;
+                break;
+            case 1: // Quit to Menu
+                ShowMainMenu();
+                break;
+        }
+        m_inputCooldown = kInputCooldown;
+    }
+
+    view.Update(dt, m_selected);
 }

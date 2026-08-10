@@ -24,6 +24,13 @@ public:
     bool IsLoadingComplete() const;
     float GetProgress() const;
 
+    // Returns the filename (basename only) of the asset currently being loaded.
+    // Thread-safe. Returns empty string if nothing is loading.
+    std::string GetCurrentAssetName() const;
+
+    // Smooth display progress (lerps toward real progress, updated by UpdateMainThread)
+    float GetDisplayProgress() const { return m_displayProgress.load(); }
+
     // Get loaded atlas. If not loaded asynchronously, it falls back to synchronous load!
     std::shared_ptr<Animations::TextureAtlas> GetAtlas(const std::string& jsonPath);
 
@@ -49,6 +56,10 @@ private:
     std::atomic<int> m_loadedCount{0};
 
     void WorkerLoop();
+
+    std::atomic<float> m_displayProgress{0.0f};
+    mutable std::mutex m_currentNameMutex;
+    std::string m_currentAssetName;  // set by worker thread when picking a file
 };
 
 } // namespace View
