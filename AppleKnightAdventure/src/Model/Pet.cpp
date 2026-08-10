@@ -111,9 +111,47 @@ void Pet::FollowPlayer(Vector2 playerPosition, float deltaTime) {
 void Pet::UpdateAI(Vector2 playerPosition, float deltaTime,
                    Player* player,
                    const std::vector<Entity*>& enemies,
+                   const std::vector<Entity*>& items,
                    bool inCombat)
 {
-    // Ghost: if in combat, switch to idle (GameController handles summoning Dragon)
+    // Fairy AI: Fly towards the nearest coin, else follow player
+    if (m_petType == PetType::Fairy) {
+        float nearest = std::numeric_limits<float>::max();
+        Vector2 targetCoinPos = {0,0};
+        bool foundCoin = false;
+        
+        for (Entity* item : items) {
+            if (!item || !item->IsActive()) continue;
+            float dx = item->GetPosition().x - m_position.x;
+            float dy = item->GetPosition().y - m_position.y;
+            float d = std::sqrt(dx*dx + dy*dy);
+            if (d < nearest && d < 400.0f) { // detection range
+                nearest = d;
+                targetCoinPos = item->GetPosition();
+                foundCoin = true;
+            }
+        }
+        
+        if (foundCoin) {
+            // Move directly towards coin
+            float dx = targetCoinPos.x - m_position.x;
+            float dy = targetCoinPos.y - m_position.y;
+            float dist = std::sqrt(dx * dx + dy * dy);
+            if (dist > 2.0f) {
+                float currentSpeed = m_speed + 50.0f; 
+                Vector2 dir = {dx / dist, dy / dist};
+                m_position.x += dir.x * currentSpeed * deltaTime;
+                m_position.y += dir.y * currentSpeed * deltaTime;
+                m_direction = (dx > 0) ? Direction::Right : Direction::Left;
+            }
+            m_petState = PetState::Following;
+        } else {
+            FollowPlayer(playerPosition, deltaTime);
+        }
+        return;
+    }
+
+    // Ghost: if in combat, switch to idle (GameController handles despawning)
     if (m_petType == PetType::Ghost) {
         if (inCombat) {
             m_petState = PetState::Idle;
@@ -132,8 +170,8 @@ void Pet::UpdateAI(Vector2 playerPosition, float deltaTime,
         return;
     }
 
-    // Dragon AI
-    if (m_petType == PetType::BabyDragon) {
+    // Dragon and Skull AI
+    if (m_petType == PetType::BabyDragon || m_petType == PetType::Skull) {
         FollowPlayer(playerPosition, deltaTime);
 
         // Tick cooldown

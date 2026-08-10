@@ -146,7 +146,7 @@ void MenuController::HandleMainMenuInput(float dt) {
     auto& view = View::MenuView::GetInstance();
     InputCommand cmd = InputController::GetInstance().Poll();
 
-    const int kItemCount = 4;
+    const int kItemCount = 5;
 
     // ── Keyboard navigation ───────────────────────────────────────────────
     if (m_inputCooldown <= 0.0f) {
@@ -179,18 +179,23 @@ void MenuController::HandleMainMenuInput(float dt) {
                 view.ShowLevelSelect(3, 3);
                 break;
 
-            case 1: // Shop
+            case 1: // Map Builder
+                m_openMapBuilder = true;
+                m_inputCooldown = kInputCooldown;
+                break;
+
+            case 2: // Shop
                 m_openShop = true;
                 m_inputCooldown = kInputCooldown;
                 break;
 
-            case 2: // Options
+            case 3: // Options
                 m_openOptions = true;
                 m_inputCooldown = kInputCooldown;
                 view.ShowOptions();
                 break;
 
-            case 3: // Quit
+            case 4: // Quit
                 m_quit = true;
                 break;
         }

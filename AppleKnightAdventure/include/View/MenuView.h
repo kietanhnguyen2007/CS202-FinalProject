@@ -125,7 +125,7 @@ private:
     std::array<AnimatedButton, kMaxMainButtons> m_mainButtons{};
 
     // Label lists
-    std::vector<std::string> m_mainItems    = { "Play", "Shop", "Options", "Quit" };
+    std::vector<std::string> m_mainItems    = { "Play", "Map Builder", "Shop", "Options", "Quit" };
     std::vector<std::string> m_pauseItems   = { "Resume", "Quit to Menu" };
     std::string              m_errorMsg;
     std::vector<std::string> m_errorItems   = { "OK" };

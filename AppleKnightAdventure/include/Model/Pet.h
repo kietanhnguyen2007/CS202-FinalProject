@@ -61,6 +61,7 @@ public:
     void     SetOwnerId(int ownerId);
     float    GetFollowDistance() const;
     void     SetFollowDistance(float distance);
+    int      GetDamage() const { return m_damage; }
 
     // Dragon
     bool WantsToFire() const;
@@ -79,6 +80,7 @@ public:
     void UpdateAI(Vector2 playerPosition, float deltaTime,
                   Player* player,
                   const std::vector<Entity*>& enemies,
+                  const std::vector<Entity*>& items,
                   bool inCombat);
 };
 

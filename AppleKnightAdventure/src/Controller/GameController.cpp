@@ -1878,7 +1878,7 @@ void GameController::FireDragonProjectile(Pet* pet) {
         spawnPos, Vector2{16.0f, 16.0f},
         ProjectileType::FlyingProjectile,
         Direction::Right,
-        Pet::DRAGON_PROJECTILE_DMG,
+        pet->GetDamage(),
         pet->GetOwnerId());
 
     proj->SetSize({20, 20});
@@ -1886,9 +1886,14 @@ void GameController::FireDragonProjectile(Pet* pet) {
     proj->SetHoming(true);
     proj->SetHomingTargetPos(targetPos);
 
-    // Register visuals
+    // Register visuals based on pet type
+    std::string projVisual = "assets/textures/pets/projectile_dragon/attack.json";
+    if (pet->GetPetType() == PetType::Skull) {
+        projVisual = "assets/textures/pets/projectile_skull/attack.json";
+    }
+
     View::EntityRenderer::GetInstance().RegisterAnimated(
-        proj.get(), "assets/textures/pets/projectile_dragon/attack.json", "attack");
+        proj.get(), projVisual, "attack");
 
     m_petProjectiles.push_back(std::move(proj));
     pet->ResetFireFlag();
@@ -1926,12 +1931,16 @@ void GameController::UpdatePets(float dt, const InputCommand& cmd) {
 
     if (!m_activePet) return;
 
-    // Build enemy pointer list for Dragon targeting
+    // Build enemy and item pointer list for pet targeting
     std::vector<Entity*> enemies;
+    std::vector<Entity*> items;
     for (const auto& e : m_gameState->GetAllEntities()) {
         if (e->GetType() == EntityType::Enemy && e->IsActive()) {
             auto* enemy = static_cast<Enemy*>(e.get());
             if (enemy->IsAlive()) enemies.push_back(e.get());
+        }
+        else if (e->GetType() == EntityType::Item && e->IsActive()) {
+            items.push_back(e.get());
         }
     }
 
@@ -1942,11 +1951,50 @@ void GameController::UpdatePets(float dt, const InputCommand& cmd) {
         // Actually we'll just let it home wherever it last aimed; no reassignment needed
     }
 
-    m_activePet->UpdateAI(player->GetPosition(), dt, player, enemies, m_inCombat);
+    m_activePet->UpdateAI(player->GetPosition(), dt, player, enemies, items, m_inCombat);
     m_activePet->Update(dt);
 
-    // Dragon fire
-    if (m_activePet->GetPetType() == PetType::BabyDragon && m_activePet->WantsToFire()) {
+    // Fairy collecting items
+    if (m_activePet->GetPetType() == PetType::Fairy) {
+        std::vector<int> collectedIds;
+        for (Entity* itemEnt : items) {
+            if (itemEnt->IsActive() && RectOverlap(m_activePet->GetBoundingBox(), itemEnt->GetBoundingBox())) {
+                Item* item = static_cast<Item*>(itemEnt);
+                
+                switch (item->GetItemType()) {
+                    case ItemType::Coin:
+                        player->GetInventory().AddCoins(item->GetAmount());
+                        player->AddScore(item->GetAmount() * 10);
+                        m_scoring.AddScore(item->GetAmount() * 10);
+                        break;
+                    case ItemType::Apple:
+                        player->Heal(25);
+                        break;
+                    case ItemType::Key:
+                        player->GetInventory().AddKeys(1);
+                        break;
+                    default:
+                        player->GetInventory().AddItem(
+                            std::make_unique<Item>(item->GetPosition(), item->GetItemType(), item->GetAmount()));
+                        break;
+                }
+
+                m_collectedItems++;
+                m_scoring.CollectItem();
+                SoundManager::GetInstance().PlaySound("coin_pickup");
+                View::FloatingTextManager::GetInstance().Emit(
+                    item->GetPosition(), item->GetItemName(), YELLOW, 1.0f);
+                collectedIds.push_back(item->GetId());
+            }
+        }
+        for (int id : collectedIds) {
+            UnregisterEntityVisuals(id);
+            m_gameState->RemoveEntity(id);
+        }
+    }
+
+    // Dragon/Skull fire
+    if ((m_activePet->GetPetType() == PetType::BabyDragon || m_activePet->GetPetType() == PetType::Skull) && m_activePet->WantsToFire()) {
         FireDragonProjectile(m_activePet.get());
     }
 
