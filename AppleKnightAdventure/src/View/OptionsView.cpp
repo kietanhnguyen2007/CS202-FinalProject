@@ -1,4 +1,5 @@
 #include "View/OptionsView.h"
+#include "View/UIResourceManager.h"
 #include <math.h>
 
 namespace View {
@@ -128,12 +129,21 @@ void OptionsView::Render() {
     
     Rectangle backRect = { btnX, btnY, scaledBtnW, scaledBtnH };
 
-    // Gradient fill
-    DrawRectangleGradientV(btnX, btnY, scaledBtnW, scaledBtnH, Color{60, 40, 90, 255}, Color{100, 70, 140, 255});
-    
-    // Border
-    Color borderColor = m_backHovered ? Color{200, 180, 80, 200} : Color{80, 60, 110, 180};
-    DrawRectangleLinesEx(backRect, 2.0f, borderColor);
+    Texture2D* texBtn = UIResourceManager::GetInstance().GetButton();
+    float btnFrameW = UIResourceManager::GetInstance().GetButtonFrameWidth();
+
+    if (texBtn && texBtn->id != 0 && btnFrameW > 0) {
+        int frame = m_backHovered ? 1 : 0;
+        Rectangle src = { (float)(frame * btnFrameW), 0.0f, btnFrameW, (float)texBtn->height };
+        DrawTexturePro(*texBtn, src, backRect, {0,0}, 0.0f, WHITE);
+    } else {
+        // Gradient fill
+        DrawRectangleGradientV(btnX, btnY, scaledBtnW, scaledBtnH, Color{60, 40, 90, 255}, Color{100, 70, 140, 255});
+        
+        // Border
+        Color borderColor = m_backHovered ? Color{200, 180, 80, 200} : Color{80, 60, 110, 180};
+        DrawRectangleLinesEx(backRect, 2.0f, borderColor);
+    }
 
     // Glow effect
     if (m_backGlowAlpha > 0.0f) {
@@ -149,7 +159,8 @@ void OptionsView::Render() {
     const char* btnText = "Back";
     int btnFontSize = 20;
     int btnTextW = MeasureText(btnText, btnFontSize);
-    DrawText(btnText, btnX + (scaledBtnW - btnTextW) / 2.0f, btnY + (scaledBtnH - btnFontSize) / 2.0f, btnFontSize, WHITE);
+    Color textCol = m_backHovered ? Color{255, 235, 80, 255} : WHITE;
+    DrawText(btnText, btnX + (scaledBtnW - btnTextW) / 2.0f, btnY + (scaledBtnH - btnFontSize) / 2.0f, btnFontSize, textCol);
 }
 
 } // namespace View

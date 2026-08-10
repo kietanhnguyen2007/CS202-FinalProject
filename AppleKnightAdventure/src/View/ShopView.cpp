@@ -7,6 +7,7 @@
 #include "View/ShopView.h"
 #include "View/Renderer.h"
 #include "View/UIHelpers.h"
+#include "View/UIResourceManager.h"
 #include "Systems/SoundManager.h"
 #include <cstdio>
 #include <cmath>
@@ -246,6 +247,40 @@ void ShopView::Update(float dt) {
         }
     }
 
+    // ── Keyboard Navigation ──────────────────────────────────────────────
+    static float inputCooldown = 0.0f;
+    if (inputCooldown > 0.0f) inputCooldown -= dt;
+
+    if (inputCooldown <= 0.0f) {
+        int dx = 0, dy = 0;
+        if (::IsKeyPressed(KEY_LEFT) || ::IsKeyPressed(KEY_A)) dx = -1;
+        if (::IsKeyPressed(KEY_RIGHT) || ::IsKeyPressed(KEY_D)) dx = 1;
+        if (::IsKeyPressed(KEY_UP) || ::IsKeyPressed(KEY_W)) dy = -1;
+        if (::IsKeyPressed(KEY_DOWN) || ::IsKeyPressed(KEY_S)) dy = 1;
+
+        if (dx != 0 || dy != 0) {
+            int newIdx = m_selectedIdx + dx + dy * kCols;
+            // Prevent wrapping rows horizontally
+            if (dx == -1 && (m_selectedIdx % kCols) == 0) newIdx = m_selectedIdx;
+            if (dx == 1 && ((m_selectedIdx + 1) % kCols) == 0) newIdx = m_selectedIdx;
+
+            if (newIdx >= 0 && newIdx < (int)items.size() && newIdx != m_selectedIdx) {
+                m_selectedIdx = newIdx;
+                LoadPreview(items[newIdx].idleAtlasPath);
+                
+                // Auto scroll
+                int newRow = newIdx / kCols;
+                float cellTop = cellPad + newRow * (cellH + cellPad);
+                float cellBot = cellTop + cellH + cellPad;
+                
+                if (cellTop < m_scrollY) m_scrollY = cellTop;
+                else if (cellBot > m_scrollY + gridViewH) m_scrollY = cellBot - gridViewH;
+                
+                inputCooldown = 0.15f;
+            }
+        }
+    }
+
     // ── Back button ───────────────────────────────────────────────────────
     float backW = sw * 0.12f, backH = sh * 0.055f;
     float backX = panelX + totalPanelW - backW - sw * 0.01f;
@@ -444,15 +479,25 @@ void ShopView::RenderGrid() {
         bool selected  = (m_selectedIdx == i);
         bool unlocked  = items[i].isUnlocked;
 
-        Color bg  = selected  ? Color{65, 48, 110, 235}
-                  : unlocked  ? Color{30, 22, 50,  215}
-                  :             Color{18, 14, 30,  200};
-        Color brd = selected  ? Color{255, 210, 50, 230}
-                  : unlocked  ? Color{120, 90, 160, 180}
-                  :             Color{50,  40, 70,  160};
+        if (m_panelLoaded && m_texPanel.id != 0) {
+            int corner = m_texPanel.width / 3;
+            NPatchInfo npi = { {0.f, 0.f, (float)m_texPanel.width, (float)m_texPanel.height}, corner, corner, corner, corner, 0 };
+            Color tint = selected ? WHITE : (unlocked ? Color{200, 200, 200, 255} : Color{100, 100, 100, 200});
+            ::DrawTextureNPatch(m_texPanel, npi, {cx, cy, cellW, cellH}, {0,0}, 0.f, tint);
+            if (selected) {
+                ::DrawRectangleLinesEx({cx, cy, cellW, cellH}, 2.5f, Color{255, 210, 50, 230});
+            }
+        } else {
+            Color bg  = selected  ? Color{65, 48, 110, 235}
+                      : unlocked  ? Color{30, 22, 50,  215}
+                      :             Color{18, 14, 30,  200};
+            Color brd = selected  ? Color{255, 210, 50, 230}
+                      : unlocked  ? Color{120, 90, 160, 180}
+                      :             Color{50,  40, 70,  160};
 
-        ::DrawRectangle((int)cx, (int)cy, (int)cellW, (int)cellH, bg);
-        ::DrawRectangleLinesEx({cx, cy, cellW, cellH}, selected ? 2.5f : 1.5f, brd);
+            ::DrawRectangle((int)cx, (int)cy, (int)cellW, (int)cellH, bg);
+            ::DrawRectangleLinesEx({cx, cy, cellW, cellH}, selected ? 2.5f : 1.5f, brd);
+        }
 
         // Load and draw idle sprite (first frame, static)
         if (!items[i].idleAtlasPath.empty() && ::FileExists(items[i].idleAtlasPath.c_str())) {
@@ -554,11 +599,9 @@ void ShopView::RenderDetailPanel() {
     float previewX    = detailX + (detailW - previewSize) * 0.5f;
     float previewY    = panelY + totalPanelH * 0.04f;
 
-    // Dark preview bg
+    // Dark preview bg (fits perfectly under the frame, no extra borders)
     ::DrawRectangle((int)previewX, (int)previewY, (int)previewSize, (int)previewSize,
                     Color{15, 10, 25, 200});
-    ::DrawRectangleLinesEx({previewX, previewY, previewSize, previewSize}, 2.f,
-                           Color{90, 70, 130, 200});
 
     // Draw animated idle frame
     if (m_previewAtlas && m_previewAtlas->IsTextureLoaded() && m_previewAnim.HasTexture()) {
@@ -566,8 +609,9 @@ void ShopView::RenderDetailPanel() {
         bool flipX     = m_previewAnim.GetFlipX();
 
         float fw = fabsf(src.width), fh = fabsf(src.height);
+        // Reduce scale to 0.55f so large characters (Ninja, Dragon) don't clip the frame
         float scale = (fw > 0 && fh > 0)
-            ? std::min(previewSize / fw, previewSize / fh) * 0.80f
+            ? std::min(previewSize / fw, previewSize / fh) * 0.55f
             : 1.f;
         float dw = fw * scale, dh = fh * scale;
         float dx = previewX + (previewSize - dw) * 0.5f;
@@ -588,7 +632,7 @@ void ShopView::RenderDetailPanel() {
                    (int)(previewY + (previewSize-pfs)*0.5f), pfs, Color{80,70,100,200});
     }
 
-    // Portrait frame on top
+    // Portrait frame on top (exact same size as preview bg)
     if (m_portraitLoaded && m_texPortrait.id != 0) {
         ::DrawTexturePro(m_texPortrait,
                          {0,0,(float)m_texPortrait.width,(float)m_texPortrait.height},
@@ -633,9 +677,11 @@ void ShopView::RenderDetailPanel() {
         statY += lineH;
     };
 
-    drawStatRow("HP",    item.statHP,    Color{80, 200, 100, 255});
-    drawStatRow("ATK",   item.statATK,   Color{220, 80,  80,  255});
-    drawStatRow("Speed", item.statSpeed, Color{80, 180, 220, 255});
+    if (m_activeTab == ShopTab::Characters) {
+        drawStatRow("HP",    item.statHP,    Color{80, 200, 100, 255});
+        drawStatRow("ATK",   item.statATK,   Color{220, 80,  80,  255});
+        drawStatRow("Speed", item.statSpeed, Color{80, 180, 220, 255});
+    }
 
     // ── Description ───────────────────────────────────────────────────────
     if (!item.description.empty()) {
@@ -675,25 +721,40 @@ void ShopView::RenderBuyButton() {
     float cx = buyX + buyW * 0.5f, cy = buyY + buyH * 0.5f;
     Rectangle dr = { cx - buyW*sc*0.5f, cy - buyH*sc*0.5f, buyW*sc, buyH*sc };
 
+    Texture2D* btnTex = UIResourceManager::GetInstance().GetButton();
+    float btnFrameW = UIResourceManager::GetInstance().GetButtonFrameWidth();
+
     if (unlocked) {
         // "Equipped" / "Select" state
-        ::DrawRectangleGradientV((int)dr.x,(int)dr.y,(int)dr.width,(int)dr.height,
-                                 Color{40,100,50,200}, Color{60,160,80,200});
-        ::DrawRectangleLinesEx(dr, 1.5f, Color{80,200,100,200});
+        if (btnTex && btnTex->id != 0 && btnFrameW > 0) {
+            Rectangle src = { 0.0f, 0.0f, btnFrameW, (float)btnTex->height };
+            ::DrawTexturePro(*btnTex, src, dr, {0,0}, 0.f, Color{150, 255, 150, 255}); // greenish tint
+        } else {
+            ::DrawRectangleGradientV((int)dr.x,(int)dr.y,(int)dr.width,(int)dr.height,
+                                     Color{40,100,50,200}, Color{60,160,80,200});
+            ::DrawRectangleLinesEx(dr, 1.5f, Color{80,200,100,200});
+        }
         const char* label = "Owned";
         int lfs = (int)(buyH * 0.50f); if (lfs < 10) lfs = 10;
         int lw  = ::MeasureText(label, lfs);
         ::DrawText(label, (int)(dr.x+(dr.width-lw)*0.5f),
                    (int)(dr.y+(dr.height-lfs)*0.5f), lfs, WHITE);
     } else {
-        Color bgTop = canAfford ? Color{80, 55, 140, 230} : Color{45, 38, 60, 180};
-        Color bgBot = canAfford ? Color{130,90, 190, 230} : Color{55, 46, 70, 180};
-        ::DrawRectangleGradientV((int)dr.x,(int)dr.y,(int)dr.width,(int)dr.height,
-                                 bgTop, bgBot);
-        Color brd = canAfford
-            ? (m_buyBtnAnim.hovered ? Color{255,210,50,230} : Color{130,100,180,200})
-            : Color{70,60,90,150};
-        ::DrawRectangleLinesEx(dr, canAfford ? 2.f : 1.5f, brd);
+        if (btnTex && btnTex->id != 0 && btnFrameW > 0) {
+            int frame = (canAfford && m_buyBtnAnim.hovered) ? 1 : 0;
+            Rectangle src = { (float)(frame * btnFrameW), 0.0f, btnFrameW, (float)btnTex->height };
+            Color tint = canAfford ? WHITE : Color{120, 120, 120, 255};
+            ::DrawTexturePro(*btnTex, src, dr, {0,0}, 0.f, tint);
+        } else {
+            Color bgTop = canAfford ? Color{80, 55, 140, 230} : Color{45, 38, 60, 180};
+            Color bgBot = canAfford ? Color{130,90, 190, 230} : Color{55, 46, 70, 180};
+            ::DrawRectangleGradientV((int)dr.x,(int)dr.y,(int)dr.width,(int)dr.height,
+                                     bgTop, bgBot);
+            Color brd = canAfford
+                ? (m_buyBtnAnim.hovered ? Color{255,210,50,230} : Color{130,100,180,200})
+                : Color{70,60,90,150};
+            ::DrawRectangleLinesEx(dr, canAfford ? 2.f : 1.5f, brd);
+        }
 
         if (canAfford) DrawGlowBorder(dr, m_buyBtnAnim.glowAlpha, Color{220,200,80,255});
 
@@ -728,10 +789,19 @@ void ShopView::RenderBackButton() {
     float cx = backX + backW * 0.5f, cy = backY + backH * 0.5f;
     Rectangle dr = { cx - backW*sc*0.5f, cy - backH*sc*0.5f, backW*sc, backH*sc };
 
-    ::DrawRectangleGradientV((int)dr.x,(int)dr.y,(int)dr.width,(int)dr.height,
-                             Color{50,38,72,220}, Color{70,52,100,220});
-    Color brd = m_backBtnAnim.hovered ? Color{220,180,80,220} : Color{100,80,140,180};
-    ::DrawRectangleLinesEx(dr, 1.5f, brd);
+    Texture2D* btnTex = UIResourceManager::GetInstance().GetButton();
+    float btnFrameW = UIResourceManager::GetInstance().GetButtonFrameWidth();
+    
+    if (btnTex && btnTex->id != 0 && btnFrameW > 0) {
+        int frame = m_backBtnAnim.hovered ? 1 : 0;
+        Rectangle src = { (float)(frame * btnFrameW), 0.0f, btnFrameW, (float)btnTex->height };
+        ::DrawTexturePro(*btnTex, src, dr, {0,0}, 0.f, WHITE);
+    } else {
+        ::DrawRectangleGradientV((int)dr.x,(int)dr.y,(int)dr.width,(int)dr.height,
+                                 Color{50,38,72,220}, Color{70,52,100,220});
+        Color brd = m_backBtnAnim.hovered ? Color{220,180,80,220} : Color{100,80,140,180};
+        ::DrawRectangleLinesEx(dr, 1.5f, brd);
+    }
     DrawGlowBorder(dr, m_backBtnAnim.glowAlpha, Color{220,200,80,255});
 
     const char* label = "< Back";

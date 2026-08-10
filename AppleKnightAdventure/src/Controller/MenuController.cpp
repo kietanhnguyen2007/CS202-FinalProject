@@ -203,34 +203,48 @@ void MenuController::HandleMainMenuInput(float dt) {
 void MenuController::HandleLevelSelectInput(float dt) {
     (void)dt;
     auto& view = View::MenuView::GetInstance();
+    auto& save = SaveManager::GetInstance();
     InputCommand cmd = InputController::GetInstance().Poll();
 
-    const int kLevels = 3;
+    const int kLevels = 6;
+    int unlockedLevels = 1;
+    for (int i = 1; i < kLevels; ++i) {
+        if (save.GetLevelHighScore(i) > 0 || save.GetLevelBestStars(i) > 0) {
+            unlockedLevels = i + 1;
+        }
+    }
+    if (unlockedLevels > kLevels) unlockedLevels = kLevels;
 
     // ── Keyboard navigation ───────────────────────────────────────────────
     if (m_inputCooldown <= 0.0f) {
-        if (cmd.menuDelta != 0) {
-            m_selected = std::clamp(m_selected + cmd.menuDelta, 0, kLevels - 1);
+        if (cmd.menuDeltaX != 0) {
+            m_selected = std::clamp(m_selected + cmd.menuDeltaX, 0, kLevels - 1);
             m_inputCooldown = kInputCooldown;
         }
     }
 
     // ── Confirm ───────────────────────────────────────────────────────────
     if (cmd.menuConfirm && m_inputCooldown <= 0.0f) {
-        m_selectedLevel = m_selected + 1;  // levels are 1-indexed
-        m_startGame     = true;
-        m_inputCooldown = kInputCooldown;
+        if (m_selected < unlockedLevels) {
+            m_selectedLevel = m_selected + 1;  // levels are 1-indexed
+            m_startGame     = true;
+            m_inputCooldown = kInputCooldown;
+        } else {
+            auto& snd = SoundManager::GetInstance();
+            if (snd.IsAudioInitialized()) snd.PlaySound("ui_error");
+        }
     }
 
     // ── Back / Escape ─────────────────────────────────────────────────────
-    if (::IsKeyPressed(KEY_ESCAPE)) {
+    if (::IsKeyPressed(KEY_ESCAPE) || cmd.pause) {
         m_inLevelSelect = false;
         m_selected      = 0;
         m_inputCooldown = kInputCooldown;
         view.ShowMainMenu();
+        return;
     }
 
-    view.ShowLevelSelect(kLevels, kLevels);
+    view.ShowLevelSelect(kLevels, unlockedLevels);
 }
 
 // =============================================================================

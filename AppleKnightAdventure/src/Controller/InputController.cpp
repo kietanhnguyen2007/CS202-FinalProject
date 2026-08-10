@@ -27,6 +27,10 @@ InputCommand InputController::Poll() {
 
     if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_W)) cmd.menuDelta = -1;
     else if (IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_S)) cmd.menuDelta = 1;
+
+    if (IsKeyPressed(KEY_LEFT) || IsKeyPressed(KEY_A)) cmd.menuDeltaX = -1;
+    else if (IsKeyPressed(KEY_RIGHT) || IsKeyPressed(KEY_D)) cmd.menuDeltaX = 1;
+
     cmd.menuConfirm = IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER);
 
     return cmd;

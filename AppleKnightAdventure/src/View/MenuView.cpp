@@ -899,7 +899,16 @@ void MenuView::RenderLevelSelect() {
 
     // Dark background
     ::DrawRectangle(0, 0, sw, sh, Color{8, 6, 18, 255});
-    DrawHeaderHUD();
+    
+    // Header HUD (player name only — no coins)
+    {
+        float barH = sh * 0.048f;
+        ::DrawRectangle(0, 0, sw, (int)barH, Color{0, 0, 0, 90});
+        int fontSize = (int)(barH * 0.60f); if (fontSize < 10) fontSize = 10;
+        char buf[64];
+        snprintf(buf, sizeof(buf), "  %s", m_playerName.c_str());
+        ::DrawText(buf, 8, (int)((barH - fontSize) * 0.5f), fontSize, Color{220, 200, 255, 200});
+    }
 
     // Title
     {
@@ -922,19 +931,20 @@ void MenuView::RenderLevelSelect() {
         bool unlocked = (i < m_unlockedLevels);
         bool sel      = (m_selected == i);
 
-        // Spotlight circle behind unlocked cards
-        if (unlocked) {
+        // Spotlight circle behind selected card
+        if (sel) {
             float radius = cardW * (0.75f + pulse * 0.12f);
             unsigned char spotA = (unsigned char)(40 + (int)(pulse * 35));
+            Color spotColor = unlocked ? Color{200, 180, 80, spotA} : Color{180, 50, 60, spotA};
             ::DrawCircle((int)(cx + cardW*0.5f), (int)(cardY + cardH*0.5f),
-                         radius, Color{200, 180, 80, spotA});
+                         radius, spotColor);
         }
 
         // Card body
         Color bg  = unlocked ? (sel ? Color{70,55,110,235} : Color{40,30,65,220})
-                             : Color{20,18,30,200};
+                             : (sel ? Color{45,25,35,230} : Color{20,18,30,200});
         Color brd = unlocked ? (sel ? Color{255,210,50,230} : Color{130,100,180,180})
-                             : Color{50,45,65,150};
+                             : (sel ? Color{180,60,70,220} : Color{50,45,65,150});
         ::DrawRectangle((int)cx, (int)cardY, (int)cardW, (int)cardH, bg);
         ::DrawRectangleLinesEx({cx, cardY, cardW, cardH}, 2.5f, brd);
 
@@ -959,7 +969,7 @@ void MenuView::RenderLevelSelect() {
 
     // Navigation hint
     {
-        const char* hint = "[← →] Navigate    [ENTER] Select    [ESC] Back";
+        const char* hint = "[<- ->] Navigate    [ENTER] Select    [ESC] Back";
         int hfs = (int)(sh * 0.022f); if (hfs < 10) hfs = 10;
         int hw = ::MeasureText(hint, hfs);
         ::DrawText(hint, (sw-hw)/2, (int)(sh*0.90f), hfs, Color{160,150,190,200});

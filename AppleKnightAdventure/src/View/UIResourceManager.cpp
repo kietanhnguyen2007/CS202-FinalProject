@@ -9,8 +9,8 @@ UIResourceManager& UIResourceManager::GetInstance() {
 }
 
 bool UIResourceManager::Init() {
-    // Load Dark Dwellers UI textures
-    m_texPanelBg  = ::LoadTexture("assets/ui/darkDwellers/20251029darkDwellers9SlicesC.png");
+    // Load Dark Dwellers UI textures (using 9SlicesA which is dark purple/blue instead of pink C)
+    m_texPanelBg  = ::LoadTexture("assets/ui/darkDwellers/20251029darkDwellers9SlicesA.png");
     m_texSlot     = ::LoadTexture("assets/ui/darkDwellers/20251124emptyFrameA1-Sheet.png");
     m_texButton   = ::LoadTexture("assets/ui/darkDwellers/20251029darkDwellersButtonA1-Sheet.png");
     m_texCloseBtn = ::LoadTexture("assets/ui/darkDwellers/20251125closeButton1-Sheet.png");

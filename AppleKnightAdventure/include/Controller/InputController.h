@@ -14,7 +14,8 @@ struct InputCommand {
     bool interact      = false;  // F or O
     bool openInventory = false;  // I
     bool pause         = false;  // ESC
-    int  menuDelta     = 0;
+    int  menuDelta     = 0;      // Up/Down
+    int  menuDeltaX    = 0;      // Left/Right
     bool menuConfirm   = false;
     // Movement modifiers
     bool sprint        = false;  // SHIFT — hold to run faster
