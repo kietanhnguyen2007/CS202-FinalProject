@@ -20,9 +20,6 @@ struct InputCommand {
     // Movement modifiers
     bool sprint        = false;  // SHIFT — hold to run faster
     bool dash          = false;  // L — tap to dash
-    // Pet
-    bool pet1          = false;  // 1 — summon Dragon
-    bool pet2          = false;  // 2 — summon Ghost
 };
 
 class InputController {

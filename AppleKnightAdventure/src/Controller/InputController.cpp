@@ -22,8 +22,6 @@ InputCommand InputController::Poll() {
     cmd.pause     = IsKeyPressed(KEY_ESCAPE);
     cmd.sprint    = IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT);
     cmd.dash      = IsKeyPressed(KEY_L);
-    cmd.pet1      = IsKeyPressed(KEY_ONE);
-    cmd.pet2      = IsKeyPressed(KEY_TWO);
 
     if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_W)) cmd.menuDelta = -1;
     else if (IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_S)) cmd.menuDelta = 1;

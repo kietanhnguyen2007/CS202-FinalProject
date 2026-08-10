@@ -13,6 +13,7 @@
 #include "Model/NinjaSkillSet.h"
 #include "Model/TeleportPortal.h"
 #include "Model/Player.h"
+#include "Model/SaveManager.h"
 #include "Systems/ParticleSystem.h"
 #include "View/GameView.h"
 #include "View/CharacterRenderer.h"
@@ -396,6 +397,18 @@ void GameController::StartLevel(int levelNumber) {
     if (Player* player = m_gameState->GetLocalPlayer()) {
         RegisterPlayerVisuals(player, m_gameState->GetPlayerClass());
         m_respawnPoint = player->GetPosition();
+        
+        // Auto-spawn equipped pet
+        std::string petId = SaveManager::GetInstance().GetSelectedPet();
+        if (!petId.empty()) {
+            PetType equippedType = PetType::BabyDragon; // Default fallback
+            if (petId == "skull") equippedType = PetType::Skull;
+            else if (petId == "fairy") equippedType = PetType::Fairy;
+            else if (petId == "ghost") equippedType = PetType::Ghost;
+            else if (petId == "baby_dragon") equippedType = PetType::BabyDragon;
+
+            SpawnPet(equippedType);
+        }
     }
 
     for (const auto& entity : m_gameState->GetAllEntities()) {
@@ -1904,23 +1917,7 @@ void GameController::UpdatePets(float dt, const InputCommand& cmd) {
     } else if (m_combatExitTimer > 0.0f) {
         m_combatExitTimer -= dt;
         if (m_combatExitTimer <= 0.0f) m_inCombat = false;
-    }
-
-    // Pet1 (1) = Dragon, Pet2 (2) = Ghost
-    if (cmd.pet1) {
-        if (m_activePet && m_activePet->GetPetType() == PetType::BabyDragon) {
-            DespawnPet();
-        } else {
-            SpawnPet(PetType::BabyDragon);
-        }
-    }
-    if (cmd.pet2) {
-        if (m_activePet && m_activePet->GetPetType() == PetType::Ghost) {
-            DespawnPet();
-        } else if (!m_inCombat) {
-            SpawnPet(PetType::Ghost);
-        }
-    }
+}
 
     // Auto-despawn Ghost on combat
     if (m_activePet && m_activePet->GetPetType() == PetType::Ghost && m_inCombat) {
