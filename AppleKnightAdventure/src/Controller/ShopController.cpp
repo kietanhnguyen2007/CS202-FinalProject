@@ -62,7 +62,7 @@ static const PetDef kPetDefs[] = {
     {
         "skull",       "Skull",
         "assets/textures/pets/skull/idle.json",
-        0, 60, 50, 120,
+        30, 60, 50, 120,
         "Floats beside you, fires bone shards at enemies."
     },
     {

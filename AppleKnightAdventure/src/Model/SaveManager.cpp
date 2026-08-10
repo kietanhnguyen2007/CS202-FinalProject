@@ -138,9 +138,16 @@ bool SaveManager::Load(const std::string& path) {
     } else {
         unlockedCharacters = {"Knight"};
     }
-    
     levelHighScores = extractMap("levelHighScores");
     levelBestStars = extractMap("levelBestStars");
+    
+    std::string sChar = extractString("selectedChar");
+    if (!sChar.empty()) selectedChar = sChar;
+    
+    std::string sPet = extractString("selectedPet");
+    // allowed to be empty
+    size_t petPos = jsonStr.find("\"selectedPet\"");
+    if (petPos != std::string::npos) selectedPet = sPet;
 
     return true;
 }
@@ -179,7 +186,9 @@ void SaveManager::Save(const std::string& path) {
         if (next != levelBestStars.end()) ss << ", ";
         it2 = next;
     }
-    ss << "}\n";
+    ss << "},\n";
+    ss << "  \"selectedChar\": \"" << selectedChar << "\",\n";
+    ss << "  \"selectedPet\": \"" << selectedPet << "\"\n";
     ss << "}\n";
 
     std::string jsonStr = ss.str();
@@ -228,3 +237,9 @@ int SaveManager::GetLevelBestStars(int level) const {
 void SaveManager::SetLevelBestStars(int level, int stars) {
     levelBestStars[level] = stars;
 }
+
+std::string SaveManager::GetSelectedChar() const { return selectedChar; }
+void SaveManager::SetSelectedChar(const std::string& charId) { selectedChar = charId; }
+
+std::string SaveManager::GetSelectedPet() const { return selectedPet; }
+void SaveManager::SetSelectedPet(const std::string& petId) { selectedPet = petId; }

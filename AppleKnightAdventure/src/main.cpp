@@ -2,12 +2,14 @@
 #include "Controller/GameController.h"
 #include "Controller/MapBuilderController.h"
 #include "Controller/ShopController.h"
+#include "Controller/PrepareController.h"
 #include "View/Renderer.h"
 #include "View/MenuView.h"
 #include "View/GameView.h"
 #include "View/HUDView.h"
 #include "View/AssetManager.h"
 #include "View/OptionsView.h"
+#include "View/PrepareView.h"
 #include "Utils/Constants.h"
 #include "Systems/WindowManager.h"
 #include "raylib.h"
@@ -201,12 +203,13 @@ int main() {
     bool inMapBuilder = false;
     bool inShop       = false;
     bool inOptions    = false;
+    bool inPrepare    = false;
 
     while (!WindowShouldClose()) {
         WindowManager::GetInstance().Update();
         float dt = GetFrameTime();
 
-        if (!inGame && !inMapBuilder && !inShop && !inOptions) {
+        if (!inGame && !inMapBuilder && !inShop && !inOptions && !inPrepare) {
             menu.Update(dt);
 
             if (menu.ShouldOpenShop()) {
@@ -218,8 +221,10 @@ int main() {
                 inOptions = true;
                 opts.SetVisible(true);
             } else if (menu.ShouldStartGame()) {
-                inGame = true;
-                game.StartLevel(1);
+                menu.ResetFlags();
+                inPrepare = true;
+                PrepareController::GetInstance().Init();
+                PrepareController::GetInstance().Open(menu.GetSelectedLevel());
             } else if (menu.ShouldOpenMapBuilder()) {
                 inMapBuilder = true;
                 MapBuilderController::GetInstance().StartEditor();
@@ -233,6 +238,25 @@ int main() {
             View::MenuView::GetInstance().Update(dt, menu.GetSelected());
             View::MenuView::GetInstance().Render();
             View::Renderer::GetInstance().EndFrameAndFlush();
+            EndDrawing();
+        } else if (inPrepare) {
+            auto& prep = PrepareController::GetInstance();
+            prep.Update(dt);
+            View::PrepareView::GetInstance().Update(dt);
+            
+            if (prep.ShouldReturnToMenu()) {
+                inPrepare = false;
+                menu.ResetFlags();
+                // Menu remains in LevelSelect mode
+            } else if (prep.ShouldStartGame()) {
+                inPrepare = false;
+                inGame = true;
+                game.StartLevel(prep.GetLevelId());
+            }
+            
+            BeginDrawing();
+            ClearBackground(BLACK);
+            View::PrepareView::GetInstance().Render();
             EndDrawing();
         } else if (inShop) {
             BeginDrawing();

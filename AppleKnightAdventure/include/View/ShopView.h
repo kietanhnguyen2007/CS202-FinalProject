@@ -7,6 +7,7 @@
 #include <vector>
 #include <memory>
 #include <array>
+#include "View/UIHelpers.h"
 
 namespace View {
 
@@ -90,11 +91,6 @@ private:
     void DrawLockOverlay(float x, float y, float w, float h);
 
     // Animated button scale/glow helpers
-    struct BtnAnim {
-        float scale     = 1.0f;
-        float glowAlpha = 0.0f;
-        bool  hovered   = false;
-    };
     void UpdateBtnAnim(BtnAnim& btn, Rectangle rect, float dt);
     void DrawGlowBorder(Rectangle r, float glowAlpha, Color col);
 

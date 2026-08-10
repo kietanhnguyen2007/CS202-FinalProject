@@ -31,6 +31,12 @@ public:
     int GetLevelBestStars(int level) const;
     void SetLevelBestStars(int level, int stars);
 
+    std::string GetSelectedChar() const;
+    void SetSelectedChar(const std::string& charId);
+    
+    std::string GetSelectedPet() const;
+    void SetSelectedPet(const std::string& petId);
+
 private:
     SaveManager();
     ~SaveManager() = default;
@@ -43,6 +49,8 @@ private:
     bool isFirstTimePlaying;
     std::map<int, int> levelHighScores;
     std::map<int, int> levelBestStars;
+    std::string selectedChar = "knight";
+    std::string selectedPet = ""; // empty means no pet
 };
 
 #endif // SAVEMANAGER_H

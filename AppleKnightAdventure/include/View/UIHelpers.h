@@ -26,9 +26,15 @@ inline int ScaleFontSize(int baseSize) {
     return WindowManager::GetInstance().ScaleFontSize(baseSize);
 }
 
-// Original: kept for backward compatibility
 inline int ScaledFontSize(int baseSize, float scale) {
     return (int)(baseSize * scale);
 }
+
+// Animated button scale/glow helpers
+struct BtnAnim {
+    float scale     = 1.0f;
+    float glowAlpha = 0.0f;
+    bool  hovered   = false;
+};
 
 } // namespace View

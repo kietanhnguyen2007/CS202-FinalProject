@@ -522,11 +522,21 @@ void ShopView::RenderGrid() {
                        (int)(cy + cellH*0.90f), tfs, Color{80,220,100,255});
         } else {
             char pBuf[24];
-            snprintf(pBuf, sizeof(pBuf), "%d coins", items[i].price);
+            snprintf(pBuf, sizeof(pBuf), "%d", items[i].price);
             int tfs = (int)(cellH * 0.10f); if (tfs < 8) tfs = 8;
             int tw  = ::MeasureText(pBuf, tfs);
-            ::DrawText(pBuf, (int)(cx + (cellW - tw)*0.5f),
-                       (int)(cy + cellH*0.90f), tfs, Color{255,210,50,255});
+            
+            float coinRadius = cellH * 0.05f;
+            float spacing = 4.0f;
+            float totalWidth = tw + spacing + coinRadius * 2.0f;
+            float startX = cx + (cellW - totalWidth) * 0.5f;
+            
+            ::DrawText(pBuf, (int)startX, (int)(cy + cellH*0.90f), tfs, Color{255,210,50,255});
+            
+            float iconCx = startX + tw + spacing + coinRadius;
+            float iconCy = cy + cellH*0.90f + tfs*0.5f;
+            ::DrawCircle((int)iconCx, (int)iconCy, (int)coinRadius, Color{255,200,30,200});
+            ::DrawCircleLines((int)iconCx, (int)iconCy, (int)coinRadius, Color{200,150,20,200});
         }
 
         // Lock overlay for locked items
@@ -759,16 +769,25 @@ void ShopView::RenderBuyButton() {
         if (canAfford) DrawGlowBorder(dr, m_buyBtnAnim.glowAlpha, Color{220,200,80,255});
 
         char lBuf[32];
-        snprintf(lBuf, sizeof(lBuf), "Buy — %d coins", items[idx].price);
+        snprintf(lBuf, sizeof(lBuf), "%d", items[idx].price);
         int lfs = (int)(buyH * 0.48f); if (lfs < 10) lfs = 10;
         int lw  = ::MeasureText(lBuf, lfs);
+        
+        float coinRadius = buyH * 0.20f;
+        float spacing = 8.0f;
+        float totalWidth = lw + spacing + coinRadius * 2.0f;
+        
+        float startX = dr.x + (dr.width - totalWidth) * 0.5f;
+        
         Color textCol = canAfford ? Color{255,235,80,255} : Color{130,120,150,200};
-        ::DrawText(lBuf, (int)(dr.x+(dr.width-lw)*0.5f),
-                   (int)(dr.y+(dr.height-lfs)*0.5f), lfs, textCol);
+        ::DrawText(lBuf, (int)startX, (int)(dr.y+(dr.height-lfs)*0.5f), lfs, textCol);
 
-        // Coin icon beside text
-        ::DrawCircle((int)(dr.x + 14), (int)(dr.y + dr.height*0.5f),
-                     (int)(buyH*0.20f), Color{255,200,30,200});
+        // Coin icon directly after text
+        float iconCx = startX + lw + spacing + coinRadius;
+        ::DrawCircle((int)iconCx, (int)(dr.y + dr.height*0.5f),
+                     (int)coinRadius, Color{255,200,30,200});
+        ::DrawCircleLines((int)iconCx, (int)(dr.y + dr.height*0.5f),
+                     (int)coinRadius, Color{200,150,20,200});
     }
 }
 
