@@ -93,6 +93,9 @@ void MapBuilderController::PasteSelection() {
 void MapBuilderController::StartEditor(const std::string& filepath) {
     m_currentFile = filepath.empty() ? "assets/levels/custom_map.lvl" : filepath;
     m_gameState = LevelFactory::LoadLevel(m_currentFile, GameMode::SinglePlayer, 0);
+    if (!m_gameState) {
+        m_gameState = LevelFactory::CreateDefaultLevel(1);
+    }
     m_commandManager = std::make_unique<CommandManager>(m_gameState.get());
     
     // Clear renderers to prevent stale visuals
@@ -111,11 +114,16 @@ void MapBuilderController::StartEditor(const std::string& filepath) {
     m_playtestMode = false;
 }
 
+
 void MapBuilderController::ExitEditor() {
     m_isRunning = false;
     m_returnToMenu = true;
     m_gameState.reset();
     m_commandManager.reset();
+    
+    View::CharacterRenderer::GetInstance().Clear();
+    View::EntityRenderer::GetInstance().Clear();
+    m_registeredEntities.clear();
 }
 
 void MapBuilderController::SaveMap(const std::string& filename) {
@@ -199,6 +207,7 @@ void MapBuilderController::Update(float deltaTime) {
     View::GameView::GetInstance().SetTiles(MapLayer::Background, &m_gameState->GetTiles(MapLayer::Background));
     View::GameView::GetInstance().SetTiles(MapLayer::Main, &m_gameState->GetTiles(MapLayer::Main));
     View::GameView::GetInstance().SetTiles(MapLayer::Foreground, &m_gameState->GetTiles(MapLayer::Foreground));
+    View::GameView::GetInstance().SetEntities(&m_gameState->GetAllEntities());
     View::GameView::GetInstance().Update(deltaTime);
 
     HandleInput(deltaTime);

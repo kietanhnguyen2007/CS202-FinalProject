@@ -1659,6 +1659,12 @@ void GameController::Shutdown() {
     View::UIStateManager::GetInstance().Clear();
     View::HUDView::GetInstance().SetVisible(false);
     View::MenuView::GetInstance().SetVisible(false);
+
+    // Clear GameView pointers to prevent dangling references in other modes (e.g. Map Builder)
+    View::GameView::GetInstance().SetTiles(MapLayer::Background, nullptr);
+    View::GameView::GetInstance().SetTiles(MapLayer::Main, nullptr);
+    View::GameView::GetInstance().SetTiles(MapLayer::Foreground, nullptr);
+    View::GameView::GetInstance().SetEntities(nullptr);
 }
 
 // ============================================================
@@ -1849,7 +1855,7 @@ void GameController::SpawnPet(PetType type) {
     if (!player) return;
 
     // Ghost cannot be summoned while in combat
-    if (type == PetType::Ghost && m_inCombat) return;
+
 
     DespawnPet();
     Vector2 petPos = { player->GetPosition().x - 40.0f,
@@ -1924,10 +1930,7 @@ void GameController::UpdatePets(float dt, const InputCommand& cmd) {
         if (m_combatExitTimer <= 0.0f) m_inCombat = false;
 }
 
-    // Auto-despawn Ghost on combat
-    if (m_activePet && m_activePet->GetPetType() == PetType::Ghost && m_inCombat) {
-        DespawnPet();
-    }
+
 
     if (!m_activePet) return;
 

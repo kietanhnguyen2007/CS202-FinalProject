@@ -1,7 +1,9 @@
 #include "Model/Entity.h"
 
+static uint32_t g_nextEntityId = 10000;
+
 Entity::Entity()
-    : m_id(0)
+    : m_id(g_nextEntityId++)
     , m_type(EntityType::Effect)
     , m_position({0, 0})
     , m_size({0, 0})
@@ -14,7 +16,7 @@ Entity::Entity()
 }
 
 Entity::Entity(EntityType type)
-    : m_id(0)
+    : m_id(g_nextEntityId++)
     , m_type(type)
     , m_position({0, 0})
     , m_size({0, 0})
@@ -27,7 +29,7 @@ Entity::Entity(EntityType type)
 }
 
 Entity::Entity(Vector2 position, Vector2 size, EntityType type)
-    : m_id(0)
+    : m_id(g_nextEntityId++)
     , m_type(type)
     , m_position(position)
     , m_size(size)
