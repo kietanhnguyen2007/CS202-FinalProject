@@ -632,7 +632,7 @@ void CharacterRenderer::PlayAction(uint32_t entityId, int action) {
             if (!tryPlay("hurt")) { if (!tryPlay("hit")) tryPlay("idle"); }
             break;
         case ACTION_SKILL:
-            if (!tryPlay("skill")) tryPlay("attack");
+            if (!tryPlay("skill")) { if (!tryPlay("healing")) tryPlay("attack"); }
             break;
         default: break;
     }

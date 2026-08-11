@@ -355,9 +355,15 @@ void GameController::StartLevel(int levelNumber) {
     m_playerProjectiles.clear();
 
     // Preserve the player's chosen class across level transitions
-    CharacterClass cls = m_gameState
-        ? m_gameState->GetPlayerClass()
-        : CharacterClass::Knight;
+    CharacterClass cls = CharacterClass::Knight;
+    if (m_gameState) {
+        cls = m_gameState->GetPlayerClass();
+    } else {
+        std::string charId = SaveManager::GetInstance().GetSelectedChar();
+        if (charId == "magic_caster") cls = CharacterClass::MagicCaster;
+        else if (charId == "ninja") cls = CharacterClass::Ninja;
+        else if (charId == "fighter") cls = CharacterClass::Fighter; // if Fighter exists, otherwise fallback to Knight
+    }
 
     const std::string path = GetLevelPath(levelNumber);
     const bool isLDtk = (path.size() >= 5 &&
@@ -395,6 +401,10 @@ void GameController::StartLevel(int levelNumber) {
     View::GameView::GetInstance().LoadBackgrounds(m_gameState->GetBackgroundTheme());
 
     if (Player* player = m_gameState->GetLocalPlayer()) {
+        // Sync the GameState's class to the actual Player's class
+        // (LDtk level files might have hardcoded a default class that overwrites GameState's field)
+        m_gameState->SetPlayerClass(player->GetCharacterClass());
+        
         RegisterPlayerVisuals(player, m_gameState->GetPlayerClass());
         m_respawnPoint = player->GetPosition();
         
@@ -1956,6 +1966,10 @@ void GameController::UpdatePets(float dt, const InputCommand& cmd) {
 
     m_activePet->UpdateAI(player->GetPosition(), dt, player, enemies, items, m_inCombat);
     m_activePet->Update(dt);
+
+    if (m_activePet->GetPetType() == PetType::Fairy) {
+        ResolveTileCollisions(m_activePet.get(), dt);
+    }
 
     // Fairy collecting items
     if (m_activePet->GetPetType() == PetType::Fairy) {
