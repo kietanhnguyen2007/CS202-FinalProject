@@ -96,6 +96,7 @@ private:
     void RestorePlayerState(Player* player);// restore after returning
 
     // Skill projectile helpers
+    bool CheckLineOfSight(Vector2 start, Vector2 end) const;
     void SpawnPlayerProjectile(const char* atlasPath, Vector2 spawnPos, Direction dir,
                                int damage, float speed, float lifetime, 
                                float scale = 0.3f, bool facesLeft = true);

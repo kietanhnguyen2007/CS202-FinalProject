@@ -971,13 +971,14 @@ void GameController::UpdateCombat(float dt) {
                 float dy = e->GetPosition().y - player->GetPosition().y;
                 float d = std::sqrt(dx*dx + dy*dy);
                 if (d < minDist) {
-                    minDist = d;
-                    // Use bounding-box center so strike lands ON the enemy
-                    targetPos = {
-                        e->GetPosition().x + e->GetSize().x * 0.5f,
-                        e->GetPosition().y + e->GetSize().y * 0.5f
-                    };
-                    foundEnemy = true;
+                    Vector2 eCenter = { e->GetPosition().x + e->GetSize().x * 0.5f, e->GetPosition().y + e->GetSize().y * 0.5f };
+                    Vector2 pCenter = { player->GetPosition().x + player->GetSize().x * 0.5f, player->GetPosition().y + player->GetSize().y * 0.5f };
+                    if (CheckLineOfSight(pCenter, eCenter)) {
+                        minDist = d;
+                        // Use bounding-box center so strike lands ON the enemy
+                        targetPos = eCenter;
+                        foundEnemy = true;
+                    }
                 }
             }
             if (!foundEnemy) {
@@ -1050,13 +1051,14 @@ void GameController::UpdateCombat(float dt) {
                 float dy = e->GetPosition().y - player->GetPosition().y;
                 float d = std::sqrt(dx*dx + dy*dy);
                 if (d < minDist2) {
-                    minDist2 = d;
-                    // Use bounding-box center
-                    targetPos2 = {
-                        e->GetPosition().x + e->GetSize().x * 0.5f,
-                        e->GetPosition().y + e->GetSize().y * 0.5f
-                    };
-                    foundEnemy2 = true;
+                    Vector2 eCenter = { e->GetPosition().x + e->GetSize().x * 0.5f, e->GetPosition().y + e->GetSize().y * 0.5f };
+                    Vector2 pCenter = { player->GetPosition().x + player->GetSize().x * 0.5f, player->GetPosition().y + player->GetSize().y * 0.5f };
+                    if (CheckLineOfSight(pCenter, eCenter)) {
+                        minDist2 = d;
+                        // Use bounding-box center
+                        targetPos2 = eCenter;
+                        foundEnemy2 = true;
+                    }
                 }
             }
             if (!foundEnemy2) {
@@ -2110,6 +2112,32 @@ void GameController::UpdateProjectiles(float dt) {
 // Player Skill Projectile Helpers
 // ============================================================
 
+bool GameController::CheckLineOfSight(Vector2 start, Vector2 end) const {
+    if (!m_gameState) return false;
+    float dx = end.x - start.x;
+    float dy = end.y - start.y;
+    float dist = std::sqrt(dx*dx + dy*dy);
+    if (dist < 1.0f) return true;
+    
+    int steps = static_cast<int>(dist / (TILE_SIZE / 2.0f));
+    if (steps == 0) steps = 1;
+    float xStep = dx / steps;
+    float yStep = dy / steps;
+    float cx = start.x;
+    float cy = start.y;
+    
+    for (int i = 0; i <= steps; ++i) {
+        int tx = static_cast<int>(cx / TILE_SIZE);
+        int ty = static_cast<int>(cy / TILE_SIZE);
+        for (const auto& tile : m_gameState->GetTiles(MapLayer::Main)) {
+            if (tile.solid && tile.x == tx && tile.y == ty) return false;
+        }
+        cx += xStep;
+        cy += yStep;
+    }
+    return true;
+}
+
 void GameController::SpawnPlayerProjectile(const char* atlasPath, Vector2 spawnPos,
                                             Direction dir, int damage,
                                             float speed, float lifetime,
@@ -2207,23 +2235,28 @@ void GameController::UpdatePlayerProjectiles(float dt) {
         if (!proj->IsActive()) continue;
         proj->Update(dt);
 
+        Vector2 vel = proj->GetVelocity();
+        bool isStationary = (std::abs(vel.x) < 1.0f && std::abs(vel.y) < 1.0f);
+
         // Resolve tile collision (stop on wall)
         Rectangle box = proj->GetBoundingBox();
         bool hitTile = false;
-        for (const auto& tile : m_gameState->GetTiles(MapLayer::Main)) {
-            if (!tile.solid) continue;
-            Rectangle tr = { (float)tile.x * TILE_SIZE, (float)tile.y * TILE_SIZE,
-                              (float)TILE_SIZE, (float)TILE_SIZE };
-            if (RectOverlap(box, tr)) {
-                proj->OnHit();
-                hitTile = true; break; 
+        
+        if (!isStationary) {
+            for (const auto& tile : m_gameState->GetTiles(MapLayer::Main)) {
+                if (!tile.solid) continue;
+                Rectangle tr = { (float)tile.x * TILE_SIZE, (float)tile.y * TILE_SIZE,
+                                  (float)TILE_SIZE, (float)TILE_SIZE };
+                if (RectOverlap(box, tr)) {
+                    proj->OnHit();
+                    hitTile = true; break; 
+                }
             }
         }
         if (hitTile) continue;
 
         // Check collision with enemies (skip lightning which already dealt damage)
-        Vector2 vel = proj->GetVelocity();
-        if (std::abs(vel.x) < 1.0f && std::abs(vel.y) < 1.0f) continue; // stationary (lightning)
+        if (isStationary) continue;
 
         for (auto& e : m_gameState->GetAllEntities()) {
             if (!e->IsActive()) continue;
