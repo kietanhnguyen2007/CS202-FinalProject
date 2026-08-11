@@ -934,7 +934,7 @@ void GameController::UpdateCombat(float dt) {
                 : player->GetPosition().x;
             Vector2 spawnPos = {
                 spawnX,
-                player->GetPosition().y - 20.0f  // raised significantly
+                player->GetPosition().y + 10.0f  // centered on player body
             };
             SpawnPlayerProjectile(
                 "assets/textures/player/fighter/ultimate_projectile.json",
@@ -2115,8 +2115,8 @@ void GameController::SpawnPlayerProjectile(const char* atlasPath, Vector2 spawnP
                                             float speed, float lifetime,
                                             float scale, bool facesLeft) {
     // Collision box size scales proportionally to visual scale.
-    // Assuming an average base asset size of ~100x100 pixels.
-    float boxSize = 100.0f * scale;
+    // Use a smaller base size (40x40) to prevent projectiles from clipping the floor upon spawning.
+    float boxSize = 40.0f * scale;
     
     auto proj = std::make_unique<Projectile>(
         spawnPos, Vector2{boxSize, boxSize},
@@ -2215,14 +2215,7 @@ void GameController::UpdatePlayerProjectiles(float dt) {
             Rectangle tr = { (float)tile.x * TILE_SIZE, (float)tile.y * TILE_SIZE,
                               (float)TILE_SIZE, (float)TILE_SIZE };
             if (RectOverlap(box, tr)) {
-                if ((proj->GetLifetime() == 0.9f && proj->GetScale() == 0.8f) || // Fighter H
-                    (proj->GetLifetime() == 1.0f && proj->GetScale() == 1.0f) || // MC U
-                    (proj->GetLifetime() == 0.7f && proj->GetScale() == 0.5f)) { // Ninja H
-                    proj->SetVelocity({0.0f, 0.0f});
-                    proj->SetDamage(0);
-                } else {
-                    proj->OnHit(); 
-                }
+                proj->OnHit();
                 hitTile = true; break; 
             }
         }
@@ -2247,14 +2240,7 @@ void GameController::UpdatePlayerProjectiles(float dt) {
                 View::GameView::GetInstance().Shake(3.0f, 0.15f);
                 if (!enemy->IsActive()) OnEntityRemoved(enemy);
                 
-                if ((proj->GetLifetime() == 0.9f && proj->GetScale() == 0.8f) || // Fighter H
-                    (proj->GetLifetime() == 1.0f && proj->GetScale() == 1.0f) || // MC U
-                    (proj->GetLifetime() == 0.7f && proj->GetScale() == 0.5f)) { // Ninja H
-                    proj->SetVelocity({0.0f, 0.0f});
-                    proj->SetDamage(0); // stops further collision and finishes animation
-                } else {
-                    proj->OnHit();
-                }
+                proj->OnHit();
                 break;
             } else if (e->GetType() == EntityType::Boss) {
                 auto* boss = static_cast<Boss*>(e.get());
@@ -2269,14 +2255,7 @@ void GameController::UpdatePlayerProjectiles(float dt) {
                 View::GameView::GetInstance().Shake(3.0f, 0.15f);
                 if (!boss->IsActive()) OnEntityRemoved(boss);
                 
-                if ((proj->GetLifetime() == 0.9f && proj->GetScale() == 0.8f) || // Fighter H
-                    (proj->GetLifetime() == 1.0f && proj->GetScale() == 1.0f) || // MC U
-                    (proj->GetLifetime() == 0.7f && proj->GetScale() == 0.5f)) { // Ninja H
-                    proj->SetVelocity({0.0f, 0.0f});
-                    proj->SetDamage(0); // stops further collision and finishes animation
-                } else {
-                    proj->OnHit();
-                }
+                proj->OnHit();
                 break;
             }
         }
