@@ -129,9 +129,9 @@ void MenuView::Update(float dt, int selectedIndex) {
         int w = Renderer::GetInstance().GetWindowWidth();
         int h = Renderer::GetInstance().GetWindowHeight();
 
-        float btnW    = w * 0.22f;
-        float btnH    = h * 0.062f;
-        float spacing = h * 0.076f;
+        float btnW    = w * 0.35f;
+        float btnH    = h * 0.080f;
+        float spacing = h * 0.100f; // btnH + 0.02f offset
         float startY  = h * 0.46f;
         float btnX    = ((float)w - btnW) * 0.5f;
 
@@ -218,9 +218,9 @@ int MenuView::GetHoveredItem(Vector2 mousePos) const {
     int h = Renderer::GetInstance().GetWindowHeight();
 
     if (m_mode == MenuMode::Main) {
-        float btnW    = w * 0.22f;
-        float btnH    = h * 0.062f;
-        float spacing = h * 0.076f;
+        float btnW    = w * 0.35f;
+        float btnH    = h * 0.080f;
+        float spacing = h * 0.100f; // btnH + 0.02f offset
         float startY  = h * 0.46f;
         float btnX    = ((float)w - btnW) * 0.5f;
 
