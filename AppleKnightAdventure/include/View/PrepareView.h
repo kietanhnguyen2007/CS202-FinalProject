@@ -37,5 +37,7 @@ private:
     BtnAnim m_backBtnAnim;
     BtnAnim m_startBtnAnim;
     float m_pulseTime = 0.f;
+    Font m_font{};
+    bool m_fontLoaded = false;
 };
 } // namespace View

@@ -15,6 +15,7 @@ enum class MenuMode {
     RoleSelect,
     Shop,
     LevelSelect,
+    CustomMaps,
     Options
 };
 
@@ -64,6 +65,9 @@ public:
     void ShowRoleSelect(const std::vector<std::string>& roles);
     void ShowShop();
     void ShowLevelSelect(int totalLevels, int currentUnlocked);
+    void ShowCustomMaps(const std::vector<std::string>& mapNames,
+                        const std::string& deleteConfirmation = "");
+    int GetCustomMapActionHovered(Vector2 mousePos) const;
     void SetLevelStars(const std::vector<int>& bestStars);
     void ShowOptions();
 
@@ -82,6 +86,7 @@ private:
     void RenderRoleSelect();
     void RenderShop();
     void RenderLevelSelect();
+    void RenderCustomMaps();
 
     // ── Parallax background ───────────────────────────────────────────────
     void LoadParallaxLayers();
@@ -134,7 +139,7 @@ private:
     };
     std::string m_mainNotice;
     float m_mainNoticeTimer = 0.0f;
-    std::vector<std::string> m_pauseItems   = { "Resume", "Quit to Menu" };
+    std::vector<std::string> m_pauseItems   = { "Resume", "Options", "Quit to Menu" };
     std::string              m_errorMsg;
     std::vector<std::string> m_errorItems   = { "OK" };
     std::string              m_connectionIp;
@@ -148,6 +153,10 @@ private:
     int m_unlockedLevels   = 1;
     std::vector<int> m_levelBestStars;
     Texture2D m_levelStarIcon{};
+
+    // Custom-map library shown from PLAY CUSTOM MAP on the main menu.
+    std::vector<std::string> m_customMapNames;
+    std::string m_customMapDeleteConfirmation;
 
     // ── Parallax textures ─────────────────────────────────────────────────
     static constexpr int kParallaxLayers = 3;

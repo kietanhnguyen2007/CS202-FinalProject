@@ -1,5 +1,6 @@
 #include "View/AssetManager.h"
 #include <iostream>
+#include <algorithm>
 
 namespace View {
 
@@ -78,9 +79,16 @@ void AssetManager::WorkerLoop() {
                 m_pendingPaths.pop();
                 
                 std::lock_guard<std::mutex> lock(m_currentNameMutex);
-                // Extract just the filename from the path
-                size_t pos = path.find_last_of("/\\\\");
-                m_currentAssetName = (pos != std::string::npos) ? path.substr(pos + 1) : path;
+                std::string friendly = path;
+                std::replace(friendly.begin(), friendly.end(), '\\', '/');
+                const std::string root = "assets/textures/";
+                const size_t rootPos = friendly.find(root);
+                if (rootPos != std::string::npos) friendly.erase(0, rootPos + root.size());
+                const size_t extension = friendly.rfind(".json");
+                if (extension != std::string::npos) friendly.erase(extension);
+                std::string breadcrumb;
+                for (char c : friendly) breadcrumb += c == '/' ? "  >  " : std::string(1, c);
+                m_currentAssetName = breadcrumb;
             }
         }
 

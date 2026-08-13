@@ -132,6 +132,8 @@ private:
     int  m_defeatedEnemies = 0;
     int  m_collectedItems  = 0;
     float m_enemyAttackCooldown = 0.0f;
+    float m_footstepTimer = 0.0f;
+    std::unordered_map<int, int> m_knownBossPhases;
 
     // Pet system
     std::unique_ptr<Pet>               m_activePet;

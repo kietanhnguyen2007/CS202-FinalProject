@@ -40,6 +40,13 @@ public:
     std::string GetSelectedPet() const;
     void SetSelectedPet(const std::string& petId);
 
+    int GetMusicVolume() const;
+    void SetMusicVolume(int percent);
+    int GetSFXVolume() const;
+    void SetSFXVolume(int percent);
+    bool IsFullscreenEnabled() const;
+    void SetFullscreenEnabled(bool enabled);
+
 private:
     SaveManager();
     ~SaveManager() = default;
@@ -55,6 +62,9 @@ private:
     std::map<int, int> levelBestTimesMs;
     std::string selectedChar = "knight";
     std::string selectedPet = ""; // empty means no pet
+    int musicVolume = 70;
+    int sfxVolume = 80;
+    bool fullscreenEnabled = false;
 };
 
 #endif // SAVEMANAGER_H

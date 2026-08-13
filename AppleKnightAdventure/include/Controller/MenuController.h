@@ -2,6 +2,7 @@
 #define MENUCONTROLLER_H
 
 #include <string>
+#include <vector>
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MenuController — drives the Main Menu loop.
@@ -51,6 +52,8 @@ private:
     void HandleLevelSelectInput(float dt);
     void HandleShopInput(float dt);
     void HandlePauseInput(float dt);
+    void HandleCustomMapsInput(float dt);
+    void RefreshCustomMapLibrary();
 
     // ── Helper: sync save data to View header every N frames ─────────────
     void RefreshHeaderData();
@@ -68,6 +71,11 @@ private:
     // Sub-screen flags
     bool m_inShop        = false;
     bool m_inLevelSelect = false;
+    bool m_inCustomMaps  = false;
+
+    std::vector<std::string> m_customMapFiles;
+    std::vector<std::string> m_customMapNames;
+    std::string m_pendingMapDelete;
 
     // Cooldown to prevent double-presses
     float m_inputCooldown = 0.0f;

@@ -97,7 +97,7 @@ private:
     int m_wantsResizeW = 0; // +1, -1
     int m_wantsResizeH = 0; // +1, -1
 
-    std::string m_fileName = "custom_map";
+    std::string m_fileName = "my_custom_map";
     bool m_isTypingFileName = false;
     bool m_showSaveConfirm = false;
     std::string m_statusMessage;

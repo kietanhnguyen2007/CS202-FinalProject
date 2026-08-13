@@ -33,6 +33,7 @@ void PrepareController::Open(int levelId) {
     m_wantsBack = false;
     m_wantsStart = false;
     m_focusColumn = 0;
+    m_inputCooldown = 0.0f;
     
     auto& saveMgr = SaveManager::GetInstance();
     
@@ -93,21 +94,21 @@ void PrepareController::Update(float dt) {
     
     if (m_focusColumn == 0) {
         if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_W)) {
-            m_selectedCharIdx = std::max(0, m_selectedCharIdx - 1);
+            MoveCharacterSelection(-1);
             SoundManager::GetInstance().PlaySound("hover");
         }
         else if (IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_S)) {
-            m_selectedCharIdx = std::min((int)m_charItems.size() - 1, m_selectedCharIdx + 1);
+            MoveCharacterSelection(1);
             SoundManager::GetInstance().PlaySound("hover");
         }
     }
     else if (m_focusColumn == 1) {
         if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_W)) {
-            m_selectedPetIdx = std::max(-1, m_selectedPetIdx - 1);
+            MovePetSelection(-1);
             SoundManager::GetInstance().PlaySound("hover");
         }
         else if (IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_S)) {
-            m_selectedPetIdx = std::min((int)m_petItems.size() - 1, m_selectedPetIdx + 1);
+            MovePetSelection(1);
             SoundManager::GetInstance().PlaySound("hover");
         }
     }
@@ -122,17 +123,47 @@ void PrepareController::Update(float dt) {
     }
 }
 
-void PrepareController::SetSelectedCharIdx(int idx) {
+bool PrepareController::SetSelectedCharIdx(int idx) {
     if (idx >= 0 && idx < (int)m_charItems.size() && m_charItems[idx].isUnlocked) {
         m_selectedCharIdx = idx;
+        return true;
     }
+    return false;
 }
 
-void PrepareController::SetSelectedPetIdx(int idx) {
+bool PrepareController::SetSelectedPetIdx(int idx) {
     if (idx >= -1 && idx < (int)m_petItems.size()) {
         if (idx == -1 || m_petItems[idx].isUnlocked) {
             m_selectedPetIdx = idx;
+            return true;
         }
+    }
+    return false;
+}
+
+void PrepareController::MoveCharacterSelection(int direction) {
+    if (m_charItems.empty() || direction == 0) return;
+    int idx = m_selectedCharIdx;
+    for (int step = 0; step < (int)m_charItems.size(); ++step) {
+        idx = std::clamp(idx + direction, 0, (int)m_charItems.size() - 1);
+        if (m_charItems[idx].isUnlocked) {
+            m_selectedCharIdx = idx;
+            return;
+        }
+        if (idx == 0 || idx == (int)m_charItems.size() - 1) return;
+    }
+}
+
+void PrepareController::MovePetSelection(int direction) {
+    if (direction == 0) return;
+    int idx = m_selectedPetIdx;
+    for (int step = 0; step <= (int)m_petItems.size(); ++step) {
+        idx = std::clamp(idx + direction, -1, (int)m_petItems.size() - 1);
+        if (idx == -1 || m_petItems[idx].isUnlocked) {
+            m_selectedPetIdx = idx;
+            return;
+        }
+        if (idx == -1 || idx == (int)m_petItems.size() - 1) return;
     }
 }
 

@@ -130,6 +130,7 @@ void ShopController::BuildItemLists() {
         item.idleAtlasPath = def.idlePath;
         item.price        = def.price;
         item.isUnlocked   = (def.price == 0) || save.IsCharUnlocked(def.id);
+        item.isEquipped   = save.GetSelectedChar() == def.id;
         item.statHP       = def.hp;
         item.statATK      = def.atk;
         item.statSpeed    = def.speed;
@@ -143,11 +144,12 @@ void ShopController::BuildItemLists() {
     for (const auto& def : kPetDefs) {
         View::ShopItemData item;
         std::string petKey = std::string("pet_") + def.id;
-        item.id           = petKey;
+        item.id           = def.id;
         item.displayName  = def.displayName;
         item.idleAtlasPath = def.idlePath;
         item.price        = def.price;
         item.isUnlocked   = (def.price == 0) || save.IsCharUnlocked(petKey.c_str());
+        item.isEquipped   = save.GetSelectedPet() == def.id;
         item.statHP       = def.hp;
         item.statATK      = def.atk;
         item.statSpeed    = def.speed;
@@ -188,56 +190,59 @@ void ShopController::HandleBuyAttempt() {
     int idx = shop.GetSelectedIndex();
 
     // Get the item list pointers via the controller's local definitions
-    const char* itemId   = nullptr;
-    int         price    = 0;
-    bool        unlocked = false;
+    std::string itemId;
+    std::string unlockKey;
+    int price = 0;
+    bool unlocked = false;
 
     if (tab == View::ShopTab::Characters) {
         int nChars = (int)(sizeof(kCharDefs) / sizeof(kCharDefs[0]));
         if (idx < 0 || idx >= nChars) return;
         itemId   = kCharDefs[idx].id;
+        unlockKey = itemId;
         price    = kCharDefs[idx].price;
-        unlocked = (price == 0) || save.IsCharUnlocked(itemId);
+        unlocked = (price == 0) || save.IsCharUnlocked(unlockKey);
     } else {
         int nPets = (int)(sizeof(kPetDefs) / sizeof(kPetDefs[0]));
         if (idx < 0 || idx >= nPets) return;
-        std::string petKey = std::string("pet_") + kPetDefs[idx].id;
-        itemId   = nullptr; // handled below
+        itemId = kPetDefs[idx].id;
+        unlockKey = std::string("pet_") + itemId;
         price    = kPetDefs[idx].price;
-        std::string pk = std::string("pet_") + kPetDefs[idx].id;
-        unlocked = (price == 0) || save.IsCharUnlocked(pk.c_str());
+        unlocked = (price == 0) || save.IsCharUnlocked(unlockKey);
+    }
 
-        if (!unlocked) {
-            if (save.GetCoins() >= price) {
-                save.SpendCoins(price);
-                save.UnlockChar(pk.c_str());
-                save.Save();
-                shop.MarkSelectedUnlocked();
-                shop.SetCurrentCoins(save.GetCoins());
-                auto& snd = SoundManager::GetInstance();
-                if (snd.IsAudioInitialized()) snd.PlaySound("ui_confirm");
-            } else {
-                shop.TriggerBuyShake();
-                auto& snd = SoundManager::GetInstance();
-                if (snd.IsAudioInitialized()) snd.PlaySound("ui_error");
-            }
+    auto equip = [&]() {
+        if (tab == View::ShopTab::Characters) save.SetSelectedChar(itemId);
+        else save.SetSelectedPet(itemId);
+    };
+
+    if (unlocked) {
+        const bool alreadyEquipped = tab == View::ShopTab::Characters
+            ? save.GetSelectedChar() == itemId : save.GetSelectedPet() == itemId;
+        if (!alreadyEquipped) {
+            equip();
+            save.Save();
+            BuildItemLists();
+            shop.ShowNotice("LOADOUT UPDATED", true);
+            SoundManager::GetInstance().PlaySound("ui_confirm");
+        } else {
+            shop.ShowNotice("ALREADY EQUIPPED", true);
         }
         return;
     }
 
-    if (unlocked) return; // already owned, nothing to do
-
     if (save.GetCoins() >= price) {
         save.SpendCoins(price);
-        save.UnlockChar(itemId);
+        save.UnlockChar(unlockKey);
+        equip();
         save.Save();
-        shop.MarkSelectedUnlocked();
+        BuildItemLists();
         shop.SetCurrentCoins(save.GetCoins());
-        auto& snd = SoundManager::GetInstance();
-        if (snd.IsAudioInitialized()) snd.PlaySound("ui_confirm");
+        shop.ShowNotice("PURCHASED & EQUIPPED", true);
+        SoundManager::GetInstance().PlaySound("ui_confirm");
     } else {
         shop.TriggerBuyShake();
-        auto& snd = SoundManager::GetInstance();
-        if (snd.IsAudioInitialized()) snd.PlaySound("ui_error");
+        shop.ShowNotice("NOT ENOUGH COINS", false);
+        SoundManager::GetInstance().PlaySound("ui_error");
     }
 }

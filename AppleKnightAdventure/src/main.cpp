@@ -24,6 +24,7 @@
 #include <string>
 #include <cmath>
 #include <cstdio>
+#include <algorithm>
 
 int main() {
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Apple Knight Adventure");
@@ -45,6 +46,7 @@ int main() {
             jsonFiles.push_back(entry.path().string());
         }
     }
+    std::sort(jsonFiles.begin(), jsonFiles.end());
 
     auto& assetManager = View::AssetManager::GetInstance();
     assetManager.StartLoading(jsonFiles);
@@ -53,10 +55,10 @@ int main() {
     Font loadingFont = LoadFont("assets/fonts/game_font.ttf");
     bool hasFontLoaded = (loadingFont.texture.id != 0);
 
-    // Load background texture (forest/back.png) for loading screen
+    // Full-HD Rimuru artwork used as the loading backdrop.
     Texture2D loadBg = {0};
-    if (FileExists("assets/textures/backgrounds/forest/back.png"))
-        loadBg = LoadTexture("assets/textures/backgrounds/forest/back.png");
+    if (FileExists("assets/ui/loading/rimuru_background.png"))
+        loadBg = LoadTexture("assets/ui/loading/rimuru_background.png");
 
     // Load darkDwellers bar asset for progress bar
     Texture2D barBg   = {0}; // empty bar frame
@@ -67,8 +69,9 @@ int main() {
         barFill = LoadTexture("assets/ui/darkDwellers/20251118darkDwellersBarB.png");
 
     float loadingTime = 0.0f;
+    float completionHold = 0.0f;
 
-    while (!WindowShouldClose() && !assetManager.IsLoadingComplete()) {
+    while (!WindowShouldClose()) {
         WindowManager::GetInstance().Update(); // Catch resize events during loading!
         assetManager.UpdateMainThread();
         float dt = GetFrameTime();
@@ -78,13 +81,20 @@ int main() {
         int sw = GetScreenWidth();
         int sh = GetScreenHeight();
 
-        float displayProg = assetManager.GetDisplayProgress();
-        float realProg    = assetManager.GetProgress();
-        int   percent     = static_cast<int>(realProg * 100.0f);
+        const bool assetsComplete = assetManager.IsLoadingComplete();
+        float displayProg = std::clamp(assetManager.GetDisplayProgress(), 0.0f, 1.0f);
+        float realProg    = std::clamp(assetManager.GetProgress(), 0.0f, 1.0f);
+        if (assetsComplete && displayProg >= 0.995f) completionHold += dt;
+        else completionHold = 0.0f;
+        int percent = std::clamp(static_cast<int>(displayProg * 100.0f + 0.5f), 0, 100);
 
         std::string assetName = assetManager.GetCurrentAssetName();
-        if (assetName.empty()) assetName = "Initializing...";
-        else assetName = "Loading: " + assetName;
+        if (assetName.empty()) assetName = "Preparing the adventure";
+        const char* stage = realProg < 0.20f ? "FORGING THE WORLD"
+                          : realProg < 0.52f ? "AWAKENING THE HEROES"
+                          : realProg < 0.82f ? "SUMMONING CREATURES"
+                          : assetsComplete ? "READYING YOUR ADVENTURE"
+                                           : "POLISHING THE REALMS";
 
         BeginDrawing();
         ClearBackground(Color{10, 8, 20, 255});
@@ -99,48 +109,45 @@ int main() {
             DrawTexturePro(loadBg,
                 {0,0,(float)loadBg.width,(float)loadBg.height},
                 {(float)bgX,(float)bgY,(float)dstW,(float)dstH},
-                {0,0}, 0.f, Color{255,255,255,80});
+                {0,0}, 0.f, Color{255,255,255,115});
         }
 
         // ── Dark overlay vignette ─────────────────────────────────────────
-        DrawRectangle(0, 0, sw, sh, Color{5, 4, 12, 180});
-        for (int rad = sh; rad > 0; rad -= 30) {
-            unsigned char a = (unsigned char)(60.f * (1.f - (float)rad / sh));
-            DrawCircle(sw/2, sh/2, (float)rad, Color{0,0,0,a});
-        }
+        DrawRectangle(0, 0, sw, sh, Color{3, 8, 24, 76});
+        const float contentW = std::min(sw * 0.72f, 900.0f);
 
         // ── Title (game font, screen-relative size) ───────────────────────
-        const char* title = "Apple Knight Adventure";
-        int titleSize = (int)(sh * 0.075f); if (titleSize < 20) titleSize = 20;
+        const char* title = "APPLE KNIGHT ADVENTURE";
+        float titleSize = std::clamp(sh * 0.058f, 20.0f, 42.0f);
+        Font drawFont = hasFontLoaded ? loadingFont : GetFontDefault();
+        while (titleSize > 15.0f && MeasureTextEx(drawFont,title,titleSize,1.6f).x > contentW) titleSize -= 1.0f;
+        const float titleY = sh * 0.065f;
         if (hasFontLoaded) {
-            Vector2 measured = MeasureTextEx(loadingFont, title, (float)titleSize, 2.f);
+            Vector2 measured = MeasureTextEx(loadingFont, title, titleSize, 1.6f);
             float tx = (sw - measured.x) * 0.5f;
-            float ty = sh * 0.28f;
-            DrawTextEx(loadingFont, title, {tx+3,ty+3}, (float)titleSize, 2.f, Color{0,0,0,130});
-            DrawTextEx(loadingFont, title, {tx,ty},     (float)titleSize, 2.f, Color{255,230,80,255});
+            DrawTextEx(loadingFont, title, {tx+3,titleY+3}, titleSize, 1.6f, Color{0,0,0,150});
+            DrawTextEx(loadingFont, title, {tx,titleY}, titleSize, 1.6f, Color{255,226,113,255});
         } else {
-            int tw = MeasureText(title, titleSize);
-            DrawText(title, sw/2 - tw/2 + 2, (int)(sh*0.28f) + 2, titleSize, Color{0,0,0,130});
-            DrawText(title, sw/2 - tw/2,     (int)(sh*0.28f),     titleSize, Color{255,230,80,255});
+            Vector2 measured = MeasureTextEx(drawFont,title,titleSize,1.0f);
+            DrawTextEx(drawFont,title,{(sw-measured.x)*0.5f,titleY},titleSize,1.0f,Color{255,226,113,255});
         }
 
         // ── Asset name label ──────────────────────────────────────────────
-        int nameFs = (int)(sh * 0.025f); if (nameFs < 10) nameFs = 10;
-        float barY = sh * 0.58f;
-        if (hasFontLoaded) {
-            Vector2 nm = MeasureTextEx(loadingFont, assetName.c_str(), (float)nameFs, 1.f);
-            DrawTextEx(loadingFont, assetName.c_str(),
-                       {(sw - nm.x)*0.5f, barY - nameFs - sh*0.015f},
-                       (float)nameFs, 1.f, Color{180,165,210,200});
-        } else {
-            int nw = MeasureText(assetName.c_str(), nameFs);
-            DrawText(assetName.c_str(), sw/2-nw/2, (int)(barY - nameFs - sh*0.015f),
-                     nameFs, Color{180,165,210,200});
-        }
+        float nameFs = std::clamp(sh * 0.016f, 9.0f, 13.0f);
+        while (nameFs > 8.0f && MeasureTextEx(drawFont,assetName.c_str(),nameFs,1.0f).x > contentW) nameFs -= 1.0f;
+        const float stageFs = std::clamp(sh * 0.024f, 12.0f, 18.0f);
+        Vector2 stageSize = MeasureTextEx(drawFont,stage,stageFs,1.0f);
+        const float stageY = sh * 0.705f;
+        DrawTextEx(drawFont,stage,{(sw-stageSize.x)*0.5f+2,stageY+2},stageFs,1.0f,Color{0,0,0,180});
+        DrawTextEx(drawFont,stage,{(sw-stageSize.x)*0.5f,stageY},stageFs,1.0f,Color{235,243,255,255});
+        Vector2 nm = MeasureTextEx(drawFont,assetName.c_str(),nameFs,1.0f);
+        DrawTextEx(drawFont,assetName.c_str(),{(sw-nm.x)*0.5f+1,sh*0.753f+1},nameFs,1.0f,Color{0,0,0,170});
+        DrawTextEx(drawFont,assetName.c_str(),{(sw-nm.x)*0.5f,sh*0.753f},nameFs,1.0f,Color{199,217,241,245});
+        float barY = sh * 0.795f;
 
         // ── Progress bar using darkDwellers bar asset ─────────────────────
-        float barW = sw * 0.55f; // responsive width
-        float barH = (float)(sh) * 0.04f; if (barH < 16) barH = 16;
+        float barW = std::min(sw * 0.60f, 760.0f);
+        float barH = std::clamp(sh * 0.032f, 15.0f, 25.0f);
         float barX = (sw - barW) * 0.5f;
 
         if (barBg.id != 0) {
@@ -150,9 +157,8 @@ int main() {
                 {barX, barY, barW, barH}, {0,0}, 0.f, WHITE);
         } else {
             // Fallback: plain rect
-            DrawRectangle((int)(barX-2),(int)(barY-2),(int)(barW+4),(int)(barH+4),
-                          Color{60,50,80,200});
-            DrawRectangle((int)barX,(int)barY,(int)barW,(int)barH, Color{20,15,35,255});
+            DrawRectangleRounded({barX-3,barY-3,barW+6,barH+6},0.5f,9,Color{111,81,146,220});
+            DrawRectangleRounded({barX,barY,barW,barH},0.5f,9,Color{8,7,17,255});
         }
 
         // Fill portion
@@ -166,7 +172,7 @@ int main() {
                     {barX, barY, (float)fillW, barH}, {0,0}, 0.f, WHITE);
             } else {
                 DrawRectangleGradientH((int)barX,(int)barY, fillW,(int)barH,
-                    Color{100,60,180,255}, Color{255,200,50,255});
+                    Color{106,65,175,255}, Color{255,196,62,255});
             }
             // Shimmer on fill edge
             float shimmer = (sinf(loadingTime * 7.f) + 1.f) * 0.5f;
@@ -176,9 +182,9 @@ int main() {
         }
 
         // ── Percent text (game font) ──────────────────────────────────────
-        int pctFs = (int)(sh * 0.032f); if (pctFs < 12) pctFs = 12;
+        int pctFs = (int)std::clamp(sh * 0.027f, 13.0f, 21.0f);
         char pctBuf[16]; snprintf(pctBuf, sizeof(pctBuf), "%d%%", percent);
-        float pctY = barY + barH + sh * 0.015f;
+        float pctY = barY + barH + 9.0f;
         if (hasFontLoaded) {
             Vector2 pm = MeasureTextEx(loadingFont, pctBuf, (float)pctFs, 1.f);
             DrawTextEx(loadingFont, pctBuf, {(sw-pm.x)*0.5f, pctY},
@@ -189,6 +195,8 @@ int main() {
         }
 
         EndDrawing();
+        if (assetsComplete && displayProg >= 0.995f && completionHold >= 0.32f &&
+            loadingTime >= 2.0f) break;
     }
     if (hasFontLoaded)  UnloadFont(loadingFont);
     if (loadBg.id != 0) UnloadTexture(loadBg);
@@ -224,6 +232,7 @@ int main() {
     while (!WindowShouldClose()) {
         WindowManager::GetInstance().Update();
         float dt = GetFrameTime();
+        SoundManager::GetInstance().Update(dt);
 
         if (!inGame && !inMapBuilder && !inShop && !inOptions && !inPrepare) {
             menu.Update(dt);

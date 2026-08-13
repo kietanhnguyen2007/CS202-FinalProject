@@ -28,8 +28,8 @@ public:
     int GetFocusColumn() const { return m_focusColumn; } // 0=Chars, 1=Pets, 2=Start Btn
 
     // Setters for view clicks
-    void SetSelectedCharIdx(int idx);
-    void SetSelectedPetIdx(int idx);
+    bool SetSelectedCharIdx(int idx);
+    bool SetSelectedPetIdx(int idx);
     void SetFocusColumn(int col);
     void SetWantsBack() { m_wantsBack = true; }
     void TryStartGame();
@@ -48,4 +48,7 @@ private:
     int m_selectedPetIdx = -1;
     int m_focusColumn = 0;
     float m_inputCooldown = 0.f;
+
+    void MoveCharacterSelection(int direction);
+    void MovePetSelection(int direction);
 };

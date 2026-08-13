@@ -20,6 +20,7 @@ struct ShopItemData {
     std::string idleAtlasPath;// path to idle.json for preview
     int  price       = 0;
     bool isUnlocked  = false;
+    bool isEquipped  = false;
 
     // Stats for detail panel
     int statHP    = 0;
@@ -52,8 +53,8 @@ public:
     void Show(int currentCoins);
 
     // Feed items from controller
-    void SetCharacterItems(const std::vector<ShopItemData>& items) { m_charItems = items; }
-    void SetPetItems(const std::vector<ShopItemData>& items)       { m_petItems  = items; }
+    void SetCharacterItems(const std::vector<ShopItemData>& items);
+    void SetPetItems(const std::vector<ShopItemData>& items);
 
     // Sync coins (controller updates after purchase)
     void SetCurrentCoins(int coins) { m_currentCoins = coins; }
@@ -72,6 +73,7 @@ public:
 
     // Trigger the "not enough coins" shake animation
     void TriggerBuyShake();
+    void ShowNotice(const std::string& message, bool success);
 
 private:
     ShopView() = default;
@@ -96,6 +98,7 @@ private:
 
     // Load idle texture for selected item into m_previewAtlas
     void LoadPreview(const std::string& atlasPath);
+    void SyncThumbnailAtlases();
 
     // ── State ─────────────────────────────────────────────────────────────
     bool  m_visible   = false;
@@ -115,6 +118,8 @@ private:
     // Item lists
     std::vector<ShopItemData> m_charItems;
     std::vector<ShopItemData> m_petItems;
+    std::vector<std::shared_ptr<Animations::TextureAtlas>> m_charThumbnails;
+    std::vector<std::shared_ptr<Animations::TextureAtlas>> m_petThumbnails;
 
     // Preview animation
     std::shared_ptr<Animations::TextureAtlas> m_previewAtlas;
@@ -142,6 +147,12 @@ private:
     // Panel 9-slice
     Texture2D m_texPanel{};
     bool      m_panelLoaded = false;
+    Font      m_font{};
+    bool      m_fontLoaded = false;
+    std::string m_notice;
+    float       m_noticeTimer = 0.0f;
+    bool        m_noticeSuccess = true;
+    float       m_inputCooldown = 0.0f;
 };
 
 } // namespace View

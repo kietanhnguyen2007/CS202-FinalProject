@@ -25,6 +25,7 @@
 #include <iostream>
 #include <queue>
 #include <set>
+#include <cctype>
 
 MapBuilderController::MapBuilderController() : m_isDragging(false), m_isRunning(false), m_returnToMenu(false), m_playtestMode(false) {}
 
@@ -128,7 +129,22 @@ void MapBuilderController::ExitEditor() {
 
 void MapBuilderController::SaveMap(const std::string& filename) {
     if (!m_gameState) return;
-    std::string path = "assets/levels/" + filename + ".lvl";
+    std::string safeName;
+    safeName.reserve(filename.size());
+    for (unsigned char ch : filename) {
+        if (std::isalnum(ch) || ch == '_' || ch == '-') safeName.push_back((char)ch);
+        else if (std::isspace(ch)) safeName.push_back('_');
+    }
+    if (safeName.empty()) safeName = "my_custom_map";
+
+    bool campaignName = safeName.size() > 5 && safeName.rfind("level", 0) == 0;
+    for (size_t i = 5; campaignName && i < safeName.size(); ++i)
+        campaignName = std::isdigit(static_cast<unsigned char>(safeName[i])) != 0;
+    if (campaignName || safeName == "temp_playtest") safeName = "map_" + safeName;
+
+    View::MapBuilderView::GetInstance().SetFileName(safeName);
+    std::string path = "assets/levels/" + safeName + ".lvl";
+    m_currentFile = path;
     const bool namedSaveOk = LevelFactory::SaveLevel(path, m_gameState.get());
 
     // The main menu always launches this stable alias. Keep it synchronized

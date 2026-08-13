@@ -24,6 +24,7 @@
 #include "View/SkillBarView.h"
 #include "View/InteractPrompt.h"
 #include "View/MenuView.h"
+#include "View/OptionsView.h"
 #include "View/UIStateManager.h"
 #include "View/FloatingText.h"
 #include "View/ParticleRenderer.h"
@@ -115,16 +116,6 @@ bool GameController::Init() {
     if (!snd.IsAudioInitialized()) {
         snd.InitAudio();
     }
-    snd.LoadSound("player_attack", "assets/sounds/sfx/player_attack.wav");
-    snd.LoadSound("player_hurt", "assets/sounds/sfx/player_hurt.wav");
-    snd.LoadSound("enemy_death", "assets/sounds/sfx/enemy_die.wav");
-    snd.LoadSound("enemy_hurt", "assets/sounds/sfx/enemy_hurt.wav");
-    snd.LoadSound("coin_pickup", "assets/sounds/sfx/coin_pickup.wav");
-    snd.LoadSound("chest_open", "assets/sounds/sfx/chest_open.wav");
-    snd.LoadSound("victory_reveal", "assets/sounds/sfx/victory_reveal.ogg");
-    snd.LoadSound("victory_star", "assets/sounds/sfx/victory_star.ogg");
-    snd.LoadSound("victory_confirm", "assets/sounds/sfx/victory_confirm.ogg");
-    snd.LoadMusic("bgm_gameplay", "assets/sounds/music/bgm_gameplay.wav");
 
     View::GameView::GetInstance().Init();
     View::HUDView::GetInstance().Init();
@@ -470,6 +461,8 @@ void GameController::StartLevel(int levelNumber) {
     m_returnToMenu = false;
     m_running = true;
     m_enemyAttackCooldown = 0.0f;
+    m_footstepTimer = 0.0f;
+    m_knownBossPhases.clear();
 
     View::GameView::GetInstance().SetTiles(MapLayer::Background, &m_gameState->GetTiles(MapLayer::Background));
     View::GameView::GetInstance().SetTiles(MapLayer::Main, &m_gameState->GetTiles(MapLayer::Main));
@@ -522,8 +515,21 @@ void GameController::StartLevel(int levelNumber) {
     }
     m_collision.SetWorldBounds({0.0f, 0.0f, mapWidth, mapHeight});
 
-    SoundManager::GetInstance().StopMusic("bgm_menu");
-    SoundManager::GetInstance().PlayMusic("bgm_gameplay");
+    bool containsBoss = false;
+    for (const auto& entity : m_gameState->GetAllEntities()) {
+        if (entity->GetType() == EntityType::Boss) {
+            containsBoss = true;
+            auto* boss = static_cast<Boss*>(entity.get());
+            m_knownBossPhases[entity->GetId()] = static_cast<int>(boss->GetPhase());
+        }
+    }
+    if (containsBoss) {
+        SoundManager::GetInstance().PlayMusic("bgm_boss");
+    } else if (levelNumber == 1 && path.find("tutorial.ldtk") != std::string::npos) {
+        SoundManager::GetInstance().PlayMusic("bgm_tutorial");
+    } else {
+        SoundManager::GetInstance().PlayMusic("bgm_gameplay");
+    }
     
     View::HUDView::GetInstance().SetVisible(true);
     View::HUDView::GetInstance().SetPlaytestMode(IsPlaytest());
@@ -745,6 +751,7 @@ void GameController::HandlePlayerInput(const InputCommand& cmd, float /*dt*/) {
     m_playerOnGround = IsOnGround(player);
     if (cmd.jump && m_playerOnGround && !player->IsDashing()) {
         vel.y = PLAYER_JUMP_FORCE;
+        SoundManager::GetInstance().PlaySound("player_jump");
     }
     player->SetVelocity(vel);
 
@@ -753,6 +760,7 @@ void GameController::HandlePlayerInput(const InputCommand& cmd, float /*dt*/) {
         // Always dash in the direction the player is currently facing
         float dirX = (player->GetDirection() == Direction::Right) ? 1.0f : -1.0f;
         player->StartDash(true, dirX);
+        SoundManager::GetInstance().PlaySound("player_dash");
     }
 
     // --- Knight Skills ---
@@ -763,15 +771,15 @@ void GameController::HandlePlayerInput(const InputCommand& cmd, float /*dt*/) {
         if (!player->IsDashing() && !player->IsParrying()) {
             if (cmd.attack  && skills->TryAttack1()) {
                 player->Attack();
-                SoundManager::GetInstance().PlaySound("player_attack");
+                SoundManager::GetInstance().PlaySound("knight_attack_1");
             }
             if (cmd.parry   && skills->TryAttack2()) {
                 player->Attack2();
-                SoundManager::GetInstance().PlaySound("player_attack");
+                SoundManager::GetInstance().PlaySound("knight_attack_2");
             }
             if (cmd.skill1  && skills->TryAttack3()) {
                 player->Attack3();
-                SoundManager::GetInstance().PlaySound("player_attack");
+                SoundManager::GetInstance().PlaySound("knight_attack_3");
                 float lDir = (player->GetDirection() == Direction::Right) ? 1.0f : -1.0f;
                 if (cmd.moveRight && !cmd.moveLeft) { lDir = 1.0f; player->SetDirection(Direction::Right); }
                 else if (cmd.moveLeft && !cmd.moveRight) { lDir = -1.0f; player->SetDirection(Direction::Left); }
@@ -780,7 +788,7 @@ void GameController::HandlePlayerInput(const InputCommand& cmd, float /*dt*/) {
             }
             if (cmd.ultimate && skills->TryUltimate()) {
                 player->DoUltimate();
-                SoundManager::GetInstance().PlaySound("player_attack");
+                SoundManager::GetInstance().PlaySound("knight_ultimate");
             }
         }
         // Parry can be triggered regardless of other attack state
@@ -791,19 +799,19 @@ void GameController::HandlePlayerInput(const InputCommand& cmd, float /*dt*/) {
         if (!player->IsDashing() && !player->IsParrying()) {
             if (cmd.attack    && fs->TryAttack1()) {
                 player->Attack();
-                SoundManager::GetInstance().PlaySound("player_attack");
+                SoundManager::GetInstance().PlaySound("fighter_attack_1");
             }
             if (cmd.parry     && fs->TryAttack2()) {
                 player->Attack2();
-                SoundManager::GetInstance().PlaySound("player_attack");
+                SoundManager::GetInstance().PlaySound("fighter_attack_2");
             }
             if (cmd.skill1    && fs->TryAttack3()) {
                 player->Attack3();
-                SoundManager::GetInstance().PlaySound("player_attack");
+                SoundManager::GetInstance().PlaySound("fighter_attack_3");
             }
             if (cmd.ultimate  && fs->TryUltimate()) {
                 player->DoUltimate();
-                SoundManager::GetInstance().PlaySound("player_attack");
+                SoundManager::GetInstance().PlaySound("fighter_ultimate");
             }
         }
         if (!player->IsDashing() && cmd.parryBlock && fs->TryParry()) {}
@@ -813,19 +821,19 @@ void GameController::HandlePlayerInput(const InputCommand& cmd, float /*dt*/) {
         if (!player->IsDashing() && !player->IsParrying()) {
             if (cmd.attack    && ms->TryAttack1()) {
                 player->Attack();
-                SoundManager::GetInstance().PlaySound("player_attack");
+                SoundManager::GetInstance().PlaySound("magic_attack_1");
             }
             if (cmd.parry     && ms->TryAttack2()) {
                 player->Attack2(MagicCasterSkillSet::ATTACK2_ANIMATION_DURATION);
-                SoundManager::GetInstance().PlaySound("player_attack");
+                SoundManager::GetInstance().PlaySound("magic_attack_2");
             }
             if (cmd.skill1    && ms->TryAttack3()) {
                 player->Attack3();
-                SoundManager::GetInstance().PlaySound("player_attack");
+                SoundManager::GetInstance().PlaySound("magic_attack_3");
             }
             if (cmd.ultimate  && ms->TryUltimate()) {
                 player->DoUltimate();
-                SoundManager::GetInstance().PlaySound("player_attack");
+                SoundManager::GetInstance().PlaySound("magic_ultimate");
             }
         }
         if (!player->IsDashing() && cmd.parryBlock && ms->TryParry()) {}
@@ -835,18 +843,19 @@ void GameController::HandlePlayerInput(const InputCommand& cmd, float /*dt*/) {
         if (!player->IsDashing() && !player->IsParrying()) {
             if (cmd.attack    && ns->TryAttack1()) {
                 player->Attack();
-                SoundManager::GetInstance().PlaySound("player_attack");
+                SoundManager::GetInstance().PlaySound("ninja_attack_1");
             }
             if (cmd.parry     && ns->TryAttack2()) {
                 player->Attack2();
-                SoundManager::GetInstance().PlaySound("player_attack");
+                SoundManager::GetInstance().PlaySound("ninja_attack_2");
             }
             if (cmd.skill1    && ns->TryAttack3()) {
                 player->Attack3();  // triggers teleport_start animation
+                SoundManager::GetInstance().PlaySound("ninja_attack_3");
             }
             if (cmd.ultimate  && ns->TryUltimate()) {
                 player->DoUltimate(NinjaSkillSet::ULTIMATE_CAST_DURATION);
-                SoundManager::GetInstance().PlaySound("player_attack");
+                SoundManager::GetInstance().PlaySound("ninja_ultimate");
             }
         }
         if (!player->IsDashing() && cmd.parryBlock && ns->TryParry()) {}
@@ -879,6 +888,14 @@ void GameController::UpdateEnemyAI(float dt) {
             
             // Sync visual phase
             BossPhase currentPhase = boss->GetPhase();
+            const int phaseValue = static_cast<int>(currentPhase);
+            auto knownPhase = m_knownBossPhases.find(boss->GetId());
+            if (knownPhase == m_knownBossPhases.end()) {
+                m_knownBossPhases[boss->GetId()] = phaseValue;
+            } else if (knownPhase->second != phaseValue) {
+                knownPhase->second = phaseValue;
+                SoundManager::GetInstance().PlaySound("boss_phase");
+            }
             if (View::CharacterRenderer::GetInstance().GetBossPhase(boss->GetId()) != currentPhase) {
                 View::CharacterRenderer::GetInstance().SwitchPhase(boss->GetId(), currentPhase);
             }
@@ -985,6 +1002,7 @@ void GameController::UpdateCombat(float dt) {
                 View::GameView::GetInstance().Shake(2.0f, 0.1f);
 
                 if (wall->IsDestroyed()) {
+                    SoundManager::GetInstance().PlaySound("fake_wall_break");
                     m_gameState->RemoveTileAt(MapLayer::Main, wall->GetTileX(), wall->GetTileY());
                     OnEntityRemoved(wall);
                 }
@@ -1032,7 +1050,7 @@ void GameController::UpdateCombat(float dt) {
                 fs->ultimate.damage, 400.0f, 0.9f, // 0.9f matches exact animation length (9 frames * 0.1s)
                 0.8f, false);  // Fighter H faces right by default
             fs->ResetFireFlag();
-            SoundManager::GetInstance().PlaySound("player_attack");
+            SoundManager::GetInstance().PlaySound("fighter_ultimate");
         }
 
     // ==================== MAGIC CASTER COMBAT ====================
@@ -1205,6 +1223,7 @@ void GameController::UpdateCombat(float dt) {
                         enemy->GetPosition().y + enemy->GetSize().y * 0.5f
                     };
                     enemy->Attack();
+                    SoundManager::GetInstance().PlaySound("enemy_attack");
                     
                     if (enemy->GetEnemyType() == EnemyType::Ranged) {
                         Vector2 pSize = {32.0f, 32.0f}; // size of bomb
@@ -1235,6 +1254,7 @@ void GameController::UpdateCombat(float dt) {
                         boss->GetPosition().y + boss->GetSize().y * 0.5f
                     };
                     boss->ResetMelee();
+                    SoundManager::GetInstance().PlaySound("boss_attack");
                 }
             }
         } else if (entity->GetType() == EntityType::Projectile) {
@@ -1263,7 +1283,7 @@ void GameController::UpdateCombat(float dt) {
             if (!proj->HasHit() && RectOverlap(proj->GetBoundingBox(), player->GetBoundingBox())) {
                 if (!player->IsInvincible()) {
                     player->TakeDamage(proj->GetDamage());
-                    SoundManager::GetInstance().PlaySound("player_hurt");
+                    SoundManager::GetInstance().PlaySound(player->IsAlive() ? "player_hurt" : "player_die");
                     View::FloatingTextManager::GetInstance().Emit(
                         player->GetPosition(), "-" + std::to_string(proj->GetDamage()), RED, 1.0f);
                     View::GameView::GetInstance().Shake(4.0f, 0.2f);
@@ -1284,7 +1304,7 @@ void GameController::UpdateCombat(float dt) {
         // Invincibility from dash blocks all damage
         if (!player->IsInvincible()) {
             player->TakeDamage(attackDamage);
-            SoundManager::GetInstance().PlaySound("player_hurt");
+            SoundManager::GetInstance().PlaySound(player->IsAlive() ? "player_hurt" : "player_die");
             View::FloatingTextManager::GetInstance().Emit(
                 player->GetPosition(), "-" + std::to_string(attackDamage), RED, 1.0f);
             View::GameView::GetInstance().Shake(4.0f, 0.2f);
@@ -1312,8 +1332,10 @@ void GameController::UpdateItems(float dt) {
         auto* item = static_cast<Item*>(entity.get());
         if (!RectOverlap(playerBox, ItemPickupBox(*item))) continue;
 
+        const char* pickupSound = "item_pickup";
         switch (item->GetItemType()) {
             case ItemType::Coin:
+                pickupSound = "coin_pickup";
                 player->GetInventory().AddCoins(item->GetAmount());
                 SaveManager::GetInstance().AddCoins(item->GetAmount());
                 persistentCoinsChanged = true;
@@ -1327,6 +1349,7 @@ void GameController::UpdateItems(float dt) {
                 player->GetInventory().AddKeys(1);
                 break;
             case ItemType::Potion:
+                pickupSound = "potion_pickup";
                 player->Heal(50);
                 break;
             default:
@@ -1337,7 +1360,7 @@ void GameController::UpdateItems(float dt) {
 
         m_collectedItems++;
         m_scoring.CollectItem();
-        SoundManager::GetInstance().PlaySound("coin_pickup");
+        SoundManager::GetInstance().PlaySound(pickupSound);
         View::FloatingTextManager::GetInstance().Emit(
             item->GetPosition(), item->GetItemName(), YELLOW, 1.0f);
         collectedIds.push_back(item->GetId());
@@ -1367,6 +1390,7 @@ void GameController::UpdateInteractions(const InputCommand& cmd) {
         if (entity->GetType() == EntityType::Signboard) {
             auto* signboard = static_cast<Signboard*>(entity.get());
             if (signboard->CanInteract(player)) {
+                SoundManager::GetInstance().PlaySound("signboard_open");
                 View::TutorialRenderer::GetInstance().ShowDialog(signboard->GetMessage());
                 return;
             }
@@ -1376,7 +1400,7 @@ void GameController::UpdateInteractions(const InputCommand& cmd) {
             auto* cup = static_cast<LevelCompleteCup*>(entity.get());
             if (cup->CanInteract(player)) {
                 cup->Activate();
-                SoundManager::GetInstance().PlaySound("coin_pickup");
+                SoundManager::GetInstance().PlaySound("trophy_activate");
                 View::ParticleRenderer::GetInstance().EmitBurst(cup->GetPosition(), 36, GOLD);
                 View::GameView::GetInstance().Shake(7.0f, 0.45f);
                 return;
@@ -1424,6 +1448,7 @@ void GameController::UpdateInteractions(const InputCommand& cmd) {
             if (checkpoint->GetPosition().x >= m_respawnPoint.x) {
                 m_activeCheckpointUid = newUid;
                 checkpoint->Activate();
+                SoundManager::GetInstance().PlaySound("checkpoint_activate");
                 m_respawnPoint = checkpoint->GetPosition();
                 CaptureCheckpointEnemies(checkpoint->GetPosition().x);
 
@@ -1437,6 +1462,7 @@ void GameController::UpdateInteractions(const InputCommand& cmd) {
 
         if (entity->GetType() == EntityType::TeleportPortal) {
             auto* portal = static_cast<TeleportPortal*>(entity.get());
+            SoundManager::GetInstance().PlaySound("portal_use");
             if (portal->GetPortalType() == PortalType::Local) {
                 if (portal->GetLinkedPortal()) {
                     Rectangle destBox = portal->GetLinkedPortal()->GetBoundingBox();
@@ -1577,7 +1603,7 @@ void GameController::CheckLevelComplete() {
         m_gameState->StopTimer();
         m_scoring.SetClearTime(m_gameState->GetClearTime());
         m_scoring.CalculateStars();
-        SoundManager::GetInstance().StopMusic("bgm_gameplay");
+        SoundManager::GetInstance().StopAllMusic();
 
         Player* player = m_gameState->GetLocalPlayer();
         const int level = m_gameState->GetCurrentLevel();
@@ -1702,14 +1728,28 @@ void GameController::Update(float dt) {
         return;
     }
 
+    if (m_paused && View::OptionsView::GetInstance().IsVisible()) {
+        auto& options = View::OptionsView::GetInstance();
+        options.Update(dt);
+        if (options.WantsBack()) {
+            options.ClearWantsBack();
+            options.SetVisible(false);
+            View::MenuView::GetInstance().SetVisible(true);
+            View::UIStateManager::GetInstance().Push(View::UILayer::Menu);
+        }
+        return;
+    }
+
     if (View::TutorialRenderer::GetInstance().IsDialogVisible()) {
         if (cmd.interact || cmd.menuConfirm || cmd.pause) {
+            SoundManager::GetInstance().PlaySound("ui_confirm");
             View::TutorialRenderer::GetInstance().HideDialog();
         }
         return;
     }
 
     if (cmd.pause) {
+        SoundManager::GetInstance().PlaySound("ui_confirm");
         if (m_paused) {
             m_paused = false;
             m_gameState->SetTimerRunning(true);
@@ -1728,9 +1768,10 @@ void GameController::Update(float dt) {
 
     if (m_paused) {
         if (cmd.menuDelta != 0) {
+            SoundManager::GetInstance().PlaySound("ui_hover");
             m_pauseSelected += cmd.menuDelta;
-            if (m_pauseSelected < 0) m_pauseSelected = 1;
-            if (m_pauseSelected > 1) m_pauseSelected = 0;
+            if (m_pauseSelected < 0) m_pauseSelected = 2;
+            if (m_pauseSelected > 2) m_pauseSelected = 0;
         }
 
         Vector2 mousePos = GetMousePosition();
@@ -1740,6 +1781,7 @@ void GameController::Update(float dt) {
         }
 
         if (cmd.menuConfirm || (hovered != -1 && IsMouseButtonPressed(MOUSE_BUTTON_LEFT))) {
+            SoundManager::GetInstance().PlaySound("ui_confirm");
             if (View::MenuView::GetInstance().GetMode() == View::MenuMode::Pause) {
                 if (m_pauseSelected == 0) {
                     // Resume
@@ -1748,6 +1790,12 @@ void GameController::Update(float dt) {
                     View::UIStateManager::GetInstance().Pop();
                     View::MenuView::GetInstance().SetVisible(false);
                 } else if (m_pauseSelected == 1) {
+                    auto& options = View::OptionsView::GetInstance();
+                    options.ClearWantsBack();
+                    View::UIStateManager::GetInstance().Pop();
+                    View::MenuView::GetInstance().SetVisible(false);
+                    options.SetVisible(true);
+                } else if (m_pauseSelected == 2) {
                     // Quit to Menu
                     m_returnToMenu = true;
                     m_running = false;
@@ -1803,6 +1851,17 @@ void GameController::Update(float dt) {
     if (player && player->IsActive()) {
         ResolveTileCollisions(player, dt);
         m_playerOnGround = IsOnGround(player);
+
+        m_footstepTimer -= dt;
+        const bool isMovingOnGround = m_playerOnGround
+            && std::abs(player->GetVelocity().x) > 25.0f
+            && !player->IsDashing();
+        if (isMovingOnGround && m_footstepTimer <= 0.0f) {
+            SoundManager::GetInstance().PlaySound("player_footstep");
+            m_footstepTimer = player->IsSprinting() ? 0.22f : 0.31f;
+        } else if (!isMovingOnGround) {
+            m_footstepTimer = std::min(m_footstepTimer, 0.08f);
+        }
     }
 
     UpdateCombat(dt);
@@ -1820,7 +1879,7 @@ void GameController::Update(float dt) {
         const float mapHeight = std::max(1, m_gameState->GetMapHeight()) * TILE_SIZE;
         if (player->GetPosition().y > mapHeight + TILE_SIZE * 2) {
             player->TakeDamage(player->GetMaxHealth()); // Technically dies
-            SoundManager::GetInstance().PlaySound("player_hurt");
+            SoundManager::GetInstance().PlaySound("player_die");
             RespawnPlayer();
         }
     }
@@ -1868,6 +1927,10 @@ void GameController::Render() {
     View::GameView::GetInstance().Render(m_camera, m_particles.GetActive(), GetFrameTime());
     View::Renderer::GetInstance().EndFrameAndFlush();
 
+    if (View::OptionsView::GetInstance().IsVisible()) {
+        View::OptionsView::GetInstance().Render();
+    }
+
     View::TutorialRenderer::GetInstance().RenderDialog();
 }
 
@@ -1881,6 +1944,7 @@ void GameController::Shutdown() {
     View::EntityRenderer::GetInstance().Clear();
     View::UIStateManager::GetInstance().Clear();
     View::ResultView::GetInstance().Dismiss();
+    View::OptionsView::GetInstance().SetVisible(false);
     View::HUDView::GetInstance().SetVisible(false);
     View::MenuView::GetInstance().SetVisible(false);
 
@@ -2126,6 +2190,7 @@ void GameController::FireDragonProjectile(Pet* pet) {
         proj.get(), projVisual, "attack");
 
     m_petProjectiles.push_back(std::move(proj));
+    SoundManager::GetInstance().PlaySound("pet_attack");
     pet->ResetFireFlag();
 }
 
@@ -2193,9 +2258,10 @@ void GameController::UpdatePets(float dt, const InputCommand& cmd) {
             if (itemEnt->IsActive() &&
                 RectOverlap(m_activePet->GetBoundingBox(), ItemPickupBox(*itemEnt))) {
                 Item* item = static_cast<Item*>(itemEnt);
-                
+                const char* pickupSound = "item_pickup";
                 switch (item->GetItemType()) {
                     case ItemType::Coin:
+                        pickupSound = "coin_pickup";
                         player->GetInventory().AddCoins(item->GetAmount());
                         SaveManager::GetInstance().AddCoins(item->GetAmount());
                         persistentCoinsChanged = true;
@@ -2209,6 +2275,7 @@ void GameController::UpdatePets(float dt, const InputCommand& cmd) {
                         player->GetInventory().AddKeys(1);
                         break;
                     case ItemType::Potion:
+                        pickupSound = "potion_pickup";
                         player->Heal(50);
                         break;
                     default:
@@ -2219,7 +2286,7 @@ void GameController::UpdatePets(float dt, const InputCommand& cmd) {
 
                 m_collectedItems++;
                 m_scoring.CollectItem();
-                SoundManager::GetInstance().PlaySound("coin_pickup");
+                SoundManager::GetInstance().PlaySound(pickupSound);
                 View::FloatingTextManager::GetInstance().Emit(
                     item->GetPosition(), item->GetItemName(), YELLOW, 1.0f);
                 collectedIds.push_back(item->GetId());

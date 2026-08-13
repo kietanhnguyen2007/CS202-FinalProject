@@ -7,6 +7,16 @@
 #include <filesystem>
 #include "raylib.h"
 
+namespace {
+std::string NormalizeUnlockId(std::string id) {
+    if (id == "Knight") return "knight";
+    if (id == "Fighter") return "fighter";
+    if (id == "Magic Caster" || id == "MagicCaster") return "magic_caster";
+    if (id == "Ninja") return "ninja";
+    return id;
+}
+}
+
 SaveManager& SaveManager::GetInstance() {
     static SaveManager instance;
     return instance;
@@ -16,8 +26,11 @@ SaveManager::SaveManager()
     : playerName("Player")
     , coins(0)
     , isFirstTimePlaying(true)
+    , musicVolume(70)
+    , sfxVolume(80)
+    , fullscreenEnabled(false)
 {
-    unlockedCharacters.push_back("Knight");
+    unlockedCharacters.push_back("knight");
 }
 
 bool SaveManager::Load(const std::string& path) {
@@ -29,10 +42,13 @@ bool SaveManager::Load(const std::string& path) {
         playerName = "Player";
         coins = 0;
         isFirstTimePlaying = true;
-        unlockedCharacters = {"Knight"};
+        unlockedCharacters = {"knight"};
         levelHighScores.clear();
         levelBestStars.clear();
         levelBestTimesMs.clear();
+        musicVolume = 70;
+        sfxVolume = 80;
+        fullscreenEnabled = false;
         return false;
     }
 
@@ -135,19 +151,27 @@ bool SaveManager::Load(const std::string& path) {
     
     coins = extractInt("coins", 0);
     isFirstTimePlaying = extractBool("isFirstTimePlaying", true);
+    musicVolume = std::clamp(extractInt("musicVolume", 70), 0, 100);
+    sfxVolume = std::clamp(extractInt("sfxVolume", 80), 0, 100);
+    fullscreenEnabled = extractBool("fullscreenEnabled", false);
     
     std::vector<std::string> chars = extractStringArray("unlockedCharacters");
     if (!chars.empty()) {
         unlockedCharacters = chars;
     } else {
-        unlockedCharacters = {"Knight"};
+        unlockedCharacters = {"knight"};
     }
+    for (std::string& id : unlockedCharacters) id = NormalizeUnlockId(id);
+    if (std::find(unlockedCharacters.begin(), unlockedCharacters.end(), "knight") == unlockedCharacters.end())
+        unlockedCharacters.push_back("knight");
+    std::sort(unlockedCharacters.begin(), unlockedCharacters.end());
+    unlockedCharacters.erase(std::unique(unlockedCharacters.begin(), unlockedCharacters.end()), unlockedCharacters.end());
     levelHighScores = extractMap("levelHighScores");
     levelBestStars = extractMap("levelBestStars");
     levelBestTimesMs = extractMap("levelBestTimesMs");
     
     std::string sChar = extractString("selectedChar");
-    if (!sChar.empty()) selectedChar = sChar;
+    if (!sChar.empty()) selectedChar = NormalizeUnlockId(sChar);
     
     std::string sPet = extractString("selectedPet");
     // allowed to be empty
@@ -163,6 +187,9 @@ void SaveManager::Save(const std::string& path) {
     ss << "  \"playerName\": \"" << playerName << "\",\n";
     ss << "  \"coins\": " << coins << ",\n";
     ss << "  \"isFirstTimePlaying\": " << (isFirstTimePlaying ? "true" : "false") << ",\n";
+    ss << "  \"musicVolume\": " << musicVolume << ",\n";
+    ss << "  \"sfxVolume\": " << sfxVolume << ",\n";
+    ss << "  \"fullscreenEnabled\": " << (fullscreenEnabled ? "true" : "false") << ",\n";
     
     ss << "  \"unlockedCharacters\": [";
     for (size_t i = 0; i < unlockedCharacters.size(); ++i) {
@@ -247,12 +274,14 @@ void SaveManager::SpendCoins(int amount) {
 }
 
 bool SaveManager::IsCharUnlocked(const std::string& charName) const {
-    return std::find(unlockedCharacters.begin(), unlockedCharacters.end(), charName) != unlockedCharacters.end();
+    const std::string normalized = NormalizeUnlockId(charName);
+    return std::find(unlockedCharacters.begin(), unlockedCharacters.end(), normalized) != unlockedCharacters.end();
 }
 
 void SaveManager::UnlockChar(const std::string& charName) {
-    if (!IsCharUnlocked(charName)) {
-        unlockedCharacters.push_back(charName);
+    const std::string normalized = NormalizeUnlockId(charName);
+    if (!IsCharUnlocked(normalized)) {
+        unlockedCharacters.push_back(normalized);
     }
 }
 
@@ -299,3 +328,16 @@ void SaveManager::SetSelectedChar(const std::string& charId) { selectedChar = ch
 
 std::string SaveManager::GetSelectedPet() const { return selectedPet; }
 void SaveManager::SetSelectedPet(const std::string& petId) { selectedPet = petId; }
+
+int SaveManager::GetMusicVolume() const { return musicVolume; }
+void SaveManager::SetMusicVolume(int percent) {
+    musicVolume = std::clamp(percent, 0, 100);
+}
+
+int SaveManager::GetSFXVolume() const { return sfxVolume; }
+void SaveManager::SetSFXVolume(int percent) {
+    sfxVolume = std::clamp(percent, 0, 100);
+}
+
+bool SaveManager::IsFullscreenEnabled() const { return fullscreenEnabled; }
+void SaveManager::SetFullscreenEnabled(bool enabled) { fullscreenEnabled = enabled; }

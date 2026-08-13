@@ -32,6 +32,72 @@ static inline float Lerp(float a, float b, float t) {
     return a + (b - a) * t;
 }
 
+namespace {
+struct PauseLayout {
+    Rectangle panel{};
+    Rectangle menuPane{};
+    Rectangle infoPane{};
+    Rectangle buttons[3]{};
+};
+
+struct CustomMapLayout {
+    Rectangle panel{};
+    Rectangle list{};
+    Rectangle actions[3]{};
+    Rectangle confirmActions[2]{};
+    float rowHeight{};
+};
+
+PauseLayout BuildPauseLayout(float w, float h) {
+    PauseLayout l;
+    const float panelW = std::min(std::max(w * 0.68f, 520.0f), w - 32.0f);
+    const float panelH = std::min(std::max(h * 0.64f, 300.0f), h - 28.0f);
+    l.panel = {(w - panelW) * 0.5f, (h - panelH) * 0.5f, panelW, panelH};
+    const float inset = std::clamp(panelW * 0.035f, 18.0f, 30.0f);
+    const float contentY = l.panel.y + std::clamp(panelH * 0.27f, 78.0f, 108.0f);
+    const float contentH = l.panel.y + panelH - inset - contentY;
+    const float gap = std::clamp(panelW * 0.028f, 14.0f, 24.0f);
+    const float leftW = (panelW - inset * 2.0f - gap) * 0.48f;
+    l.menuPane = {l.panel.x + inset, contentY, leftW, contentH};
+    l.infoPane = {l.menuPane.x + leftW + gap, contentY,
+                  panelW - inset * 2.0f - gap - leftW, contentH};
+
+    const float buttonGap = std::clamp(contentH * 0.055f, 8.0f, 14.0f);
+    const float buttonH = std::min(58.0f,
+        std::max(38.0f, (contentH - buttonGap * 2.0f) / 3.0f));
+    for (int i = 0; i < 3; ++i) {
+        l.buttons[i] = {l.menuPane.x, l.menuPane.y + i * (buttonH + buttonGap),
+                        l.menuPane.width, buttonH};
+    }
+    return l;
+}
+
+CustomMapLayout BuildCustomMapLayout(float w, float h) {
+    CustomMapLayout l;
+    const float panelW = std::min(std::max(w * 0.70f, 560.0f), w - 34.0f);
+    const float panelH = std::min(std::max(h * 0.72f, 330.0f), h - 30.0f);
+    l.panel = {(w - panelW) * 0.5f, (h - panelH) * 0.5f, panelW, panelH};
+    const float inset = std::clamp(panelW * 0.045f, 20.0f, 34.0f);
+    const float actionH = std::clamp(panelH * 0.105f, 38.0f, 54.0f);
+    l.list = {l.panel.x + inset, l.panel.y + std::clamp(panelH * 0.24f, 80.0f, 112.0f),
+              panelW - inset * 2.0f,
+              panelH - std::clamp(panelH * 0.24f, 80.0f, 112.0f) - actionH - inset * 1.35f};
+    l.rowHeight = std::clamp(l.list.height / 5.3f, 38.0f, 54.0f);
+    const float gap = std::clamp(panelW * 0.02f, 10.0f, 17.0f);
+    const float buttonW = (l.list.width - gap * 2.0f) / 3.0f;
+    const float actionY = l.panel.y + panelH - inset - actionH;
+    for (int i = 0; i < 3; ++i) {
+        l.actions[i] = {l.list.x + i * (buttonW + gap), actionY, buttonW, actionH};
+    }
+    const float confirmW = std::min(150.0f, l.list.width * 0.30f);
+    l.confirmActions[0] = {w * 0.5f - confirmW - 8.0f, h * 0.5f + 32.0f,
+                           confirmW, 44.0f};
+    l.confirmActions[1] = {w * 0.5f + 8.0f, h * 0.5f + 32.0f,
+                           confirmW, 44.0f};
+    return l;
+}
+} // namespace
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Singleton
 // ─────────────────────────────────────────────────────────────────────────────
@@ -204,10 +270,23 @@ void MenuView::ShowOptions() {
     m_visible  = true;
 }
 void MenuView::ShowLevelSelect(int totalLevels, int currentUnlocked) {
+    const bool entering = m_mode != MenuMode::LevelSelect;
     m_mode           = MenuMode::LevelSelect;
     m_totalLevels    = totalLevels;
     m_unlockedLevels = currentUnlocked;
-    m_selected       = 0;
+    if (entering) m_selected = 0;
+}
+
+void MenuView::ShowCustomMaps(const std::vector<std::string>& mapNames,
+                              const std::string& deleteConfirmation) {
+    const bool entering = m_mode != MenuMode::CustomMaps;
+    m_mode = MenuMode::CustomMaps;
+    m_customMapNames = mapNames;
+    m_customMapDeleteConfirmation = deleteConfirmation;
+    if (entering) m_selected = 0;
+    if (m_customMapNames.empty()) m_selected = 0;
+    else m_selected = std::clamp(m_selected, 0, (int)m_customMapNames.size() - 1);
+    m_visible = true;
 }
 
 void MenuView::SetLevelStars(const std::vector<int>& bestStars) {
@@ -228,6 +307,7 @@ void MenuView::Render() {
         case MenuMode::RoleSelect:  RenderRoleSelect();  break;
         case MenuMode::Shop:        RenderShop();        break;
         case MenuMode::LevelSelect: RenderLevelSelect(); break;
+        case MenuMode::CustomMaps:  RenderCustomMaps();  break;
         case MenuMode::Options:     /* handled externally */    break;
     }
 }
@@ -250,22 +330,56 @@ int MenuView::GetHoveredItem(Vector2 mousePos) const {
             if (::CheckCollisionPointRec(mousePos, rect)) return i;
         }
     } else if (m_mode == MenuMode::Pause) {
-        float panelW = w * 0.35f;
-        float panelH = h * 0.40f;
-        float panelX = ((float)w - panelW) * 0.5f;
-        float panelY = ((float)h - panelH) * 0.5f;
-        float btnW   = panelW * 0.65f;
-        float btnH   = panelH * 0.13f;
-        float btnX   = panelX + (panelW - btnW) * 0.5f;
-        float startY = panelY + panelH * 0.40f;
-        float spacing = panelH * 0.18f;
-
+        const PauseLayout layout = BuildPauseLayout((float)w, (float)h);
         for (int i = 0; i < (int)m_pauseItems.size(); ++i) {
-            float by   = startY + (float)i * spacing;
-            Rectangle rect = { btnX, by, btnW, btnH };
-            if (::CheckCollisionPointRec(mousePos, rect)) return i;
+            if (::CheckCollisionPointRec(mousePos, layout.buttons[i])) return i;
+        }
+    } else if (m_mode == MenuMode::LevelSelect) {
+        constexpr int columns = 3;
+        const int rows = std::max(1, (m_totalLevels + columns - 1) / columns);
+        const float gridW = w * 0.76f;
+        const float gapX = w * 0.035f;
+        const float gapY = h * 0.045f;
+        const float cardW = (gridW - gapX * (columns - 1)) / columns;
+        const float cardH = std::min(h * 0.255f,
+            (h * 0.64f - gapY * (rows - 1)) / rows);
+        const float startX = (w - gridW) * 0.5f;
+        const float startY = h * 0.19f;
+        for (int i = 0; i < m_totalLevels; ++i) {
+            Rectangle card = {
+                startX + (i % columns) * (cardW + gapX),
+                startY + (i / columns) * (cardH + gapY),
+                cardW, cardH
+            };
+            if (CheckCollisionPointRec(mousePos, card)) return i;
+        }
+    } else if (m_mode == MenuMode::CustomMaps) {
+        const CustomMapLayout layout = BuildCustomMapLayout((float)w, (float)h);
+        const int visibleRows = std::max(1, (int)(layout.list.height / layout.rowHeight));
+        const int start = m_selected >= visibleRows ? m_selected - visibleRows + 1 : 0;
+        for (int row = 0; row < visibleRows; ++row) {
+            const int index = start + row;
+            if (index >= (int)m_customMapNames.size()) break;
+            Rectangle rect = {layout.list.x, layout.list.y + row * layout.rowHeight,
+                              layout.list.width, layout.rowHeight - 6.0f};
+            if (::CheckCollisionPointRec(mousePos, rect)) return index;
         }
     }
+    return -1;
+}
+
+int MenuView::GetCustomMapActionHovered(Vector2 mousePos) const {
+    if (m_mode != MenuMode::CustomMaps) return -1;
+    const CustomMapLayout layout = BuildCustomMapLayout(
+        (float)Renderer::GetInstance().GetWindowWidth(),
+        (float)Renderer::GetInstance().GetWindowHeight());
+    if (!m_customMapDeleteConfirmation.empty()) {
+        for (int i = 0; i < 2; ++i)
+            if (::CheckCollisionPointRec(mousePos, layout.confirmActions[i])) return i + 3;
+        return -1;
+    }
+    for (int i = 0; i < 3; ++i)
+        if (::CheckCollisionPointRec(mousePos, layout.actions[i])) return i;
     return -1;
 }
 
@@ -737,47 +851,228 @@ void MenuView::RenderMain() {
 // =============================================================================
 // ── RENDER PAUSE ─────────────────────────────────────────────────────────────
 // =============================================================================
+void MenuView::RenderCustomMaps() {
+    const float w = (float)Renderer::GetInstance().GetWindowWidth();
+    const float h = (float)Renderer::GetInstance().GetWindowHeight();
+    const CustomMapLayout l = BuildCustomMapLayout(w, h);
+    const Font font = m_fontsLoaded ? m_fontBody : ::GetFontDefault();
+    const Color gold{232, 186, 83, 255};
+    const Color mint{105, 235, 169, 255};
+    const Color coral{235, 105, 118, 255};
+
+    RenderParallax();
+    ::DrawRectangle(0, 0, (int)w, (int)h, Color{7, 4, 16, 165});
+    ::DrawRectangleRounded({l.panel.x + 9, l.panel.y + 11, l.panel.width, l.panel.height},
+                           0.045f, 10, Color{0, 0, 0, 130});
+    ::DrawRectangleRounded(l.panel, 0.045f, 10, Color{20, 15, 35, 248});
+    ::DrawRectangleGradientV((int)l.panel.x + 3, (int)l.panel.y + 3,
+                             (int)l.panel.width - 6, (int)(l.panel.height * 0.23f),
+                             Color{62, 42, 86, 255}, Color{20, 15, 35, 248});
+    ::DrawRectangleRoundedLinesEx(l.panel, 0.045f, 10, 3.0f, gold);
+
+    const float titleSize = std::clamp(l.panel.height * 0.09f, 25.0f, 40.0f);
+    const char* title = "CUSTOM MAPS";
+    const Vector2 titleV = ::MeasureTextEx(font, title, titleSize, 1.3f);
+    ::DrawTextEx(font, title,
+                 {l.panel.x + (l.panel.width - titleV.x) * 0.5f,
+                  l.panel.y + l.panel.height * 0.065f},
+                 titleSize, 1.3f, gold);
+    const char* subtitle = "Choose a map created in Map Builder";
+    const float subSize = std::clamp(l.panel.height * 0.035f, 10.0f, 15.0f);
+    const Vector2 subV = ::MeasureTextEx(font, subtitle, subSize, 1.0f);
+    ::DrawTextEx(font, subtitle,
+                 {l.panel.x + (l.panel.width - subV.x) * 0.5f,
+                  l.panel.y + l.panel.height * 0.165f},
+                 subSize, 1.0f, Color{194, 174, 225, 255});
+
+    ::DrawRectangleRounded(l.list, 0.035f, 7, Color{11, 9, 23, 220});
+    ::DrawRectangleRoundedLinesEx(l.list, 0.035f, 7, 1.5f,
+                                  Color{107, 81, 139, 190});
+    if (m_customMapNames.empty()) {
+        const char* empty = "NO CUSTOM MAPS YET";
+        const char* hint = "Create and save one in Map Builder first.";
+        const float emptySize = std::clamp(l.list.height * 0.11f, 15.0f, 22.0f);
+        const Vector2 emptyV = ::MeasureTextEx(font, empty, emptySize, 1.0f);
+        ::DrawTextEx(font, empty,
+                     {l.list.x + (l.list.width - emptyV.x) * 0.5f,
+                      l.list.y + l.list.height * 0.36f},
+                     emptySize, 1.0f, Color{205, 190, 219, 255});
+        const float hintSize = std::clamp(emptySize * 0.65f, 10.0f, 14.0f);
+        const Vector2 hintV = ::MeasureTextEx(font, hint, hintSize, 1.0f);
+        ::DrawTextEx(font, hint,
+                     {l.list.x + (l.list.width - hintV.x) * 0.5f,
+                      l.list.y + l.list.height * 0.53f},
+                     hintSize, 1.0f, Color{137, 123, 153, 255});
+    } else {
+        const int visibleRows = std::max(1, (int)(l.list.height / l.rowHeight));
+        const int start = m_selected >= visibleRows ? m_selected - visibleRows + 1 : 0;
+        for (int row = 0; row < visibleRows; ++row) {
+            const int index = start + row;
+            if (index >= (int)m_customMapNames.size()) break;
+            const Rectangle item{l.list.x + 8.0f,
+                                 l.list.y + 7.0f + row * l.rowHeight,
+                                 l.list.width - 16.0f, l.rowHeight - 8.0f};
+            const bool selected = index == m_selected;
+            ::DrawRectangleRounded(item, 0.16f, 6,
+                selected ? Color{79, 54, 101, 255} : Color{29, 24, 46, 245});
+            ::DrawRectangleRoundedLinesEx(item, 0.16f, 6, selected ? 2.0f : 1.0f,
+                selected ? gold : Color{99, 77, 124, 155});
+            const float rowFont = std::clamp(item.height * 0.37f, 11.0f, 17.0f);
+            ::DrawTextEx(font, TextFormat("%02d", index + 1),
+                         {item.x + 14.0f, item.y + (item.height - rowFont) * 0.5f},
+                         rowFont, 1.0f, selected ? gold : Color{133, 119, 150, 255});
+            std::string displayName = m_customMapNames[index];
+            std::replace(displayName.begin(), displayName.end(), '_', ' ');
+            ::DrawTextEx(font, displayName.c_str(),
+                         {item.x + 58.0f, item.y + (item.height - rowFont) * 0.5f},
+                         rowFont, 1.0f, selected ? RAYWHITE : Color{205, 195, 216, 255});
+        }
+    }
+
+    const char* labels[] = {"PLAY SELECTED", "DELETE", "BACK"};
+    const Color accents[] = {mint, coral, Color{170, 153, 191, 255}};
+    const Vector2 mouse = ::GetMousePosition();
+    for (int i = 0; i < 3; ++i) {
+        const Rectangle b = l.actions[i];
+        const bool disabled = m_customMapNames.empty() && i != 2;
+        const bool hover = !disabled && ::CheckCollisionPointRec(mouse, b);
+        ::DrawRectangleRounded(b, 0.18f, 7,
+            disabled ? Color{24, 21, 35, 220}
+                     : (hover ? Color{69, 49, 88, 255} : Color{34, 28, 52, 250}));
+        ::DrawRectangleRoundedLinesEx(b, 0.18f, 7, hover ? 2.0f : 1.2f,
+            disabled ? Color{70, 63, 79, 130} : accents[i]);
+        float fs = std::clamp(b.height * 0.34f, 10.0f, 16.0f);
+        while (fs > 9.0f && ::MeasureTextEx(font, labels[i], fs, 1.0f).x > b.width - 16.0f) fs -= 1.0f;
+        const Vector2 mv = ::MeasureTextEx(font, labels[i], fs, 1.0f);
+        ::DrawTextEx(font, labels[i], {b.x + (b.width - mv.x) * 0.5f,
+                     b.y + (b.height - mv.y) * 0.5f}, fs, 1.0f,
+                     disabled ? Color{91, 84, 101, 255} : RAYWHITE);
+    }
+
+    if (!m_customMapDeleteConfirmation.empty()) {
+        ::DrawRectangle(0, 0, (int)w, (int)h, Color{0, 0, 0, 185});
+        const Rectangle box{w * 0.5f - std::min(230.0f, w * 0.36f), h * 0.5f - 100.0f,
+                            std::min(460.0f, w * 0.72f), 200.0f};
+        ::DrawRectangleRounded(box, 0.07f, 8, Color{29, 20, 39, 255});
+        ::DrawRectangleRoundedLinesEx(box, 0.07f, 8, 2.5f, coral);
+        const char* warning = "DELETE THIS MAP?";
+        const float warningSize = std::clamp(box.height * 0.12f, 16.0f, 23.0f);
+        const Vector2 warningV = ::MeasureTextEx(font, warning, warningSize, 1.0f);
+        ::DrawTextEx(font, warning, {box.x + (box.width - warningV.x) * 0.5f,
+                     box.y + 29.0f}, warningSize, 1.0f, coral);
+        const float nameSize = std::clamp(warningSize * 0.72f, 12.0f, 16.0f);
+        const Vector2 nameV = ::MeasureTextEx(font, m_customMapDeleteConfirmation.c_str(),
+                                              nameSize, 1.0f);
+        ::DrawTextEx(font, m_customMapDeleteConfirmation.c_str(),
+                     {box.x + (box.width - nameV.x) * 0.5f, box.y + 70.0f},
+                     nameSize, 1.0f, RAYWHITE);
+        const char* confirmLabels[] = {"DELETE", "CANCEL"};
+        for (int i = 0; i < 2; ++i) {
+            const Rectangle b = l.confirmActions[i];
+            const bool hover = ::CheckCollisionPointRec(mouse, b);
+            ::DrawRectangleRounded(b, 0.18f, 7,
+                                   hover ? Color{72, 45, 62, 255} : Color{37, 28, 48, 255});
+            ::DrawRectangleRoundedLinesEx(b, 0.18f, 7, hover ? 2.0f : 1.2f,
+                                          i == 0 ? coral : Color{175, 158, 195, 255});
+            const Vector2 tv = ::MeasureTextEx(font, confirmLabels[i], 14.0f, 1.0f);
+            ::DrawTextEx(font, confirmLabels[i],
+                         {b.x + (b.width - tv.x) * 0.5f, b.y + (b.height - tv.y) * 0.5f},
+                         14.0f, 1.0f, RAYWHITE);
+        }
+    }
+}
+
 void MenuView::RenderPause() {
     Renderer& r = Renderer::GetInstance();
     int w = r.GetWindowWidth();
     int h = r.GetWindowHeight();
 
-    r.DrawRectangle({0, 0}, {(float)w, (float)h}, {0, 0, 0, 160}, Layer::UI, 0.0f);
+    // Flush the game scene and dim layer before drawing crisp font-based UI.
+    r.DrawRectangle({0, 0}, {(float)w, (float)h}, {3, 2, 10, 190}, Layer::UI, 0.0f);
+    r.EndFrameAndFlush();
 
-    float panelW  = w * 0.35f;
-    float panelH  = h * 0.40f;
-    float panelX  = ((float)w - panelW) * 0.5f;
-    float panelY  = ((float)h - panelH) * 0.5f;
-    DrawPanel(panelX, panelY, panelW, panelH);
+    const PauseLayout l = BuildPauseLayout((float)w, (float)h);
+    const Font font = m_fontsLoaded ? m_fontBody : ::GetFontDefault();
+    const Color gold{232, 186, 83, 255};
+    const Color lavender{194, 174, 225, 255};
+    const Color panel{20, 15, 35, 248};
 
-    Texture2D* texHeader = UIResourceManager::GetInstance().GetHeader();
-    if (texHeader && texHeader->id != 0) {
-        float hdrW = panelW * 0.8f;
-        float hdrH = hdrW * ((float)texHeader->height / (float)texHeader->width);
-        Rectangle hdrSrc = {0.f, 0.f, (float)texHeader->width, (float)texHeader->height};
-        r.SubmitSprite(texHeader, hdrSrc,
-                       {panelX + (panelW - hdrW)*0.5f, panelY + panelH*0.04f},
-                       {hdrW/(float)texHeader->width, hdrH/(float)texHeader->height},
-                       0.f, {0,0}, WHITE, Layer::UI, 0.8f, false, 0);
+    ::DrawRectangleRounded({l.panel.x + 9, l.panel.y + 11, l.panel.width, l.panel.height},
+                           0.045f, 10, Color{0, 0, 0, 135});
+    ::DrawRectangleRounded(l.panel, 0.045f, 10, panel);
+    ::DrawRectangleGradientV((int)l.panel.x + 3, (int)l.panel.y + 3,
+                             (int)l.panel.width - 6, (int)(l.panel.height * 0.28f),
+                             Color{64, 43, 88, 255}, panel);
+    ::DrawRectangleRoundedLinesEx(l.panel, 0.045f, 10, 3.0f, gold);
+    ::DrawRectangleRoundedLinesEx({l.panel.x + 8, l.panel.y + 8,
+                                   l.panel.width - 16, l.panel.height - 16},
+                                  0.035f, 10, 1.0f, Color{122, 92, 155, 190});
+
+    const float titleSize = std::clamp(l.panel.height * 0.105f, 26.0f, 43.0f);
+    const char* title = "GAME PAUSED";
+    const Vector2 titleMeasure = ::MeasureTextEx(font, title, titleSize, 1.4f);
+    const float titleX = l.panel.x + (l.panel.width - titleMeasure.x) * 0.5f;
+    const float titleY = l.panel.y + l.panel.height * 0.075f;
+    ::DrawTextEx(font, title, {titleX + 3, titleY + 3}, titleSize, 1.4f,
+                 Color{0, 0, 0, 130});
+    ::DrawTextEx(font, title, {titleX, titleY}, titleSize, 1.4f, gold);
+    const char* subtitle = "The adventure is waiting for you";
+    const float subSize = std::clamp(l.panel.height * 0.042f, 11.0f, 16.0f);
+    const Vector2 subMeasure = ::MeasureTextEx(font, subtitle, subSize, 1.0f);
+    ::DrawTextEx(font, subtitle,
+                 {l.panel.x + (l.panel.width - subMeasure.x) * 0.5f,
+                  titleY + titleMeasure.y + 5.0f},
+                 subSize, 1.0f, lavender);
+
+    const char* labels[] = {"RESUME", "OPTIONS", "QUIT TO MENU"};
+    const char* numbers[] = {"01", "02", "03"};
+    for (int i = 0; i < 3; ++i) {
+        const Rectangle b = l.buttons[i];
+        const bool active = i == m_selected;
+        const bool hover = ::CheckCollisionPointRec(::GetMousePosition(), b);
+        const Color fill = active ? Color{83, 56, 105, 255}
+                                  : (hover ? Color{48, 38, 70, 255}
+                                           : Color{31, 26, 48, 248});
+        ::DrawRectangleRounded({b.x + 3, b.y + 4, b.width, b.height}, 0.16f, 8,
+                               Color{0, 0, 0, 90});
+        ::DrawRectangleRounded(b, 0.16f, 8, fill);
+        ::DrawRectangleRoundedLinesEx(b, 0.16f, 8, active ? 2.5f : 1.2f,
+                                      active ? gold : Color{118, 92, 145, 170});
+        const float numSize = std::clamp(b.height * 0.30f, 10.0f, 15.0f);
+        ::DrawTextEx(font, numbers[i], {b.x + 14, b.y + (b.height - numSize) * 0.5f},
+                     numSize, 1.0f, active ? gold : Color{140, 125, 158, 255});
+        const float labelSize = std::clamp(b.height * 0.37f, 12.0f, 19.0f);
+        const Vector2 labelMeasure = ::MeasureTextEx(font, labels[i], labelSize, 1.0f);
+        ::DrawTextEx(font, labels[i],
+                     {b.x + 51, b.y + (b.height - labelMeasure.y) * 0.5f},
+                     labelSize, 1.0f, active ? RAYWHITE : Color{207, 195, 220, 255});
+        if (active) {
+            ::DrawRectangle((int)b.x, (int)(b.y + 8), 4, (int)(b.height - 16), gold);
+        }
     }
 
-    {
-        const char* title = "PAUSED";
-        int fontSize = (int)(h * 0.05f); if (fontSize < 14) fontSize = 14;
-        int tw = ::MeasureText(title, fontSize);
-        r.DrawText(title, {panelX + (panelW - (float)tw)*0.5f, panelY + panelH*0.12f},
-                   fontSize, WHITE);
-    }
-
-    float btnW    = panelW * 0.65f;
-    float btnH    = panelH * 0.13f;
-    float btnX    = panelX + (panelW - btnW) * 0.5f;
-    float startY  = panelY + panelH * 0.40f;
-    float spacing = panelH * 0.18f;
-
-    for (int i = 0; i < (int)m_pauseItems.size(); ++i) {
-        float by = startY + (float)i * spacing;
-        DrawButton(m_pauseItems[i].c_str(), btnX, by, btnW, btnH, (i == m_selected));
+    ::DrawRectangleRounded(l.infoPane, 0.055f, 8, Color{12, 10, 25, 205});
+    ::DrawRectangleRoundedLinesEx(l.infoPane, 0.055f, 8, 1.5f,
+                                  Color{112, 84, 143, 190});
+    const float infoX = l.infoPane.x + 18.0f;
+    float infoY = l.infoPane.y + 18.0f;
+    const float infoTitleSize = std::clamp(l.infoPane.height * 0.09f, 12.0f, 18.0f);
+    ::DrawTextEx(font, "TAKE A BREATH", {infoX, infoY}, infoTitleSize, 1.0f, gold);
+    infoY += infoTitleSize + 16.0f;
+    const float bodySize = std::clamp(l.infoPane.height * 0.065f, 10.0f, 14.0f);
+    ::DrawTextEx(font, "Progress is saved at", {infoX, infoY}, bodySize, 1.0f, lavender);
+    infoY += bodySize + 5.0f;
+    ::DrawTextEx(font, "activated checkpoints.", {infoX, infoY}, bodySize, 1.0f, lavender);
+    infoY += bodySize + 18.0f;
+    ::DrawLineEx({infoX, infoY}, {l.infoPane.x + l.infoPane.width - 18.0f, infoY},
+                 1.0f, Color{120, 94, 148, 150});
+    infoY += 15.0f;
+    const char* hints[] = {"ESC   RESUME", "W / S   NAVIGATE", "ENTER   SELECT"};
+    for (const char* hint : hints) {
+        if (infoY + bodySize > l.infoPane.y + l.infoPane.height - 10.0f) break;
+        ::DrawTextEx(font, hint, {infoX, infoY}, bodySize, 1.0f,
+                     Color{178, 162, 197, 235});
+        infoY += bodySize + 8.0f;
     }
 }
 
@@ -1055,7 +1350,20 @@ void MenuView::RenderLevelSelect() {
                              std::max(14.0f,cardH*0.12f),Color{145,125,165,210});
             }
         }
-        drawCentered("[<- ->] NAVIGATE     [ENTER] SELECT     [ESC] BACK",
+        const bool selectedUnlocked = m_selected >= 0 && m_selected < m_unlockedLevels;
+        const char* action = selectedUnlocked
+            ? "READY - CLICK OR PRESS ENTER TO PREPARE"
+            : "COMPLETE THE PREVIOUS LEVEL TO UNLOCK";
+        const float actionW = std::min(screenW * 0.58f, 620.0f);
+        Rectangle actionPlate = {(screenW-actionW)*0.5f,screenH*0.825f,actionW,screenH*0.055f};
+        ::DrawRectangleRounded(actionPlate,0.35f,10,
+            selectedUnlocked?Color{50,48,79,235}:Color{53,28,42,235});
+        ::DrawRectangleRoundedLinesEx(actionPlate,0.35f,10,2.0f,
+            selectedUnlocked?Color{244,196,72,225}:Color{175,77,94,210});
+        drawCentered(action,screenW*0.5f,actionPlate.y+actionPlate.height*0.27f,
+                     std::max(11.0f,screenH*0.018f),
+                     selectedUnlocked?Color{255,232,145,255}:Color{225,153,164,240});
+        drawCentered("ARROWS / WASD  NAVIGATE     ENTER / CLICK  SELECT     ESC  BACK",
                      screenW*0.5f,screenH*0.925f,std::max(13.0f,screenH*0.021f),
                      Color{175,162,205,220});
     }

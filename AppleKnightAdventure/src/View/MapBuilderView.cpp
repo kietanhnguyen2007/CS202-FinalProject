@@ -8,10 +8,89 @@
 #include "Model/Checkpoint.h"
 #include "Model/Item.h"
 #include "Controller/MapBuilderController.h"
+#include "Systems/SoundManager.h"
 #include <iostream>
 #include <algorithm>
 
 namespace View {
+namespace {
+
+struct BuilderLayout {
+    float toolbarH{};
+    float leftW{};
+    float rightW{};
+    Rectangle toolbar{};
+    Rectangle palette{};
+    Rectangle layers{};
+    Rectangle properties{};
+    Rectangle minimap{};
+    Rectangle shortcut{};
+    Rectangle save{};
+    Rectangle fileName{};
+    Rectangle load{};
+    Rectangle test{};
+    Rectangle clear{};
+    Rectangle exit{};
+    Rectangle tools[6]{};
+    Rectangle widthMinus{}, widthPlus{}, heightMinus{}, heightPlus{};
+};
+
+BuilderLayout BuildBuilderLayout(float sw, float sh) {
+    BuilderLayout l;
+    l.toolbarH = 84.0f;
+    l.leftW = std::clamp(sw * 0.19f, 188.0f, 246.0f);
+    l.rightW = std::clamp(sw * 0.16f, 180.0f, 206.0f);
+    l.toolbar = {0, 0, sw, l.toolbarH};
+
+    const float gap = 6.0f;
+    float x = 10.0f;
+    const float commandW = sw < 900.0f ? 54.0f : 66.0f;
+    l.save = {x, 7, commandW, 28}; x += commandW + gap;
+    l.fileName = {x, 7, sw < 900.0f ? 104.0f : 142.0f, 28}; x += l.fileName.width + gap;
+    l.load = {x, 7, commandW, 28}; x += commandW + gap;
+    l.test = {x, 7, commandW, 28}; x += commandW + gap;
+    l.clear = {x, 7, commandW, 28};
+    l.exit = {sw - commandW - 10.0f, 7, commandW, 28};
+
+    // Reserve a fixed right-side lane for both W/H controls. The previous
+    // compact lane made the H label overlap the W plus button.
+    const float sizeAreaW = 232.0f;
+    const float toolGap = 5.0f;
+    const float toolStart = 10.0f;
+    const float toolAvailable = sw - sizeAreaW - toolStart - 12.0f;
+    const float toolW = std::clamp((toolAvailable - toolGap * 5.0f) / 6.0f, 48.0f, 78.0f);
+    for (int i = 0; i < 6; ++i) {
+        l.tools[i] = {toolStart + i * (toolW + toolGap), 44, toolW, 30};
+    }
+    const float sizeX = sw - sizeAreaW;
+    const float stepW = 24.0f;
+    l.widthMinus = {sizeX + 54, 44, stepW, 30};
+    l.widthPlus = {sizeX + 82, 44, stepW, 30};
+    l.heightMinus = {sizeX + 170, 44, stepW, 30};
+    l.heightPlus = {sizeX + 198, 44, stepW, 30};
+
+    const float panelY = l.toolbarH + 4.0f;
+    const float panelH = std::max(80.0f, sh - panelY - 4.0f);
+    l.palette = {2, panelY, l.leftW - 4.0f, panelH};
+    const float rightX = sw - l.rightW + 2.0f;
+    const float rightPanelW = l.rightW - 4.0f;
+    const float layersH = std::min(188.0f, std::max(116.0f, panelH * 0.28f));
+    const float minimapH = std::min(174.0f, std::max(105.0f, panelH * 0.27f));
+    l.layers = {rightX, panelY, rightPanelW, layersH};
+    l.minimap = {rightX, sh - minimapH - 2.0f, rightPanelW, minimapH};
+    const float propY = l.layers.y + l.layers.height + 4.0f;
+    l.properties = {rightX, propY, rightPanelW,
+                    std::max(34.0f, l.minimap.y - propY - 4.0f)};
+    l.shortcut = {l.leftW + 10.0f, sh - 30.0f,
+                  std::max(120.0f, sw - l.leftW - l.rightW - 20.0f), 24.0f};
+    return l;
+}
+
+int PaletteColumns(const BuilderLayout& l, float cellWidth) {
+    return std::max(1, static_cast<int>((l.palette.width - 16.0f) / cellWidth));
+}
+
+} // namespace
 
 MapBuilderView& MapBuilderView::GetInstance() {
     static MapBuilderView instance;
@@ -78,17 +157,12 @@ bool MapBuilderView::IsMouseOverUI() const {
     float sw = (float)Renderer::GetInstance().GetWindowWidth();
     float sh = (float)Renderer::GetInstance().GetWindowHeight();
 
-    Rectangle toolbar = {0, 0, sw, 40};
-    Rectangle palette = {0, 40, 250, sh - 40};
-    Rectangle layers = {sw - 200, 40, 200, 200};
-    Rectangle minimap = {sw - 200, sh - 200, 200, 200};
-    Rectangle properties = {sw - 200, 240, 200, 300};
-
-    if (CheckCollisionPointRec(mousePos, toolbar)) return true;
-    if (CheckCollisionPointRec(mousePos, palette)) return true;
-    if (CheckCollisionPointRec(mousePos, layers)) return true;
-    if (m_showMinimap && CheckCollisionPointRec(mousePos, minimap)) return true;
-    if (m_selectedEntity && CheckCollisionPointRec(mousePos, properties)) return true;
+    const BuilderLayout l = BuildBuilderLayout(sw, sh);
+    if (CheckCollisionPointRec(mousePos, l.toolbar)) return true;
+    if (CheckCollisionPointRec(mousePos, l.palette)) return true;
+    if (CheckCollisionPointRec(mousePos, l.layers)) return true;
+    if (m_showMinimap && CheckCollisionPointRec(mousePos, l.minimap)) return true;
+    if (m_selectedEntity && CheckCollisionPointRec(mousePos, l.properties)) return true;
 
     return false;
 }
@@ -104,7 +178,12 @@ void MapBuilderView::Update(float dt) {
     float sw = (float)GetScreenWidth();
     float sh = (float)GetScreenHeight();
 
-    if (IsMouseOverUI() && mousePos.x < 250 && mousePos.y > 100 && m_currentTab == PaletteTab::Tiles) {
+    const BuilderLayout layout = BuildBuilderLayout(sw, sh);
+    const float tabY = layout.palette.y + 7.0f;
+    const float contentY = layout.palette.y + 42.0f;
+    const float gridY = contentY + 34.0f;
+
+    if (CheckCollisionPointRec(mousePos, layout.palette) && mousePos.y > gridY && m_currentTab == PaletteTab::Tiles) {
         float wheel = GetMouseWheelMove();
         if (wheel > 0.0f && m_paletteScroll > 0) {
             m_paletteScroll--;
@@ -114,6 +193,7 @@ void MapBuilderView::Update(float dt) {
     }
 
     if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+        SoundManager::GetInstance().PlaySound("ui_confirm");
         if (m_showSaveConfirm) {
             float sw = (float)GetScreenWidth();
             float sh = (float)GetScreenHeight();
@@ -134,47 +214,38 @@ void MapBuilderView::Update(float dt) {
             return;
         }
 
-        // Reset typing if click outside the textbox
-        float x = 10;
-        float textboxX = x + 90;
-        if (CheckCollisionPointRec(mousePos, {textboxX, 5, 120, 30})) m_isTypingFileName = true;
-        else m_isTypingFileName = false;
+        m_isTypingFileName = CheckCollisionPointRec(mousePos, layout.fileName);
 
         // Toolbar Clicks
-        if (mousePos.y < 40) {
-            x = 10;
-            if (CheckCollisionPointRec(mousePos, {x, 5, 80, 30})) m_showSaveConfirm = true; x += 90;
-            x += 120; // Skip textbox
-            x += 10; // Margin
+        if (CheckCollisionPointRec(mousePos, layout.toolbar)) {
+            if (CheckCollisionPointRec(mousePos, layout.save)) m_showSaveConfirm = true;
+            else if (CheckCollisionPointRec(mousePos, layout.load)) m_wantsLoad = true;
+            else if (CheckCollisionPointRec(mousePos, layout.test)) m_wantsPlaytest = true;
+            else if (CheckCollisionPointRec(mousePos, layout.exit)) m_wantsExit = true;
+            else if (CheckCollisionPointRec(mousePos, layout.clear)) m_wantsClearAll = true;
 
-            if (CheckCollisionPointRec(mousePos, {x, 5, 80, 30})) m_wantsLoad = true; x += 90;
-            if (CheckCollisionPointRec(mousePos, {x, 5, 80, 30})) m_wantsPlaytest = true; x += 90;
-            if (CheckCollisionPointRec(mousePos, {x, 5, 80, 30})) m_wantsExit = true; x += 90;
-            if (CheckCollisionPointRec(mousePos, {x, 5, 80, 30})) m_wantsClearAll = true; x += 100;
-            
-            if (CheckCollisionPointRec(mousePos, {x, 5, 60, 30})) m_currentTool = BuilderTool::Brush; x += 70;
-            if (CheckCollisionPointRec(mousePos, {x, 5, 60, 30})) m_currentTool = BuilderTool::Eraser; x += 70;
-            if (CheckCollisionPointRec(mousePos, {x, 5, 60, 30})) m_currentTool = BuilderTool::BucketFill; x += 70;
-            if (CheckCollisionPointRec(mousePos, {x, 5, 60, 30})) m_currentTool = BuilderTool::Select; x += 70;
-            if (CheckCollisionPointRec(mousePos, {x, 5, 60, 30})) m_currentTool = BuilderTool::BoxSelect; x += 70;
-            if (CheckCollisionPointRec(mousePos, {x, 5, 60, 30})) m_showGrid = !m_showGrid; x += 70;
-
-            // Map Size Buttons
-            if (CheckCollisionPointRec(mousePos, {x + 60, 5, 20, 15})) m_wantsResizeW = 1;
-            if (CheckCollisionPointRec(mousePos, {x + 60, 20, 20, 15})) m_wantsResizeW = -1;
-            x += 90;
-            if (CheckCollisionPointRec(mousePos, {x + 60, 5, 20, 15})) m_wantsResizeH = 1;
-            if (CheckCollisionPointRec(mousePos, {x + 60, 20, 20, 15})) m_wantsResizeH = -1;
+            const BuilderTool toolValues[] = {BuilderTool::Brush, BuilderTool::Eraser,
+                BuilderTool::BucketFill, BuilderTool::Select, BuilderTool::BoxSelect,
+                BuilderTool::MoveCamera};
+            for (int i = 0; i < 6; ++i) {
+                if (!CheckCollisionPointRec(mousePos, layout.tools[i])) continue;
+                if (i == 5) m_showGrid = !m_showGrid;
+                else m_currentTool = toolValues[i];
+            }
+            if (CheckCollisionPointRec(mousePos, layout.widthMinus)) m_wantsResizeW = -1;
+            if (CheckCollisionPointRec(mousePos, layout.widthPlus)) m_wantsResizeW = 1;
+            if (CheckCollisionPointRec(mousePos, layout.heightMinus)) m_wantsResizeH = -1;
+            if (CheckCollisionPointRec(mousePos, layout.heightPlus)) m_wantsResizeH = 1;
         }
         
         // Layers Panel Clicks
-        if (mousePos.x > sw - 200 && mousePos.y > 40 && mousePos.y < 240) {
-            float ly = 80;
+        if (CheckCollisionPointRec(mousePos, layout.layers)) {
+            float ly = layout.layers.y + 39.0f;
             for (int i = 0; i < 3; ++i) {
-                if (CheckCollisionPointRec(mousePos, {sw - 190, ly, 140, 25})) {
+                if (CheckCollisionPointRec(mousePos, {layout.layers.x + 8, ly, layout.layers.width - 54, 25})) {
                     m_currentLayer = static_cast<MapLayer>(i);
                 }
-                if (CheckCollisionPointRec(mousePos, {sw - 40, ly, 30, 25})) {
+                if (CheckCollisionPointRec(mousePos, {layout.layers.x + layout.layers.width - 39, ly, 30, 25})) {
                     m_layerVisible[i] = !m_layerVisible[i];
                 }
                 ly += 30;
@@ -182,24 +253,26 @@ void MapBuilderView::Update(float dt) {
         }
         
         // Palette Clicks (Left Panel)
-        if (mousePos.x < 250 && mousePos.y >= 40) {
+        if (CheckCollisionPointRec(mousePos, layout.palette)) {
             // Tabs
-            if (mousePos.y >= 40 && mousePos.y < 70) {
-                if (CheckCollisionPointRec(mousePos, {10, 45, 60, 20})) m_currentTab = PaletteTab::Tiles;
-                if (CheckCollisionPointRec(mousePos, {80, 45, 60, 20})) m_currentTab = PaletteTab::Entities;
-                if (CheckCollisionPointRec(mousePos, {150, 45, 60, 20})) m_currentTab = PaletteTab::Triggers;
+            const float tabW = (layout.palette.width - 20.0f) / 3.0f;
+            if (mousePos.y >= tabY && mousePos.y < tabY + 25.0f) {
+                for (int i = 0; i < 3; ++i) {
+                    if (CheckCollisionPointRec(mousePos, {layout.palette.x + 7 + i * (tabW + 3), tabY, tabW, 25}))
+                        m_currentTab = static_cast<PaletteTab>(i);
+                }
             }
             
             if (m_currentTab == PaletteTab::Tiles) {
                 // Tileset switcher
-                if (mousePos.y >= 70 && mousePos.y < 100) {
-                    if (CheckCollisionPointRec(mousePos, {150, 75, 20, 20})) {
+                if (mousePos.y >= contentY && mousePos.y < gridY) {
+                    if (CheckCollisionPointRec(mousePos, {layout.palette.x + layout.palette.width - 58, contentY + 4, 22, 24})) {
                         m_selectedTileType--;
                         if (m_selectedTileType < 1) m_selectedTileType = 6;
                         m_selectedTileId = 0;
                         m_paletteScroll = 0;
                     }
-                    if (CheckCollisionPointRec(mousePos, {180, 75, 20, 20})) {
+                    if (CheckCollisionPointRec(mousePos, {layout.palette.x + layout.palette.width - 31, contentY + 4, 22, 24})) {
                         m_selectedTileType++;
                         if (m_selectedTileType > 6) m_selectedTileType = 1;
                         m_selectedTileId = 0;
@@ -207,56 +280,34 @@ void MapBuilderView::Update(float dt) {
                     }
                 }
                 // Tile selection
-                if (mousePos.y >= 100) {
-                    int col = ((int)mousePos.x - 10) / 40;
-                    int row = ((int)mousePos.y - 110) / 40;
-                    int cols = 5;
+                if (mousePos.y >= gridY) {
+                    int col = ((int)mousePos.x - (int)(layout.palette.x + 8)) / 40;
+                    int row = ((int)mousePos.y - (int)gridY) / 40;
+                    int cols = PaletteColumns(layout, 40.0f);
                     if (col >= 0 && col < cols && row >= 0) {
                         int idx = m_paletteScroll * cols + row * cols + col;
                         m_selectedTileId = idx + 1;
                     }
                 }
-            } else if (mousePos.y >= 70) {
+            } else if (mousePos.y >= contentY) {
+                const int cols = PaletteColumns(layout, 55.0f);
+                const int col = ((int)mousePos.x - (int)(layout.palette.x + 8)) / 55;
+                const int row = ((int)mousePos.y - (int)(contentY + 4)) / 55;
+                const int idx = row * cols + col;
                 if (m_currentTab == PaletteTab::Entities) {
-                    int col = ((int)mousePos.x - 10) / 55;
-                    int row = ((int)mousePos.y - 80) / 55;
-                    if (row == 0) {
-                        if (col == 0) m_selectedEntityType = EntityType::Player;
-                        else if (col == 1) { m_selectedEntityType = EntityType::Enemy; m_selectedEntitySubType = 0; } // Melee
-                        else if (col == 2) { m_selectedEntityType = EntityType::Enemy; m_selectedEntitySubType = 1; } // Ranged
-                        else if (col == 3) { m_selectedEntityType = EntityType::Boss; m_selectedEntitySubType = 1; } // Boss 1
-                    } else if (row == 1) {
-                        if (col == 0) { m_selectedEntityType = EntityType::Boss; m_selectedEntitySubType = 2; } // Boss 2
-                        else if (col == 1) { m_selectedEntityType = EntityType::Boss; m_selectedEntitySubType = 3; } // Boss 3
-                        else if (col == 2) { m_selectedEntityType = EntityType::Item; m_selectedEntitySubType = 0; } // Coin
-                        else if (col == 3) { m_selectedEntityType = EntityType::Item; m_selectedEntitySubType = 2; } // Key
-                    } else if (row == 2) {
-                        if (col == 0) { m_selectedEntityType = EntityType::Item; m_selectedEntitySubType = 3; } // Potion
-                    }
+                    const EntityType types[] = {EntityType::Player, EntityType::Enemy, EntityType::Enemy,
+                        EntityType::Boss, EntityType::Boss, EntityType::Boss, EntityType::Item,
+                        EntityType::Item, EntityType::Item};
+                    const int subs[] = {0,0,1,1,2,3,0,2,3};
+                    if (idx >= 0 && idx < 9) { m_selectedEntityType = types[idx]; m_selectedEntitySubType = subs[idx]; }
                 } else if (m_currentTab == PaletteTab::Triggers) {
-                    int col = ((int)mousePos.x - 10) / 55;
-                    int row = ((int)mousePos.y - 80) / 55;
-                    if (row == 0) {
-                        if (col == 0) m_selectedEntityType = EntityType::Chest;
-                        else if (col == 1) m_selectedEntityType = EntityType::Checkpoint;
-                        else if (col >= 2 && col <= 3) {
-                            m_selectedEntityType = EntityType::TeleportPortal;
-                            m_selectedEntitySubType = 100 + (col - 2); // 100 (Blue), 101 (Brown)
-                        }
-                    } else if (row == 1) {
-                        if (col >= 0 && col <= 2) {
-                            m_selectedEntityType = EntityType::TeleportPortal;
-                            m_selectedEntitySubType = 102 + col; // 102 (Green), 103 (Purple), 104 (Red)
-                        } else if (col == 3) {
-                            m_selectedEntityType = EntityType::TeleportPortal;
-                            m_selectedEntitySubType = 200; // 200 (Transition Blue)
-                        }
-                    } else if (row == 2) {
-                        if (col >= 0 && col <= 3) {
-                            m_selectedEntityType = EntityType::TeleportPortal;
-                            m_selectedEntitySubType = 201 + col; // 201 (Brown), 202 (Green), 203 (Purple), 204 (Red)
-                        }
-                    }
+                    const EntityType types[] = {EntityType::Chest, EntityType::Checkpoint,
+                        EntityType::TeleportPortal, EntityType::TeleportPortal, EntityType::TeleportPortal,
+                        EntityType::TeleportPortal, EntityType::TeleportPortal, EntityType::TeleportPortal,
+                        EntityType::TeleportPortal, EntityType::TeleportPortal, EntityType::TeleportPortal,
+                        EntityType::TeleportPortal};
+                    const int subs[] = {0,0,100,101,102,103,104,200,201,202,203,204};
+                    if (idx >= 0 && idx < 12) { m_selectedEntityType = types[idx]; m_selectedEntitySubType = subs[idx]; }
                 }
             }
         }
@@ -297,8 +348,12 @@ void MapBuilderView::DrawEditorButton(Rectangle rect, const char* label, bool ac
     DrawRectangleRoundedLinesEx(rect, 0.18f, 6, active ? 2.0f : 1.0f,
                                 active ? accent : Fade(accent, hovered ? 0.85f : 0.45f));
     const Font font = (m_uiFont.texture.id != 0) ? m_uiFont : GetFontDefault();
-    const float fontSize = rect.height >= 30.0f ? 12.0f : 10.0f;
+    float fontSize = rect.height >= 30.0f ? 12.0f : 10.0f;
     Vector2 size = MeasureTextEx(font, label, fontSize, 1.0f);
+    while (fontSize > 8.0f && size.x > rect.width - 8.0f) {
+        fontSize -= 1.0f;
+        size = MeasureTextEx(font, label, fontSize, 1.0f);
+    }
     DrawTextEx(font, label,
                {rect.x + (rect.width - size.x) * 0.5f, rect.y + (rect.height - size.y) * 0.5f},
                fontSize, 1.0f, active ? RAYWHITE : Fade(RAYWHITE, 0.82f));
@@ -314,10 +369,13 @@ void MapBuilderView::RenderUI(const Camera2D& camera, GameState* state) {
     if (m_selectedEntity) DrawPropertiesPanel(sw, sh);
     if (m_showMinimap) DrawMinimap(camera, state, sw, sh);
 
-    Rectangle shortcutBar = {260.0f, sh - 30.0f, std::max(200.0f, sw - 470.0f), 24.0f};
+    const BuilderLayout layout = BuildBuilderLayout(sw, sh);
+    Rectangle shortcutBar = layout.shortcut;
     DrawRectangleRounded(shortcutBar, 0.3f, 6, Fade(Color{18, 14, 34, 255}, 0.90f));
     DrawRectangleRoundedLinesEx(shortcutBar, 0.3f, 6, 1.0f, Fade(Color{226, 178, 78, 255}, 0.45f));
-    const char* shortcuts = "LMB  PAINT     RMB  PAN     WHEEL  ZOOM     CTRL+Z  UNDO";
+    const char* shortcuts = shortcutBar.width > 500.0f
+        ? "LMB  PAINT     RMB  PAN     WHEEL  ZOOM     CTRL+Z  UNDO"
+        : "LMB PAINT   RMB PAN   WHEEL ZOOM";
     const Font uiFont = (m_uiFont.texture.id != 0) ? m_uiFont : GetFontDefault();
     Vector2 shortcutSize = MeasureTextEx(uiFont, shortcuts, 10.0f, 1.0f);
     DrawEditorText(shortcuts,
@@ -327,7 +385,7 @@ void MapBuilderView::RenderUI(const Camera2D& camera, GameState* state) {
     if (m_statusTimer > 0.0f && !m_statusMessage.empty()) {
         const float alpha = std::min(1.0f, m_statusTimer * 2.0f);
         Vector2 textSize = MeasureTextEx(uiFont, m_statusMessage.c_str(), 14.0f, 1.0f);
-        Rectangle toast = {sw * 0.5f - textSize.x * 0.5f - 22.0f, 50.0f,
+        Rectangle toast = {sw * 0.5f - textSize.x * 0.5f - 22.0f, layout.toolbarH + 10.0f,
                            textSize.x + 44.0f, 38.0f};
         DrawRectangleRounded(toast, 0.25f, 8, Fade(Color{25, 61, 54, 255}, alpha * 0.96f));
         DrawRectangleRoundedLinesEx(toast, 0.25f, 8, 2.0f,
@@ -368,68 +426,75 @@ void MapBuilderView::RenderUI(const Camera2D& camera, GameState* state) {
 }
 
 
-void MapBuilderView::DrawToolbar(GameState* state, int sw, int /*sh*/) {
+void MapBuilderView::DrawToolbar(GameState* state, int sw, int sh) {
     const Color gold = {226, 178, 78, 255};
     const Color mint = {105, 235, 169, 255};
     const Color coral = {235, 105, 118, 255};
-    DrawRectangleGradientV(0, 0, sw, 40, Color{48, 34, 71, 255}, Color{20, 16, 38, 255});
-    DrawRectangle(0, 38, sw, 2, Fade(gold, 0.75f));
+    const BuilderLayout l = BuildBuilderLayout((float)sw, (float)sh);
+    DrawRectangleGradientV(0, 0, sw, (int)l.toolbarH, Color{48, 34, 71, 255}, Color{20, 16, 38, 255});
+    DrawRectangle(0, (int)l.toolbarH - 2, sw, 2, Fade(gold, 0.75f));
+    DrawLine(8, 40, sw - 8, 40, Fade(gold, 0.22f));
 
-    float x = 10;
-    DrawEditorButton({x, 5, 80, 30}, "SAVE", false, mint); x += 90;
+    DrawEditorButton(l.save, "SAVE", false, mint);
     
     Color boxCol = m_isTypingFileName ? gold : Fade(SKYBLUE, 0.72f);
-    DrawRectangleRounded({x, 5, 120, 30}, 0.16f, 6, Color{13, 12, 25, 255});
-    DrawRectangleRoundedLinesEx({x, 5, 120, 30}, 0.16f, 6,
+    DrawRectangleRounded(l.fileName, 0.16f, 6, Color{13, 12, 25, 255});
+    DrawRectangleRoundedLinesEx(l.fileName, 0.16f, 6,
                                 m_isTypingFileName ? 2.0f : 1.0f, boxCol);
-    DrawEditorText(m_fileName.c_str(), {x+7, 14}, 11.0f, RAYWHITE);
+    std::string visibleName = m_fileName;
+    const Font font = (m_uiFont.texture.id != 0) ? m_uiFont : GetFontDefault();
+    while (visibleName.size() > 4 && MeasureTextEx(font, visibleName.c_str(), 11.0f, 1.0f).x > l.fileName.width - 14.0f)
+        visibleName.erase(visibleName.begin());
+    DrawEditorText(visibleName.c_str(), {l.fileName.x + 7, l.fileName.y + 9}, 11.0f, RAYWHITE);
     if (m_isTypingFileName && ((int)(GetTime() * 2) % 2 == 0)) {
-        const Font font = (m_uiFont.texture.id != 0) ? m_uiFont : GetFontDefault();
-        float textW = MeasureTextEx(font, m_fileName.c_str(), 11.0f, 1.0f).x;
-        DrawLineEx({x + 7 + textW + 2, 11}, {x + 7 + textW + 2, 28}, 1.0f, boxCol);
+        float textW = MeasureTextEx(font, visibleName.c_str(), 11.0f, 1.0f).x;
+        DrawLineEx({l.fileName.x + 7 + textW + 2, l.fileName.y + 6},
+                   {l.fileName.x + 7 + textW + 2, l.fileName.y + 22}, 1.0f, boxCol);
     }
-    x += 130;
-    
-    DrawEditorButton({x, 5, 80, 30}, "LOAD", false, SKYBLUE); x += 90;
-    DrawEditorButton({x, 5, 80, 30}, "TEST", false, mint); x += 90;
-    DrawEditorButton({x, 5, 80, 30}, "EXIT", false, coral); x += 90;
-    DrawEditorButton({x, 5, 80, 30}, "CLEAR", false, ORANGE); x += 100;
+    DrawEditorButton(l.load, "LOAD", false, SKYBLUE);
+    DrawEditorButton(l.test, "TEST", false, mint);
+    DrawEditorButton(l.clear, "CLEAR", false, ORANGE);
+    DrawEditorButton(l.exit, "EXIT", false, coral);
 
-    DrawEditorButton({x, 5, 60, 30}, "BRUSH", m_currentTool == BuilderTool::Brush, gold); x += 70;
-    DrawEditorButton({x, 5, 60, 30}, "ERASE", m_currentTool == BuilderTool::Eraser, gold); x += 70;
-    DrawEditorButton({x, 5, 60, 30}, "FILL", m_currentTool == BuilderTool::BucketFill, gold); x += 70;
-    DrawEditorButton({x, 5, 60, 30}, "SELECT", m_currentTool == BuilderTool::Select, gold); x += 70;
-    DrawEditorButton({x, 5, 60, 30}, "BOX", m_currentTool == BuilderTool::BoxSelect, gold); x += 70;
-    DrawEditorButton({x, 5, 60, 30}, "GRID", m_showGrid, mint); x += 70;
+    const char* toolNames[] = {"BRUSH", "ERASE", "FILL", "SELECT", "BOX", "GRID"};
+    const bool active[] = {m_currentTool == BuilderTool::Brush, m_currentTool == BuilderTool::Eraser,
+        m_currentTool == BuilderTool::BucketFill, m_currentTool == BuilderTool::Select,
+        m_currentTool == BuilderTool::BoxSelect, m_showGrid};
+    for (int i = 0; i < 6; ++i) DrawEditorButton(l.tools[i], toolNames[i], active[i], i == 5 ? mint : gold);
 
     if (state) {
-        DrawEditorText(TextFormat("W  %d", state->GetMapWidth()), {x, 14}, 10.0f, RAYWHITE);
-        DrawEditorButton({x + 60, 5, 20, 15}, "+", false, SKYBLUE);
-        DrawEditorButton({x + 60, 20, 20, 15}, "-", false, SKYBLUE);
-        x += 90;
-        DrawEditorText(TextFormat("H  %d", state->GetMapHeight()), {x, 14}, 10.0f, RAYWHITE);
-        DrawEditorButton({x + 60, 5, 20, 15}, "+", false, SKYBLUE);
-        DrawEditorButton({x + 60, 20, 20, 15}, "-", false, SKYBLUE);
+        DrawEditorText(TextFormat("W %d", state->GetMapWidth()), {l.widthMinus.x - 48, 54}, 10.0f, RAYWHITE);
+        DrawEditorButton(l.widthMinus, "-", false, SKYBLUE);
+        DrawEditorButton(l.widthPlus, "+", false, SKYBLUE);
+        DrawEditorText(TextFormat("H %d", state->GetMapHeight()), {l.heightMinus.x - 48, 54}, 10.0f, RAYWHITE);
+        DrawEditorButton(l.heightMinus, "-", false, SKYBLUE);
+        DrawEditorButton(l.heightPlus, "+", false, SKYBLUE);
     }
 }
 
-void MapBuilderView::DrawPalette(int /*sw*/, int sh) {
+void MapBuilderView::DrawPalette(int sw, int sh) {
     const Color gold = {226, 178, 78, 255};
-    DrawEditorPanel({2, 42, 246, (float)sh - 46});
+    const BuilderLayout l = BuildBuilderLayout((float)sw, (float)sh);
+    DrawEditorPanel(l.palette);
+    const float tabY = l.palette.y + 7.0f;
+    const float tabW = (l.palette.width - 20.0f) / 3.0f;
+    const float contentY = l.palette.y + 42.0f;
+    const float gridY = contentY + 34.0f;
     
     // Tabs
-    DrawEditorButton({10, 45, 60, 20}, "TILES", m_currentTab == PaletteTab::Tiles, gold);
-    DrawEditorButton({80, 45, 60, 20}, "ACTORS", m_currentTab == PaletteTab::Entities, gold);
-    DrawEditorButton({150, 45, 60, 20}, "OBJECTS", m_currentTab == PaletteTab::Triggers, gold);
-    DrawLineEx({10, 70}, {238, 70}, 1.0f, Fade(gold, 0.35f));
+    const char* tabs[] = {"TILES", "ACTORS", "OBJECTS"};
+    for (int i = 0; i < 3; ++i)
+        DrawEditorButton({l.palette.x + 7 + i * (tabW + 3), tabY, tabW, 25}, tabs[i],
+                         (int)m_currentTab == i, gold);
+    DrawLineEx({l.palette.x + 8, contentY - 4}, {l.palette.x + l.palette.width - 8, contentY - 4}, 1.0f, Fade(gold, 0.35f));
 
     // Items
     if (m_currentTab == PaletteTab::Tiles) {
         // Draw tileset selector
-        DrawEditorText(TextFormat("TILESET  %d", m_selectedTileType), {12, 80}, 13.0f, RAYWHITE);
-        DrawEditorButton({150, 75, 20, 20}, "<", false, SKYBLUE);
-        DrawEditorButton({180, 75, 20, 20}, ">", false, SKYBLUE);
-        DrawLineEx({10, 100}, {238, 100}, 1.0f, Fade(gold, 0.28f));
+        DrawEditorText(TextFormat("TILESET  %d", m_selectedTileType), {l.palette.x + 10, contentY + 10}, 12.0f, RAYWHITE);
+        DrawEditorButton({l.palette.x + l.palette.width - 58, contentY + 4, 22, 24}, "<", false, SKYBLUE);
+        DrawEditorButton({l.palette.x + l.palette.width - 31, contentY + 4, 22, 24}, ">", false, SKYBLUE);
+        DrawLineEx({l.palette.x + 8, gridY - 3}, {l.palette.x + l.palette.width - 8, gridY - 3}, 1.0f, Fade(gold, 0.28f));
 
         auto ts = View::GameView::GetInstance().GetTileset(m_selectedTileType);
         if (ts && ts->texture.id != 0) {
@@ -438,17 +503,17 @@ void MapBuilderView::DrawPalette(int /*sw*/, int sh) {
             if (tileH == 0) tileH = 32;
 
             int totalTiles = (ts->texture.width / tileW) * (ts->texture.height / tileH);
-            int cols = 5;
+            int cols = PaletteColumns(l, 40.0f);
             int startIdx = m_paletteScroll * cols;
             int drawn = 0;
             
-            int maxRows = (sh - 100) / 40;
+            int maxRows = std::max(1, (int)((l.palette.y + l.palette.height - gridY - 5) / 40));
             for (int i = startIdx; i < totalTiles && drawn < cols * maxRows; ++i) {
                 int id = i + 1;
                 int row = drawn / cols;
                 int col = drawn % cols;
-                int dx = 10 + col * 40;
-                int dy = 110 + row * 40;
+                int dx = (int)l.palette.x + 8 + col * 40;
+                int dy = (int)gridY + row * 40;
 
                 bool selected = (m_selectedTileId == id);
                 DrawRectangleRounded({(float)dx, (float)dy, 36, 36}, 0.15f, 5,
@@ -472,11 +537,12 @@ void MapBuilderView::DrawPalette(int /*sw*/, int sh) {
         int subTypes[] = {0, 0, 1, 1, 2, 3, 0, 2, 3}; // Removed apple (1)
         Texture2D texs[] = {m_texPlayer, m_texEnemy, m_texEnemy, m_texBoss1, m_texBoss2, m_texBoss3, m_texCoin, m_texKey, m_texPotion};
         
+        const int cols = PaletteColumns(l, 55.0f);
         for (int i = 0; i < 9; ++i) {
-            int col = i % 4;
-            int row = i / 4;
-            float px = 10 + col * 55;
-            float py = 80 + row * 55;
+            int col = i % cols;
+            int row = i / cols;
+            float px = l.palette.x + 8 + col * 55;
+            float py = contentY + 4 + row * 55;
 
             bool isSelected = false;
             if (types[i] == EntityType::Player) {
@@ -523,11 +589,12 @@ void MapBuilderView::DrawPalette(int /*sw*/, int sh) {
             m_texPortalBlue, m_texPortalBrown, m_texPortalGreen, m_texPortalPurple, m_texPortalRed
         };
 
+        const int cols = PaletteColumns(l, 55.0f);
         for (int i = 0; i < 12; ++i) {
-            int col = i % 4;
-            int row = i / 4;
-            float px = 10 + col * 55;
-            float py = 80 + row * 55;
+            int col = i % cols;
+            int row = i / cols;
+            float px = l.palette.x + 8 + col * 55;
+            float py = contentY + 4 + row * 55;
             
             bool isSelected = false;
             if (types[i] == EntityType::Chest || types[i] == EntityType::Checkpoint) {
@@ -554,65 +621,70 @@ void MapBuilderView::DrawPalette(int /*sw*/, int sh) {
     }
 }
 
-void MapBuilderView::DrawLayersPanel(int sw, int /*sh*/) {
+void MapBuilderView::DrawLayersPanel(int sw, int sh) {
     const Color gold = {226, 178, 78, 255};
-    DrawEditorPanel({(float)sw - 198, 42, 196, 196}, "LAYERS");
+    const BuilderLayout l = BuildBuilderLayout((float)sw, (float)sh);
+    DrawEditorPanel(l.layers, "LAYERS");
 
     const char* layerNames[] = {"Background", "Main", "Foreground"};
-    float y = 80;
+    float y = l.layers.y + 39.0f;
     for (int i = 0; i < 3; ++i) {
         const bool selected = m_currentLayer == static_cast<MapLayer>(i);
-        Rectangle row = {(float)sw - 190, y, 140, 25};
+        Rectangle row = {l.layers.x + 8, y, l.layers.width - 54, 25};
         DrawRectangleRounded(row, 0.2f, 5,
                              selected ? Color{76, 53, 98, 255} : Color{30, 25, 49, 225});
         DrawRectangleRoundedLinesEx(row, 0.2f, 5, selected ? 1.5f : 1.0f,
                                     selected ? gold : Fade(SKYBLUE, 0.25f));
-        DrawEditorText(layerNames[i], {(float)sw - 181, y + 7}, 11.0f,
+        DrawEditorText(layerNames[i], {row.x + 8, y + 7}, 10.0f,
                        selected ? RAYWHITE : Fade(RAYWHITE, 0.72f));
 
         Color vColor = m_layerVisible[i] ? Color{105, 235, 169, 255} : Color{235, 105, 118, 255};
-        DrawEditorButton({(float)sw - 40, y, 30, 25}, m_layerVisible[i] ? "ON" : "OFF",
+        DrawEditorButton({l.layers.x + l.layers.width - 39, y, 30, 25}, m_layerVisible[i] ? "ON" : "OFF",
                          m_layerVisible[i], vColor);
         
         y += 35;
     }
 
-    DrawEditorText("Click a row to paint that layer", {(float)sw - 188, 194}, 9.0f,
-                   Fade(RAYWHITE, 0.48f));
+    if (l.layers.height >= 170.0f)
+        DrawEditorText("Choose the active paint layer", {l.layers.x + 10, l.layers.y + l.layers.height - 20}, 8.0f,
+                       Fade(RAYWHITE, 0.48f));
 }
 
-void MapBuilderView::DrawPropertiesPanel(int sw, int /*sh*/) {
+void MapBuilderView::DrawPropertiesPanel(int sw, int sh) {
     const Color gold = {226, 178, 78, 255};
-    DrawEditorPanel({(float)sw - 198, 242, 196, 296}, "PROPERTIES");
+    const BuilderLayout l = BuildBuilderLayout((float)sw, (float)sh);
+    DrawEditorPanel(l.properties, "PROPERTIES");
     
     if (m_selectedEntity) {
-        float y = 280;
-        DrawEditorText(TextFormat("ID   %d", m_selectedEntity->GetId()), {(float)sw - 188, y}, 12.0f, RAYWHITE); y += 25;
-        DrawEditorText(TextFormat("POS  %.0f, %.0f", m_selectedEntity->GetPosition().x, m_selectedEntity->GetPosition().y), {(float)sw - 188, y}, 12.0f, RAYWHITE); y += 25;
-        DrawLineEx({(float)sw - 188, y}, {(float)sw - 12, y}, 1.0f, Fade(gold, 0.25f)); y += 16;
+        float y = l.properties.y + 40;
+        const float textX = l.properties.x + 10;
+        DrawEditorText(TextFormat("ID   %d", m_selectedEntity->GetId()), {textX, y}, 11.0f, RAYWHITE); y += 24;
+        DrawEditorText(TextFormat("POS  %.0f, %.0f", m_selectedEntity->GetPosition().x, m_selectedEntity->GetPosition().y), {textX, y}, 11.0f, RAYWHITE); y += 24;
+        DrawLineEx({textX, y}, {l.properties.x + l.properties.width - 10, y}, 1.0f, Fade(gold, 0.25f)); y += 14;
         
         if (auto* tz = dynamic_cast<TriggerZone*>(m_selectedEntity)) {
-            DrawEditorText("TRIGGER ZONE", {(float)sw - 188, y}, 12.0f, Color{105, 235, 169, 255}); y += 25;
-            DrawEditorText(TextFormat("TARGET  %s", tz->GetTargetLevelId().c_str()), {(float)sw - 188, y}, 10.0f, RAYWHITE); y += 25;
-            DrawEditorButton({(float)sw - 188, y, 112, 28}, "EDIT TARGET", false, SKYBLUE);
+            DrawEditorText("TRIGGER ZONE", {textX, y}, 11.0f, Color{105, 235, 169, 255}); y += 24;
+            DrawEditorText(TextFormat("TARGET  %s", tz->GetTargetLevelId().c_str()), {textX, y}, 9.0f, RAYWHITE); y += 24;
+            DrawEditorButton({textX, y, std::min(112.0f, l.properties.width - 20), 28}, "EDIT TARGET", false, SKYBLUE);
         } else if (auto* chest = dynamic_cast<Chest*>(m_selectedEntity)) {
             (void)chest;
-            DrawEditorText("CHEST", {(float)sw - 188, y}, 12.0f, ORANGE); y += 25;
+            DrawEditorText("CHEST", {textX, y}, 11.0f, ORANGE); y += 25;
         } else if (auto* boss = dynamic_cast<Boss*>(m_selectedEntity)) {
             (void)boss;
-            DrawEditorText("BOSS", {(float)sw - 188, y}, 12.0f, Color{235, 105, 118, 255}); y += 25;
+            DrawEditorText("BOSS", {textX, y}, 11.0f, Color{235, 105, 118, 255}); y += 25;
         } else {
-            DrawEditorText(TextFormat("TYPE  %d", (int)m_selectedEntity->GetType()), {(float)sw - 188, y}, 12.0f, LIGHTGRAY); y += 25;
+            DrawEditorText(TextFormat("TYPE  %d", (int)m_selectedEntity->GetType()), {textX, y}, 11.0f, LIGHTGRAY); y += 25;
         }
     } else {
-        DrawEditorText("NO ENTITY SELECTED", {(float)sw - 188, 280}, 11.0f, GRAY);
+        DrawEditorText("NO ENTITY SELECTED", {l.properties.x + 10, l.properties.y + 42}, 10.0f, GRAY);
     }
 }
 
 void MapBuilderView::DrawMinimap(const Camera2D& camera, GameState* state, int sw, int sh) {
     if (!state) return;
     const Color gold = {226, 178, 78, 255};
-    Rectangle outer = {(float)sw - 198, (float)sh - 176, 196, 174};
+    const BuilderLayout l = BuildBuilderLayout((float)sw, (float)sh);
+    Rectangle outer = l.minimap;
     DrawEditorPanel(outer, "MINIMAP");
     Rectangle mmBox = {outer.x + 8, outer.y + 38, outer.width - 16, outer.height - 46};
     DrawRectangleRounded(mmBox, 0.05f, 5, Color{11, 12, 24, 255});

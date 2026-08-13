@@ -1,322 +1,316 @@
-// =============================================================================
-// ShopView.cpp — Apple Knight Adventure
-// Two-panel shop: Left = scrollable grid, Right = detail + buy.
-// Assets: darkDwellers UI set (tabs, portrait frame, 9-slice panel).
-// Lock overlay drawn procedurally with raylib primitives.
-// =============================================================================
 #include "View/ShopView.h"
-#include "View/Renderer.h"
-#include "View/UIHelpers.h"
-#include "View/UIResourceManager.h"
+#include "View/AssetManager.h"
 #include "Systems/SoundManager.h"
-#include <cstdio>
-#include <cmath>
 #include <algorithm>
-
-#ifndef M_PI
-#define M_PI 3.14159265358979323846f
-#endif
+#include <cmath>
+#include <cstdio>
+#include <sstream>
 
 using namespace View;
 
-// ─────────────────────────────────────────────────────────────────────────────
-static inline float Lerp(float a, float b, float t) { return a + (b - a) * t; }
-static inline float EaseOutCubic(float t) { float f = 1.f - t; return 1.f - f*f*f; }
-static inline float Clamp01(float v) { return v < 0.f ? 0.f : (v > 1.f ? 1.f : v); }
+namespace {
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Singleton
-// ─────────────────────────────────────────────────────────────────────────────
-ShopView& ShopView::GetInstance() {
-    static ShopView inst;
-    return inst;
+float LerpValue(float a, float b, float t) { return a + (b - a) * t; }
+float EaseOutCubic(float t) { const float f = 1.0f - t; return 1.0f - f*f*f; }
+
+struct ShopLayout {
+    Rectangle panel{};
+    Rectangle back{};
+    Rectangle coin{};
+    Rectangle tabs[2]{};
+    Rectangle grid{};
+    Rectangle detail{};
+    Rectangle action{};
+};
+
+ShopLayout BuildShopLayout(float slide) {
+    const float sw = static_cast<float>(GetScreenWidth());
+    const float sh = static_cast<float>(GetScreenHeight());
+    const float panelW = std::min(sw * 0.92f, 1240.0f);
+    const float panelH = std::min(sh * 0.86f, 690.0f);
+    const float finalY = (sh - panelH) * 0.54f;
+    const float y = finalY + (1.0f - EaseOutCubic(slide)) * sh * 0.45f;
+    const float x = (sw - panelW) * 0.5f;
+    const float headerH = std::clamp(panelH * 0.105f, 42.0f, 68.0f);
+    const float footerH = std::clamp(panelH * 0.105f, 42.0f, 70.0f);
+    const float pad = std::clamp(panelW * 0.016f, 10.0f, 20.0f);
+    const float leftW = panelW * 0.54f;
+
+    ShopLayout l;
+    l.panel = {x, y, panelW, panelH};
+    l.back = {x + pad, y + 10.0f, std::clamp(panelW * 0.10f, 86.0f, 124.0f), headerH - 18.0f};
+    l.coin = {x + panelW - std::clamp(panelW * 0.18f, 132.0f, 210.0f) - pad,
+              y + 10.0f, std::clamp(panelW * 0.18f, 132.0f, 210.0f), headerH - 18.0f};
+    const float tabY = y + headerH;
+    const float tabGap = 8.0f;
+    const float tabW = (leftW - pad * 2.0f - tabGap) * 0.5f;
+    const float tabH = std::clamp(panelH * 0.075f, 34.0f, 50.0f);
+    l.tabs[0] = {x + pad, tabY, tabW, tabH};
+    l.tabs[1] = {x + pad + tabW + tabGap, tabY, tabW, tabH};
+    l.grid = {x + pad, tabY + tabH + 10.0f,
+              leftW - pad * 2.0f, panelH - headerH - tabH - footerH - 16.0f};
+    l.detail = {x + leftW + pad * 0.5f, y + headerH,
+                panelW - leftW - pad * 1.5f, panelH - headerH - footerH * 0.35f};
+    const float actionW = std::min(l.detail.width * 0.68f, 270.0f);
+    const float actionH = std::clamp(footerH * 0.72f, 38.0f, 54.0f);
+    l.action = {l.detail.x + (l.detail.width - actionW) * 0.5f,
+                y + panelH - actionH - 15.0f, actionW, actionH};
+    return l;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+Rectangle GridCard(Rectangle grid, int index) {
+    constexpr int columns = 2;
+    const float gap = std::clamp(grid.width * 0.025f, 7.0f, 14.0f);
+    const float cardW = (grid.width - gap) * 0.5f;
+    const float cardH = std::max(92.0f, (grid.height - gap) * 0.5f);
+    return {grid.x + (index % columns) * (cardW + gap),
+            grid.y + (index / columns) * (cardH + gap), cardW, cardH};
+}
+
+std::shared_ptr<Animations::AnimationClip> IdleClip(const std::shared_ptr<Animations::TextureAtlas>& atlas) {
+    if (!atlas) return nullptr;
+    for (const char* name : {"idle", "Idle", "IDLE", "default"}) {
+        if (atlas->HasClip(name)) return atlas->GetClip(name);
+    }
+    const auto names = atlas->GetClipNames();
+    return names.empty() ? nullptr : atlas->GetClip(names.front());
+}
+
+void DrawAtlasThumbnail(const std::shared_ptr<Animations::TextureAtlas>& atlas,
+                        Rectangle area, Color tint) {
+    const auto clip = IdleClip(atlas);
+    if (!atlas || !clip || clip->frames.empty() || !atlas->GetTexture()) return;
+    const Rectangle src = clip->frames.front().src;
+    if (src.width <= 0.0f || src.height <= 0.0f) return;
+    const float scale = std::min(area.width / std::fabs(src.width), area.height / std::fabs(src.height));
+    const float dw = std::fabs(src.width) * scale;
+    const float dh = std::fabs(src.height) * scale;
+    DrawTexturePro(*atlas->GetTexture(), src,
+                   {area.x + (area.width - dw) * 0.5f, area.y + (area.height - dh) * 0.5f, dw, dh},
+                   {0,0}, 0.0f, tint);
+}
+
+void DrawWrapped(Font font, const std::string& text, Rectangle bounds,
+                 float size, Color color) {
+    std::istringstream stream(text);
+    std::string word;
+    std::string line;
+    float y = bounds.y;
+    while (stream >> word) {
+        const std::string candidate = line.empty() ? word : line + " " + word;
+        if (!line.empty() && MeasureTextEx(font, candidate.c_str(), size, 1.0f).x > bounds.width) {
+            DrawTextEx(font, line.c_str(), {bounds.x, y}, size, 1.0f, color);
+            line = word;
+            y += size * 1.42f;
+            if (y + size > bounds.y + bounds.height) return;
+        } else line = candidate;
+    }
+    if (!line.empty() && y + size <= bounds.y + bounds.height)
+        DrawTextEx(font, line.c_str(), {bounds.x, y}, size, 1.0f, color);
+}
+
+} // namespace
+
+ShopView& ShopView::GetInstance() {
+    static ShopView instance;
+    return instance;
+}
+
 bool ShopView::Init() {
-    // Load tab sprites
-    const char* tabNPath = "assets/ui/darkDwellers/20251117darkDwellersTabB1-Sheet.png";
-    const char* tabAPath = "assets/ui/darkDwellers/20251117darkDwellersTabA1-Sheet.png";
-    if (::FileExists(tabNPath)) { m_texTabNormal = ::LoadTexture(tabNPath); m_tabTexLoaded = true; }
-    if (::FileExists(tabAPath)) { m_texTabActive = ::LoadTexture(tabAPath); }
-
-    // Portrait frame
-    const char* portPath = "assets/ui/darkDwellers/20251125portraitFrameA.png";
-    if (::FileExists(portPath)) { m_texPortrait = ::LoadTexture(portPath); m_portraitLoaded = true; }
-
-    // 9-slice panel
-    const char* panelPath = "assets/ui/darkDwellers/20251029darkDwellers9SlicesA.png";
-    if (::FileExists(panelPath)) { m_texPanel = ::LoadTexture(panelPath); m_panelLoaded = true; }
-
-    m_visible      = false;
-    m_wantsBack    = false;
-    m_wantsBuy     = false;
-    m_selectedIdx  = 0;
-    m_activeTab    = ShopTab::Characters;
-    m_scrollY      = 0.f;
-    m_scrollYDisp  = 0.f;
-    m_slideT       = 0.f;
+    if (!m_fontLoaded && FileExists("assets/fonts/game_font.ttf")) {
+        m_font = LoadFont("assets/fonts/game_font.ttf");
+        m_fontLoaded = m_font.texture.id != 0;
+    }
+    m_visible = false;
+    m_activeTab = ShopTab::Characters;
+    m_selectedIdx = 0;
+    m_slideT = 0.0f;
+    m_animTime = 0.0f;
     return true;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 void ShopView::Shutdown() {
-    if (m_texTabNormal.id) ::UnloadTexture(m_texTabNormal);
-    if (m_texTabActive.id) ::UnloadTexture(m_texTabActive);
-    if (m_texPortrait.id) ::UnloadTexture(m_texPortrait);
-    if (m_texPanel.id) ::UnloadTexture(m_texPanel);
-    m_texTabNormal = {};
-    m_texTabActive = {};
-    m_texPortrait = {};
-    m_texPanel = {};
-    m_tabTexLoaded = false;
-    m_portraitLoaded = false;
-    m_panelLoaded = false;
     m_previewAtlas.reset();
-    m_loadedPreviewPath.clear();
+    m_charThumbnails.clear();
+    m_petThumbnails.clear();
+    if (m_fontLoaded) {
+        UnloadFont(m_font);
+        m_font = {};
+        m_fontLoaded = false;
+    }
     m_visible = false;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-void ShopView::Show(int currentCoins) {
-    m_currentCoins = currentCoins;
-    m_visible      = true;
-    m_wantsBack    = false;
-    m_wantsBuy     = false;
-    m_slideT       = 0.f;
-    m_selectedIdx  = 0;
-    m_scrollY      = 0.f;
-    m_scrollYDisp  = 0.f;
-    m_shakeTimer   = 0.f;
-
-    // Load preview for first item
-    const auto& items = (m_activeTab == ShopTab::Characters) ? m_charItems : m_petItems;
-    if (!items.empty()) {
-        LoadPreview(items[0].idleAtlasPath);
-    }
+void ShopView::SetCharacterItems(const std::vector<ShopItemData>& items) {
+    m_charItems = items;
+    SyncThumbnailAtlases();
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+void ShopView::SetPetItems(const std::vector<ShopItemData>& items) {
+    m_petItems = items;
+    SyncThumbnailAtlases();
+}
+
+void ShopView::SyncThumbnailAtlases() {
+    auto sync = [](const std::vector<ShopItemData>& items,
+                   std::vector<std::shared_ptr<Animations::TextureAtlas>>& atlases) {
+        if (atlases.size() != items.size()) atlases.assign(items.size(), nullptr);
+        for (size_t i = 0; i < items.size(); ++i) {
+            if (!atlases[i]) atlases[i] = AssetManager::GetInstance().GetAtlas(items[i].idleAtlasPath);
+        }
+    };
+    sync(m_charItems, m_charThumbnails);
+    sync(m_petItems, m_petThumbnails);
+}
+
+void ShopView::Show(int currentCoins) {
+    m_currentCoins = currentCoins;
+    m_visible = true;
+    m_wantsBack = false;
+    m_wantsBuy = false;
+    m_activeTab = ShopTab::Characters;
+    m_selectedIdx = 0;
+    m_slideT = 0.0f;
+    m_scrollY = m_scrollYDisp = 0.0f;
+    m_shakeTimer = m_shakeOffset = 0.0f;
+    m_notice.clear();
+    m_noticeTimer = 0.0f;
+    m_inputCooldown = 0.18f;
+    for (int i = 0; i < (int)m_charItems.size(); ++i)
+        if (m_charItems[i].isEquipped) { m_selectedIdx = i; break; }
+    if (!m_charItems.empty()) LoadPreview(m_charItems[m_selectedIdx].idleAtlasPath);
+}
+
 void ShopView::MarkSelectedUnlocked() {
-    auto& items = (m_activeTab == ShopTab::Characters) ? m_charItems : m_petItems;
-    if (m_selectedIdx >= 0 && m_selectedIdx < (int)items.size()) {
-        items[m_selectedIdx].isUnlocked = true;
-    }
+    auto& items = m_activeTab == ShopTab::Characters ? m_charItems : m_petItems;
+    if (m_selectedIdx >= 0 && m_selectedIdx < (int)items.size()) items[m_selectedIdx].isUnlocked = true;
 }
 
 void ShopView::TriggerBuyShake() { m_shakeTimer = 0.35f; }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// UpdateBtnAnim — hover lerp helper
-// ─────────────────────────────────────────────────────────────────────────────
-void ShopView::UpdateBtnAnim(BtnAnim& btn, Rectangle rect, float dt) {
-    Vector2 mouse = ::GetMousePosition();
-    btn.hovered     = ::CheckCollisionPointRec(mouse, rect);
-    float tgt_scale = btn.hovered ? 1.10f : 1.0f;
-    float tgt_glow  = btn.hovered ? 0.55f : 0.0f;
-    float spd = 10.0f * dt;
-    btn.scale     = Lerp(btn.scale,     tgt_scale, std::min(1.f, spd));
-    btn.glowAlpha = Lerp(btn.glowAlpha, tgt_glow,  std::min(1.f, spd));
+void ShopView::ShowNotice(const std::string& message, bool success) {
+    m_notice = message;
+    m_noticeSuccess = success;
+    m_noticeTimer = 2.2f;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-void ShopView::DrawGlowBorder(Rectangle r, float glowAlpha, Color col) {
-    if (glowAlpha < 0.01f) return;
-    for (float t = 0; t < 8.f; t += 1.5f) {
-        float fade = (1.f - t / 8.f) * glowAlpha;
-        unsigned char a = (unsigned char)(fade * 255.f);
-        ::DrawRectangleLinesEx({r.x-t, r.y-t, r.width+2*t, r.height+2*t}, 1.5f,
-                               Color{col.r, col.g, col.b, a});
+void ShopView::UpdateBtnAnim(BtnAnim& button, Rectangle rect, float dt) {
+    button.hovered = CheckCollisionPointRec(GetMousePosition(), rect);
+    const float t = std::min(1.0f, dt * 11.0f);
+    button.scale = LerpValue(button.scale, button.hovered ? 1.045f : 1.0f, t);
+    button.glowAlpha = LerpValue(button.glowAlpha, button.hovered ? 0.58f : 0.0f, t);
+}
+
+void ShopView::DrawGlowBorder(Rectangle rect, float alpha, Color color) {
+    if (alpha <= 0.01f) return;
+    for (int i = 1; i <= 3; ++i) {
+        const float e = i * 3.0f;
+        DrawRectangleRoundedLinesEx({rect.x-e,rect.y-e,rect.width+e*2,rect.height+e*2},
+                                    0.15f, 8, 1.0f,
+                                    Color{color.r,color.g,color.b,(unsigned char)(alpha*80.0f/i)});
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// LoadPreview — load idle atlas for the selected entity
-// ─────────────────────────────────────────────────────────────────────────────
 void ShopView::LoadPreview(const std::string& atlasPath) {
     if (atlasPath == m_loadedPreviewPath) return;
     m_loadedPreviewPath = atlasPath;
-    m_previewAtlas.reset();
+    m_previewAtlas = AssetManager::GetInstance().GetAtlas(atlasPath);
     m_previewAnim = Animations::Animator{};
-
-    if (atlasPath.empty() || !::FileExists(atlasPath.c_str())) return;
-
-    auto atlas = Animations::TextureAtlas::LoadFromJSON(atlasPath);
-    if (atlas && atlas->LoadTexture()) {
-        m_previewAtlas = atlas;
-        // Use LoadClipsFromAtlas to bind texture + all clips at once
-        m_previewAnim.LoadClipsFromAtlas(*atlas);
-        // Try common clip names
-        for (const char* name : {"idle", "Idle", "IDLE", "walk", "move"}) {
-            if (m_previewAnim.HasClip(name)) {
-                m_previewAnim.Play(name);
-                break;
-            }
+    if (m_previewAtlas && m_previewAtlas->IsTextureLoaded()) {
+        m_previewAnim.LoadClipsFromAtlas(*m_previewAtlas);
+        for (const char* name : {"idle", "Idle", "IDLE", "default"}) {
+            if (m_previewAnim.HasClip(name)) { m_previewAnim.Play(name, 1.0f, true); break; }
         }
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Update
-// ─────────────────────────────────────────────────────────────────────────────
 void ShopView::Update(float dt) {
     if (!m_visible) return;
-
     m_animTime += dt;
-    m_slideT    = Clamp01(m_slideT + dt / 0.30f); // 0.30s slide-in
+    m_slideT = std::min(1.0f, m_slideT + dt / 0.28f);
+    m_inputCooldown = std::max(0.0f, m_inputCooldown - dt);
+    m_noticeTimer = std::max(0.0f, m_noticeTimer - dt);
+    if (m_previewAnim.IsPlaying()) m_previewAnim.Update(dt);
 
-    // Smooth scroll
-    m_scrollYDisp = Lerp(m_scrollYDisp, m_scrollY, std::min(1.f, 15.f * dt));
+    if (m_shakeTimer > 0.0f) {
+        m_shakeTimer = std::max(0.0f, m_shakeTimer - dt);
+        m_shakeOffset = std::sin(m_shakeTimer * 68.0f) * 7.0f;
+    } else m_shakeOffset = 0.0f;
 
-    // Update preview animator
-    if (m_previewAtlas && m_previewAnim.IsPlaying()) {
-        m_previewAnim.Update(dt);
-    }
+    const ShopLayout l = BuildShopLayout(m_slideT);
+    UpdateBtnAnim(m_backBtnAnim, l.back, dt);
+    UpdateBtnAnim(m_buyBtnAnim, l.action, dt);
+    UpdateBtnAnim(m_tabBtnAnim[0], l.tabs[0], dt);
+    UpdateBtnAnim(m_tabBtnAnim[1], l.tabs[1], dt);
 
-    // Shake timer
-    if (m_shakeTimer > 0.f) {
-        m_shakeTimer -= dt;
-        m_shakeOffset = sinf(m_shakeTimer * 60.f) * 6.f;
-        if (m_shakeTimer < 0.f) { m_shakeTimer = 0.f; m_shakeOffset = 0.f; }
-    }
+    auto& items = m_activeTab == ShopTab::Characters ? m_charItems : m_petItems;
+    auto selectIndex = [&](int index) {
+        if (index < 0 || index >= (int)items.size() || index == m_selectedIdx) return;
+        m_selectedIdx = index;
+        LoadPreview(items[index].idleAtlasPath);
+        SoundManager::GetInstance().PlaySound("ui_hover");
+    };
+    auto switchTab = [&](ShopTab tab) {
+        if (tab == m_activeTab) return;
+        m_activeTab = tab;
+        auto& newItems = m_activeTab == ShopTab::Characters ? m_charItems : m_petItems;
+        m_selectedIdx = 0;
+        for (int i = 0; i < (int)newItems.size(); ++i)
+            if (newItems[i].isEquipped) { m_selectedIdx = i; break; }
+        m_scrollY = m_scrollYDisp = 0.0f;
+        if (!newItems.empty()) LoadPreview(newItems[m_selectedIdx].idleAtlasPath);
+        SoundManager::GetInstance().PlaySound("ui_confirm");
+    };
 
-    int sw = ::GetScreenWidth();
-    int sh = ::GetScreenHeight();
-
-    // ── Layout constants ──────────────────────────────────────────────────
-    float panelSlide   = EaseOutCubic(m_slideT);
-    float totalPanelW  = sw * 0.88f;
-    float totalPanelH  = sh * 0.82f;
-    float panelX       = (sw - totalPanelW) * 0.5f;
-    float panelY       = (sh - totalPanelH) * 0.5f + (1.f - panelSlide) * sh * 0.5f;
-
-    float gridW  = totalPanelW * 0.50f;
-    float detailX = panelX + gridW;
-    float detailW = totalPanelW - gridW;
-
-    float tabH = sh * 0.06f;
-    float gridY = panelY + tabH + sh * 0.02f;
-
-    // Cols/rows for grid
-    constexpr int kCols = 3;
-    float cellPad = gridW * 0.03f;
-    float cellW   = (gridW - cellPad * (kCols + 1)) / kCols;
-    float cellH   = cellW * 1.2f;
-
-    const auto& items = (m_activeTab == ShopTab::Characters) ? m_charItems : m_petItems;
-    int kRows  = ((int)items.size() + kCols - 1) / kCols;
-    float totalGridH = kRows * (cellH + cellPad) + cellPad;
-    float gridViewH  = totalPanelH - tabH - sh * 0.02f - sh * 0.05f; // minus bottom bar
-
-    // Mouse scroll
-    float wheel = ::GetMouseWheelMove();
-    m_scrollY -= wheel * cellH * 0.5f;
-    m_scrollY  = std::max(0.f, std::min(m_scrollY, std::max(0.f, totalGridH - gridViewH)));
-
-    // ── Tab clicks ───────────────────────────────────────────────────────
-    float tabW = gridW * 0.45f;
-    Rectangle tabCharRect = { panelX + gridW * 0.02f, panelY, tabW, tabH };
-    Rectangle tabPetRect  = { panelX + gridW * 0.02f + tabW + gridW * 0.02f, panelY, tabW, tabH };
-
-    UpdateBtnAnim(m_tabBtnAnim[0], tabCharRect, dt);
-    UpdateBtnAnim(m_tabBtnAnim[1], tabPetRect, dt);
-
-    if (::IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-        if (m_tabBtnAnim[0].hovered && m_activeTab != ShopTab::Characters) {
-            m_activeTab   = ShopTab::Characters;
-            m_selectedIdx = 0;
-            m_scrollY     = 0.f;
-            const auto& citems = m_charItems;
-            if (!citems.empty()) LoadPreview(citems[0].idleAtlasPath);
-        } else if (m_tabBtnAnim[1].hovered && m_activeTab != ShopTab::Pets) {
-            m_activeTab   = ShopTab::Pets;
-            m_selectedIdx = 0;
-            m_scrollY     = 0.f;
-            const auto& pitems = m_petItems;
-            if (!pitems.empty()) LoadPreview(pitems[0].idleAtlasPath);
-        }
-    }
-
-    // ── Grid cell clicks ─────────────────────────────────────────────────
-    if (::IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-        Vector2 mouse = ::GetMousePosition();
-        for (int i = 0; i < (int)items.size(); ++i) {
-            int col = i % kCols;
-            int row = i / kCols;
-            float cx = panelX + cellPad + col * (cellW + cellPad);
-            float cy = gridY + cellPad + row * (cellH + cellPad) - m_scrollYDisp;
-            Rectangle cr = { cx, cy, cellW, cellH };
-            if (::CheckCollisionPointRec(mouse, cr) && cy > gridY - cellH && cy < gridY + gridViewH) {
-                if (m_selectedIdx != i) {
-                    m_selectedIdx = i;
-                    LoadPreview(items[i].idleAtlasPath);
-                }
+    const Vector2 mouse = GetMousePosition();
+    const bool clicked = IsMouseButtonPressed(MOUSE_LEFT_BUTTON);
+    if (clicked) {
+        if (m_backBtnAnim.hovered) m_wantsBack = true;
+        else if (m_tabBtnAnim[0].hovered) switchTab(ShopTab::Characters);
+        else if (m_tabBtnAnim[1].hovered) switchTab(ShopTab::Pets);
+        else if (m_buyBtnAnim.hovered) m_wantsBuy = true;
+        else if (CheckCollisionPointRec(mouse, l.grid)) {
+            for (int i = 0; i < (int)items.size(); ++i) {
+                Rectangle card = GridCard(l.grid, i);
+                card.y -= m_scrollYDisp;
+                if (CheckCollisionPointRec(mouse, card)) { selectIndex(i); break; }
             }
         }
     }
 
-    // ── Keyboard Navigation ──────────────────────────────────────────────
-    static float inputCooldown = 0.0f;
-    if (inputCooldown > 0.0f) inputCooldown -= dt;
+    if (CheckCollisionPointRec(mouse, l.grid)) {
+        const float wheel = GetMouseWheelMove();
+        const float totalHeight = items.size() <= 2 ? l.grid.height : GridCard(l.grid, (int)items.size()-1).y + GridCard(l.grid, (int)items.size()-1).height - l.grid.y;
+        m_scrollY = std::clamp(m_scrollY - wheel * 80.0f, 0.0f, std::max(0.0f, totalHeight - l.grid.height));
+    }
+    m_scrollYDisp = LerpValue(m_scrollYDisp, m_scrollY, std::min(1.0f, dt * 14.0f));
 
-    if (inputCooldown <= 0.0f) {
-        int dx = 0, dy = 0;
-        if (::IsKeyPressed(KEY_LEFT) || ::IsKeyPressed(KEY_A)) dx = -1;
-        if (::IsKeyPressed(KEY_RIGHT) || ::IsKeyPressed(KEY_D)) dx = 1;
-        if (::IsKeyPressed(KEY_UP) || ::IsKeyPressed(KEY_W)) dy = -1;
-        if (::IsKeyPressed(KEY_DOWN) || ::IsKeyPressed(KEY_S)) dy = 1;
+    if (IsKeyPressed(KEY_ESCAPE)) m_wantsBack = true;
+    if (IsKeyPressed(KEY_TAB) || IsKeyPressed(KEY_Q) || IsKeyPressed(KEY_E))
+        switchTab(m_activeTab == ShopTab::Characters ? ShopTab::Pets : ShopTab::Characters);
 
-        if (dx != 0 || dy != 0) {
-            int newIdx = m_selectedIdx + dx + dy * kCols;
-            // Prevent wrapping rows horizontally
-            if (dx == -1 && (m_selectedIdx % kCols) == 0) newIdx = m_selectedIdx;
-            if (dx == 1 && ((m_selectedIdx + 1) % kCols) == 0) newIdx = m_selectedIdx;
-
-            if (newIdx >= 0 && newIdx < (int)items.size() && newIdx != m_selectedIdx) {
-                m_selectedIdx = newIdx;
-                LoadPreview(items[newIdx].idleAtlasPath);
-                
-                // Auto scroll
-                int newRow = newIdx / kCols;
-                float cellTop = cellPad + newRow * (cellH + cellPad);
-                float cellBot = cellTop + cellH + cellPad;
-                
-                if (cellTop < m_scrollY) m_scrollY = cellTop;
-                else if (cellBot > m_scrollY + gridViewH) m_scrollY = cellBot - gridViewH;
-                
-                inputCooldown = 0.15f;
-            }
+    if (m_inputCooldown <= 0.0f && !items.empty()) {
+        int delta = 0;
+        if (IsKeyPressed(KEY_LEFT) || IsKeyPressed(KEY_A)) delta = -1;
+        else if (IsKeyPressed(KEY_RIGHT) || IsKeyPressed(KEY_D)) delta = 1;
+        else if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_W)) delta = -2;
+        else if (IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_S)) delta = 2;
+        if (delta != 0) {
+            const int oldRow = m_selectedIdx / 2;
+            int next = std::clamp(m_selectedIdx + delta, 0, (int)items.size()-1);
+            if ((delta == -1 || delta == 1) && next / 2 != oldRow) next = m_selectedIdx;
+            selectIndex(next);
+            m_inputCooldown = 0.12f;
         }
-    }
-
-    // ── Back button ───────────────────────────────────────────────────────
-    float backW = sw * 0.12f, backH = sh * 0.055f;
-    float backX = panelX + totalPanelW - backW - sw * 0.01f;
-    float backY = panelY + totalPanelH - backH - sh * 0.015f;
-    UpdateBtnAnim(m_backBtnAnim, {backX, backY, backW, backH}, dt);
-
-    if ((m_backBtnAnim.hovered && ::IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
-        || ::IsKeyPressed(KEY_ESCAPE)) {
-        m_wantsBack = true;
-    }
-
-    // ── Buy button ────────────────────────────────────────────────────────
-    float buyW = detailW * 0.55f, buyH = sh * 0.062f;
-    float buyX = detailX + (detailW - buyW) * 0.5f + m_shakeOffset;
-    float buyY = panelY + totalPanelH - buyH - sh * 0.02f - backH - sh * 0.01f;
-    UpdateBtnAnim(m_buyBtnAnim, {buyX, buyY, buyW, buyH}, dt);
-
-    if (m_buyBtnAnim.hovered && ::IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-        m_wantsBuy = true;
+        if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE)) {
+            m_wantsBuy = true;
+            m_inputCooldown = 0.16f;
+        }
     }
 }
 
-// =============================================================================
-// Render
-// =============================================================================
 void ShopView::Render() {
     if (!m_visible) return;
-
     RenderBackground();
     RenderTabBar();
     RenderGrid();
@@ -326,515 +320,185 @@ void ShopView::Render() {
     RenderCoinBar();
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 void ShopView::RenderBackground() {
-    int sw = ::GetScreenWidth(), sh = ::GetScreenHeight();
-    // Full-screen dark tinted overlay
-    ::DrawRectangle(0, 0, sw, sh, Color{8, 5, 18, 245});
-
-    float panelSlide  = EaseOutCubic(m_slideT);
-    float totalPanelW = sw * 0.88f;
-    float totalPanelH = sh * 0.82f;
-    float panelX      = (sw - totalPanelW) * 0.5f;
-    float panelY      = (sh - totalPanelH) * 0.5f + (1.f - panelSlide) * sh * 0.5f;
-
-    // Main panel body
-    if (m_panelLoaded && m_texPanel.id != 0) {
-        int corner = m_texPanel.width / 3;
-        NPatchInfo npi;
-        npi.source = {0.f, 0.f, (float)m_texPanel.width, (float)m_texPanel.height};
-        npi.left = npi.top = npi.right = npi.bottom = corner;
-        npi.layout = 0;
-        ::DrawTextureNPatch(m_texPanel, npi,
-                            {panelX, panelY, totalPanelW, totalPanelH},
-                            {0,0}, 0.f, WHITE);
-    } else {
-        ::DrawRectangle((int)panelX, (int)panelY, (int)totalPanelW, (int)totalPanelH,
-                        Color{18, 12, 32, 240});
-        ::DrawRectangleLinesEx({panelX, panelY, totalPanelW, totalPanelH}, 2.f,
-                               Color{110, 80, 160, 200});
+    const ShopLayout l = BuildShopLayout(m_slideT);
+    const Font font = m_fontLoaded ? m_font : GetFontDefault();
+    DrawRectangleGradientV(0,0,GetScreenWidth(),GetScreenHeight(),Color{13,8,29,255},Color{4,3,12,255});
+    for (int i = 0; i < 18; ++i) {
+        const float x = std::fmod(i * 149.0f + m_animTime * (5.0f + i%4), (float)GetScreenWidth());
+        const float y = std::fmod(i * 83.0f, (float)GetScreenHeight());
+        DrawCircleV({x,y}, 1.0f + (i%3)*0.55f, Color{194,153,246,(unsigned char)(35+i%4*15)});
     }
+    DrawRectangleRounded({l.panel.x+8,l.panel.y+10,l.panel.width,l.panel.height},0.035f,12,Color{0,0,0,135});
+    DrawRectangleRounded(l.panel,0.035f,12,Color{22,16,39,248});
+    DrawRectangleRoundedLinesEx(l.panel,0.035f,12,2.5f,Color{178,128,60,235});
+    DrawLineEx({l.detail.x-8,l.detail.y},{l.detail.x-8,l.panel.y+l.panel.height-12},2.0f,Color{104,76,139,145});
 
-    // Vertical divider between grid and detail
-    float gridW  = totalPanelW * 0.50f;
-    float divX   = panelX + gridW;
-    ::DrawRectangle((int)divX, (int)(panelY+2), 2, (int)(totalPanelH-4),
-                    Color{80, 60, 120, 160});
-
-    // Panel title
-    const char* title = "SHOP";
-    int tfs = (int)(sh * 0.045f); if (tfs < 14) tfs = 14;
-    int tw  = ::MeasureText(title, tfs);
-    ::DrawText(title, sw/2 - tw/2, (int)(panelY - tfs - sh*0.012f), tfs,
-               Color{255, 220, 80, 255});
+    const char* title = "ARCANE EMPORIUM";
+    const float size = std::clamp(l.panel.height*0.054f,20.0f,36.0f);
+    const Vector2 measured = MeasureTextEx(font,title,size,1.4f);
+    DrawTextEx(font,title,{l.panel.x+(l.panel.width-measured.x)*0.5f,l.panel.y+14},size,1.4f,Color{255,220,103,255});
+    if (m_noticeTimer > 0.0f && !m_notice.empty()) {
+        const float noticeSize = std::max(10.0f,size*0.38f);
+        const Vector2 nm = MeasureTextEx(font,m_notice.c_str(),noticeSize,1.0f);
+        Rectangle badge = {l.detail.x+(l.detail.width-nm.x-30)*0.5f,
+                           l.action.y-noticeSize-26,nm.x+30,noticeSize+16};
+        const Color accent = m_noticeSuccess ? Color{107,230,159,255} : Color{235,105,118,255};
+        DrawRectangleRounded(badge,0.35f,8,Fade(accent,0.16f));
+        DrawRectangleRoundedLinesEx(badge,0.35f,8,1.5f,Fade(accent,0.75f));
+        DrawTextEx(font,m_notice.c_str(),{badge.x+15,badge.y+8},noticeSize,1.0f,accent);
+    }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 void ShopView::RenderCoinBar() {
-    int sw = ::GetScreenWidth(), sh = ::GetScreenHeight();
-    float panelSlide  = EaseOutCubic(m_slideT);
-    float totalPanelW = sw * 0.88f;
-    float totalPanelH = sh * 0.82f;
-    float panelX      = (sw - totalPanelW) * 0.5f;
-    float panelY      = (sh - totalPanelH) * 0.5f + (1.f - panelSlide) * sh * 0.5f;
-
-    // Coin badge: top-right corner of panel
-    float badgeW = totalPanelW * 0.18f;
-    float badgeH = sh * 0.045f;
-    float badgeX = panelX + totalPanelW - badgeW - sw * 0.005f;
-    float badgeY = panelY + sh * 0.005f;
-
-    ::DrawRectangle((int)badgeX, (int)badgeY, (int)badgeW, (int)badgeH,
-                    Color{30, 22, 50, 230});
-    ::DrawRectangleLinesEx({badgeX, badgeY, badgeW, badgeH}, 1.5f,
-                           Color{200, 170, 60, 200});
-
-    // Coin icon (circle)
-    float iconR = badgeH * 0.32f;
-    ::DrawCircle((int)(badgeX + iconR + 6), (int)(badgeY + badgeH/2), iconR,
-                 Color{255, 210, 30, 255});
-    ::DrawCircleLines((int)(badgeX + iconR + 6), (int)(badgeY + badgeH/2), iconR,
-                      Color{200, 150, 20, 200});
-
-    char coinBuf[32];
-    snprintf(coinBuf, sizeof(coinBuf), "%d", m_currentCoins);
-    int cfs = (int)(badgeH * 0.58f); if (cfs < 10) cfs = 10;
-    int cw  = ::MeasureText(coinBuf, cfs);
-    ::DrawText(coinBuf, (int)(badgeX + badgeW - cw - 8),
-               (int)(badgeY + (badgeH - cfs) * 0.5f), cfs, Color{255, 235, 80, 255});
+    const ShopLayout l = BuildShopLayout(m_slideT);
+    const Font font = m_fontLoaded ? m_font : GetFontDefault();
+    DrawRectangleRounded(l.coin,0.3f,9,Color{37,28,57,250});
+    DrawRectangleRoundedLinesEx(l.coin,0.3f,9,1.5f,Color{208,165,53,225});
+    const float radius = l.coin.height*0.25f;
+    const Vector2 center = {l.coin.x+radius+12,l.coin.y+l.coin.height*0.5f};
+    DrawCircleV(center,radius,Color{255,205,40,255});
+    DrawCircleLines((int)center.x,(int)center.y,radius,Color{255,235,130,255});
+    const std::string value = std::to_string(m_currentCoins);
+    const float size = std::max(11.0f,l.coin.height*0.42f);
+    const Vector2 measured = MeasureTextEx(font,value.c_str(),size,1.0f);
+    DrawTextEx(font,value.c_str(),{l.coin.x+l.coin.width-measured.x-12,l.coin.y+(l.coin.height-measured.y)*0.5f},size,1.0f,Color{255,232,122,255});
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 void ShopView::RenderTabBar() {
-    int sw = ::GetScreenWidth(), sh = ::GetScreenHeight();
-    float panelSlide  = EaseOutCubic(m_slideT);
-    float totalPanelW = sw * 0.88f;
-    float totalPanelH = sh * 0.82f;
-    float panelX      = (sw - totalPanelW) * 0.5f;
-    float panelY      = (sh - totalPanelH) * 0.5f + (1.f - panelSlide) * sh * 0.5f;
-    float gridW       = totalPanelW * 0.50f;
-    float tabH        = sh * 0.06f;
-    float tabW        = gridW * 0.45f;
-
-    const char* labels[] = {"Characters", "Pets"};
-    float tabXs[] = { panelX + gridW * 0.02f,
-                      panelX + gridW * 0.02f + tabW + gridW * 0.02f };
-    ShopTab tabs[] = { ShopTab::Characters, ShopTab::Pets };
-
+    const ShopLayout l = BuildShopLayout(m_slideT);
+    const Font font = m_fontLoaded ? m_font : GetFontDefault();
+    const char* labels[] = {"HEROES", "COMPANIONS"};
     for (int i = 0; i < 2; ++i) {
-        float tx = tabXs[i], ty = panelY;
-        bool  active = (m_activeTab == tabs[i]);
-
-        float sc = m_tabBtnAnim[i].scale;
-        float cx = tx + tabW * 0.5f, cy = ty + tabH * 0.5f;
-        float sW = tabW * sc, sH = tabH * sc;
-        Rectangle dr = { cx - sW*0.5f, cy - sH*0.5f, sW, sH };
-
-        if (m_tabTexLoaded) {
-            Texture2D& tex = active ? m_texTabActive : m_texTabNormal;
-            if (tex.id != 0) {
-                ::DrawTexturePro(tex, {0,0,(float)tex.width,(float)tex.height},
-                                 dr, {0,0}, 0.f, WHITE);
-            }
-        } else {
-            Color bg  = active ? Color{80, 55, 140, 230} : Color{35, 28, 55, 200};
-            Color brd = active ? Color{220, 180, 80, 220} : Color{80, 60, 110, 180};
-            ::DrawRectangleRec(dr, bg);
-            ::DrawRectangleLinesEx(dr, active ? 2.f : 1.5f, brd);
-        }
-
-        DrawGlowBorder(dr, m_tabBtnAnim[i].glowAlpha, Color{220, 200, 80, 255});
-
-        int tfs = (int)(tabH * 0.42f); if (tfs < 10) tfs = 10;
-        int tw  = ::MeasureText(labels[i], tfs);
-        Color tcol = active ? Color{255, 230, 80, 255} : Color{200, 190, 220, 200};
-        ::DrawText(labels[i], (int)(cx - tw*0.5f), (int)(cy - tfs*0.5f), tfs, tcol);
+        const bool active = (int)m_activeTab == i;
+        Rectangle rect = l.tabs[i];
+        const float scale = m_tabBtnAnim[i].scale;
+        rect.x -= rect.width*(scale-1)*0.5f; rect.y -= rect.height*(scale-1)*0.5f;
+        rect.width *= scale; rect.height *= scale;
+        DrawRectangleRounded(rect,0.22f,9,active?Color{82,57,119,255}:Color{37,29,57,245});
+        DrawRectangleRoundedLinesEx(rect,0.22f,9,active?2.3f:1.2f,active?Color{255,211,85,255}:Color{105,80,137,210});
+        const float size = std::clamp(rect.height*0.34f,10.0f,16.0f);
+        const Vector2 measured = MeasureTextEx(font,labels[i],size,1.0f);
+        DrawTextEx(font,labels[i],{rect.x+(rect.width-measured.x)*0.5f,rect.y+(rect.height-measured.y)*0.5f},size,1.0f,active?Color{255,232,142,255}:Color{192,180,212,235});
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 void ShopView::RenderGrid() {
-    int sw = ::GetScreenWidth(), sh = ::GetScreenHeight();
-    float panelSlide  = EaseOutCubic(m_slideT);
-    float totalPanelW = sw * 0.88f;
-    float totalPanelH = sh * 0.82f;
-    float panelX      = (sw - totalPanelW) * 0.5f;
-    float panelY      = (sh - totalPanelH) * 0.5f + (1.f - panelSlide) * sh * 0.5f;
-    float gridW       = totalPanelW * 0.50f;
-    float tabH        = sh * 0.06f;
-    float gridY       = panelY + tabH + sh * 0.015f;
-    float gridViewH   = totalPanelH - tabH - sh * 0.085f;
-
-    constexpr int kCols = 3;
-    float cellPad = gridW * 0.025f;
-    float cellW   = (gridW - cellPad * (kCols + 1)) / kCols;
-    float cellH   = cellW * 1.25f;
-
-    const auto& items = (m_activeTab == ShopTab::Characters) ? m_charItems : m_petItems;
-
-    // Scissor test to clip grid to its viewport
-    ::BeginScissorMode((int)panelX, (int)gridY, (int)gridW, (int)gridViewH);
-
+    const ShopLayout l = BuildShopLayout(m_slideT);
+    const Font font = m_fontLoaded ? m_font : GetFontDefault();
+    const auto& items = m_activeTab == ShopTab::Characters ? m_charItems : m_petItems;
+    const auto& atlases = m_activeTab == ShopTab::Characters ? m_charThumbnails : m_petThumbnails;
+    BeginScissorMode((int)l.grid.x,(int)l.grid.y,(int)l.grid.width,(int)l.grid.height);
     for (int i = 0; i < (int)items.size(); ++i) {
-        int col = i % kCols;
-        int row = i / kCols;
-        float cx = panelX + cellPad + col * (cellW + cellPad);
-        float cy = gridY  + cellPad + row * (cellH + cellPad) - m_scrollYDisp;
-
-        // Skip off-screen cells
-        if (cy + cellH < gridY || cy > gridY + gridViewH) continue;
-
-        bool selected  = (m_selectedIdx == i);
-        bool unlocked  = items[i].isUnlocked;
-
-        if (m_panelLoaded && m_texPanel.id != 0) {
-            int corner = m_texPanel.width / 3;
-            NPatchInfo npi = { {0.f, 0.f, (float)m_texPanel.width, (float)m_texPanel.height}, corner, corner, corner, corner, 0 };
-            Color tint = selected ? WHITE : (unlocked ? Color{200, 200, 200, 255} : Color{100, 100, 100, 200});
-            ::DrawTextureNPatch(m_texPanel, npi, {cx, cy, cellW, cellH}, {0,0}, 0.f, tint);
-            if (selected) {
-                ::DrawRectangleLinesEx({cx, cy, cellW, cellH}, 2.5f, Color{255, 210, 50, 230});
-            }
-        } else {
-            Color bg  = selected  ? Color{65, 48, 110, 235}
-                      : unlocked  ? Color{30, 22, 50,  215}
-                      :             Color{18, 14, 30,  200};
-            Color brd = selected  ? Color{255, 210, 50, 230}
-                      : unlocked  ? Color{120, 90, 160, 180}
-                      :             Color{50,  40, 70,  160};
-
-            ::DrawRectangle((int)cx, (int)cy, (int)cellW, (int)cellH, bg);
-            ::DrawRectangleLinesEx({cx, cy, cellW, cellH}, selected ? 2.5f : 1.5f, brd);
-        }
-
-        // Load and draw idle sprite (first frame, static)
-        if (!items[i].idleAtlasPath.empty() && ::FileExists(items[i].idleAtlasPath.c_str())) {
-            // We only show the texture that's already loaded in previewAtlas if this is selected
-            // Otherwise draw a placeholder character silhouette
-        }
-
-        // Name label
-        int nfs = (int)(cellH * 0.115f); if (nfs < 9) nfs = 9;
-        int nw  = ::MeasureText(items[i].displayName.c_str(), nfs);
-        ::DrawText(items[i].displayName.c_str(),
-                   (int)(cx + (cellW - nw) * 0.5f),
-                   (int)(cy + cellH * 0.80f), nfs,
-                   unlocked ? WHITE : Color{140,130,160,200});
-
-        // Price or Unlocked badge
-        if (unlocked) {
-            const char* tag = "Owned";
-            int tfs = (int)(cellH * 0.10f); if (tfs < 8) tfs = 8;
-            int tw  = ::MeasureText(tag, tfs);
-            ::DrawText(tag, (int)(cx + (cellW - tw)*0.5f),
-                       (int)(cy + cellH*0.90f), tfs, Color{80,220,100,255});
-        } else {
-            char pBuf[24];
-            snprintf(pBuf, sizeof(pBuf), "%d", items[i].price);
-            int tfs = (int)(cellH * 0.10f); if (tfs < 8) tfs = 8;
-            int tw  = ::MeasureText(pBuf, tfs);
-            
-            float coinRadius = cellH * 0.05f;
-            float spacing = 4.0f;
-            float totalWidth = tw + spacing + coinRadius * 2.0f;
-            float startX = cx + (cellW - totalWidth) * 0.5f;
-            
-            ::DrawText(pBuf, (int)startX, (int)(cy + cellH*0.90f), tfs, Color{255,210,50,255});
-            
-            float iconCx = startX + tw + spacing + coinRadius;
-            float iconCy = cy + cellH*0.90f + tfs*0.5f;
-            ::DrawCircle((int)iconCx, (int)iconCy, (int)coinRadius, Color{255,200,30,200});
-            ::DrawCircleLines((int)iconCx, (int)iconCy, (int)coinRadius, Color{200,150,20,200});
-        }
-
-        // Lock overlay for locked items
-        if (!unlocked) {
-            DrawLockOverlay(cx, cy, cellW, cellH * 0.76f);
-        }
+        Rectangle card = GridCard(l.grid,i); card.y -= m_scrollYDisp;
+        const bool selected = i == m_selectedIdx;
+        const bool owned = items[i].isUnlocked;
+        if (selected) DrawRectangleRounded({card.x-5,card.y-5,card.width+10,card.height+10},0.10f,9,Color{255,196,66,38});
+        DrawRectangleRounded(card,0.08f,9,selected?Color{61,45,88,255}:Color{31,25,48,250});
+        DrawRectangleRoundedLinesEx(card,0.08f,9,selected?2.5f:1.2f,selected?Color{255,213,91,255}:Color{93,72,120,205});
+        Rectangle portrait = {card.x+8,card.y+8,card.width-16,card.height*0.62f};
+        DrawRectangleRounded(portrait,0.08f,7,Color{13,11,25,245});
+        DrawCircleGradient({portrait.x+portrait.width*0.5f,portrait.y+portrait.height*0.60f},portrait.width*0.34f,
+                           owned?Color{112,78,165,72}:Color{59,51,72,55},Color{10,8,20,0});
+        if (i < (int)atlases.size()) DrawAtlasThumbnail(atlases[i],{portrait.x+8,portrait.y+4,portrait.width-16,portrait.height-8},owned?WHITE:Color{105,100,115,255});
+        const float nameSize = std::clamp(card.height*0.085f,9.0f,15.0f);
+        const Vector2 nameMeasure = MeasureTextEx(font,items[i].displayName.c_str(),nameSize,1.0f);
+        DrawTextEx(font,items[i].displayName.c_str(),{card.x+(card.width-nameMeasure.x)*0.5f,card.y+card.height*0.68f},nameSize,1.0f,owned?RAYWHITE:Color{158,146,174,235});
+        std::string tag;
+        Color tagColor;
+        if (items[i].isEquipped) { tag="EQUIPPED"; tagColor=Color{112,235,167,255}; }
+        else if (owned) { tag="OWNED"; tagColor=Color{130,194,242,255}; }
+        else { tag=std::to_string(items[i].price)+" COINS"; tagColor=Color{255,207,72,255}; }
+        const float tagSize = std::max(8.0f,nameSize*0.76f);
+        const Vector2 tagMeasure = MeasureTextEx(font,tag.c_str(),tagSize,1.0f);
+        DrawTextEx(font,tag.c_str(),{card.x+(card.width-tagMeasure.x)*0.5f,card.y+card.height*0.84f},tagSize,1.0f,tagColor);
+        if (!owned) DrawLockOverlay(portrait.x,portrait.y,portrait.width,portrait.height);
     }
-
-    ::EndScissorMode();
+    EndScissorMode();
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// DrawLockOverlay — draws a padlock shape procedurally (RPG style chain box)
-// ─────────────────────────────────────────────────────────────────────────────
-void ShopView::DrawLockOverlay(float x, float y, float w, float h) {
-    // Dark semi-transparent tint
-    ::DrawRectangle((int)x, (int)y, (int)w, (int)h, Color{0, 0, 0, 120});
-
-    // Padlock centered
-    float cx   = x + w * 0.5f;
-    float cy   = y + h * 0.45f;
-    float lW   = w * 0.26f;   // lock body width
-    float lH   = h * 0.28f;   // lock body height
-    float lBx  = cx - lW * 0.5f;
-    float lBy  = cy;
-
-    // Lock body (rectangle)
-    ::DrawRectangle((int)lBx, (int)lBy, (int)lW, (int)lH, Color{60, 45, 90, 220});
-    ::DrawRectangleLinesEx({lBx, lBy, lW, lH}, 2.f, Color{180, 150, 220, 240});
-
-    // Lock shackle (top arch — drawn as thick circle arc approximated with lines)
-    float shR  = lW * 0.36f;
-    float shCx = cx;
-    float shCy = lBy;
-    int segments = 12;
-    for (int s = 0; s < segments; ++s) {
-        float a0 = (float)(180 + s * 180 / segments) * DEG2RAD;
-        float a1 = (float)(180 + (s+1) * 180 / segments) * DEG2RAD;
-        float x0 = shCx + cosf(a0) * shR, y0 = shCy + sinf(a0) * shR;
-        float x1 = shCx + cosf(a1) * shR, y1 = shCy + sinf(a1) * shR;
-        ::DrawLineEx({x0,y0},{x1,y1}, 3.f, Color{180,150,220,240});
-    }
-
-    // Keyhole dot in center of lock body
-    ::DrawCircle((int)cx, (int)(lBy + lH * 0.40f), lW * 0.10f, Color{20, 15, 35, 255});
+void ShopView::DrawLockOverlay(float x,float y,float w,float h) {
+    DrawRectangleRounded({x,y,w,h},0.08f,7,Color{3,3,8,145});
+    const float size = std::min(w,h)*0.20f;
+    const Vector2 c = {x+w*0.5f,y+h*0.48f};
+    DrawRing(c,size*0.48f,size*0.68f,180,360,18,Color{184,154,211,245});
+    DrawRectangleRounded({c.x-size*0.62f,c.y,size*1.24f,size*0.92f},0.18f,6,Color{73,54,98,250});
+    DrawCircleV({c.x,c.y+size*0.38f},size*0.10f,Color{20,14,31,255});
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 void ShopView::RenderDetailPanel() {
-    int sw = ::GetScreenWidth(), sh = ::GetScreenHeight();
-    float panelSlide  = EaseOutCubic(m_slideT);
-    float totalPanelW = sw * 0.88f;
-    float totalPanelH = sh * 0.82f;
-    float panelX      = (sw - totalPanelW) * 0.5f;
-    float panelY      = (sh - totalPanelH) * 0.5f + (1.f - panelSlide) * sh * 0.5f;
-    float gridW       = totalPanelW * 0.50f;
-    float detailX     = panelX + gridW + 2;
-    float detailW     = totalPanelW - gridW - 2;
-
-    const auto& items = (m_activeTab == ShopTab::Characters) ? m_charItems : m_petItems;
+    const ShopLayout l = BuildShopLayout(m_slideT);
+    const Font font = m_fontLoaded ? m_font : GetFontDefault();
+    const auto& items = m_activeTab == ShopTab::Characters ? m_charItems : m_petItems;
     if (items.empty()) return;
-    int idx = std::min(m_selectedIdx, (int)items.size()-1);
-    const ShopItemData& item = items[idx];
-
-    float innerX = detailX + detailW * 0.06f;
-    float innerW = detailW * 0.88f;
-
-    // ── Portrait area ─────────────────────────────────────────────────────
-    float previewSize = std::min(detailW * 0.70f, totalPanelH * 0.38f);
-    float previewX    = detailX + (detailW - previewSize) * 0.5f;
-    float previewY    = panelY + totalPanelH * 0.04f;
-
-    // Dark preview bg (fits perfectly under the frame, no extra borders)
-    ::DrawRectangle((int)previewX, (int)previewY, (int)previewSize, (int)previewSize,
-                    Color{15, 10, 25, 200});
-
-    // Draw animated idle frame
-    if (m_previewAtlas && m_previewAtlas->IsTextureLoaded() && m_previewAnim.HasTexture()) {
-        Rectangle src  = m_previewAnim.GetCurrentSrcRect();
-        bool flipX     = m_previewAnim.GetFlipX();
-
-        float fw = fabsf(src.width), fh = fabsf(src.height);
-        // Reduce scale to 0.55f so large characters (Ninja, Dragon) don't clip the frame
-        float scale = (fw > 0 && fh > 0)
-            ? std::min(previewSize / fw, previewSize / fh) * 0.55f
-            : 1.f;
-        float dw = fw * scale, dh = fh * scale;
-        float dx = previewX + (previewSize - dw) * 0.5f;
-        float dy = previewY + (previewSize - dh) * 0.5f;
-
-        Texture2D* tex = m_previewAnim.GetCurrentTexture();
-        if (tex) {
-            Rectangle drawSrc = src;
-            if (flipX) drawSrc.width = -drawSrc.width;
-            ::DrawTexturePro(*tex, drawSrc, {dx, dy, dw, dh}, {0,0}, 0.f, WHITE);
+    const ShopItemData& item = items[std::clamp(m_selectedIdx,0,(int)items.size()-1)];
+    const float pad = std::clamp(l.detail.width*0.055f,10.0f,24.0f);
+    const float previewSize = std::min(l.detail.width*0.56f,l.detail.height*0.38f);
+    Rectangle preview = {l.detail.x+(l.detail.width-previewSize)*0.5f,l.detail.y+10,previewSize,previewSize};
+    DrawCircleGradient({preview.x+preview.width*0.5f,preview.y+preview.height*0.58f},preview.width*0.48f,Color{117,75,173,85},Color{13,10,25,0});
+    DrawEllipse((int)(preview.x+preview.width*0.5f),(int)(preview.y+preview.height*0.83f),preview.width*0.30f,preview.height*0.055f,Fade(BLACK,0.55f));
+    if (m_previewAnim.HasTexture()) {
+        Rectangle src=m_previewAnim.GetCurrentSrcRect(); Texture2D* texture=m_previewAnim.GetCurrentTexture();
+        if (texture && src.width!=0 && src.height!=0) {
+            const float scale=std::min(preview.width/std::fabs(src.width),preview.height/std::fabs(src.height))*0.74f;
+            const float dw=std::fabs(src.width)*scale,dh=std::fabs(src.height)*scale;
+            DrawTexturePro(*texture,src,{preview.x+(preview.width-dw)*0.5f,preview.y+(preview.height-dh)*0.5f,dw,dh},{0,0},0,WHITE);
         }
-    } else {
-        // Placeholder silhouette
-        const char* ph = "?";
-        int pfs = (int)(previewSize * 0.4f);
-        int pw  = ::MeasureText(ph, pfs);
-        ::DrawText(ph, (int)(previewX + (previewSize-pw)*0.5f),
-                   (int)(previewY + (previewSize-pfs)*0.5f), pfs, Color{80,70,100,200});
     }
+    const float nameSize=std::clamp(l.detail.height*0.052f,15.0f,27.0f);
+    const Vector2 nameMeasure=MeasureTextEx(font,item.displayName.c_str(),nameSize,1.0f);
+    float y=preview.y+preview.height+5;
+    DrawTextEx(font,item.displayName.c_str(),{l.detail.x+(l.detail.width-nameMeasure.x)*0.5f,y},nameSize,1.0f,Color{255,223,119,255});
+    y += nameSize*1.35f;
 
-    // Portrait frame on top (exact same size as preview bg)
-    if (m_portraitLoaded && m_texPortrait.id != 0) {
-        ::DrawTexturePro(m_texPortrait,
-                         {0,0,(float)m_texPortrait.width,(float)m_texPortrait.height},
-                         {previewX, previewY, previewSize, previewSize},
-                         {0,0}, 0.f, WHITE);
-    }
-
-    // ── Name ──────────────────────────────────────────────────────────────
-    float nameY = previewY + previewSize + sh * 0.012f;
-    int nfs = (int)(sh * 0.038f); if (nfs < 12) nfs = 12;
-    int nw  = ::MeasureText(item.displayName.c_str(), nfs);
-    ::DrawText(item.displayName.c_str(), (int)(innerX + (innerW-nw)*0.5f),
-               (int)nameY, nfs, Color{255, 230, 80, 255});
-
-    // ── Stats ─────────────────────────────────────────────────────────────
-    float statY  = nameY + nfs + sh * 0.015f;
-    int   sfs    = (int)(sh * 0.025f); if (sfs < 10) sfs = 10;
-    float lineH  = sfs * 1.6f;
-
-    auto drawStatRow = [&](const char* label, int val, Color barColor) {
-        char buf[64];
-        snprintf(buf, sizeof(buf), "%s", label);
-        ::DrawText(buf, (int)innerX, (int)statY, sfs, Color{200,190,220,220});
-
-        // Value bar
-        float barX = innerX + innerW * 0.42f;
-        float barW = innerW * 0.56f;
-        float barH = sfs * 0.65f;
-        float fill = std::min((float)val / 200.f, 1.f);
-        ::DrawRectangle((int)barX, (int)(statY + (sfs-barH)*0.5f),
-                        (int)barW, (int)barH, Color{30,22,50,180});
-        ::DrawRectangleGradientH((int)barX, (int)(statY + (sfs-barH)*0.5f),
-                                 (int)(barW*fill), (int)barH,
-                                 Color{(unsigned char)(barColor.r/2), (unsigned char)(barColor.g/2), (unsigned char)(barColor.b/2), 220},
-                                 barColor);
-        // Value number on right
-        char vBuf[16]; snprintf(vBuf, sizeof(vBuf), "%d", val);
-        int vw = ::MeasureText(vBuf, sfs);
-        ::DrawText(vBuf, (int)(barX + barW + 6), (int)statY, sfs, WHITE);
-        (void)vw;
-
-        statY += lineH;
+    auto stat=[&](const char* label,int value,Color color) {
+        const float fs=std::clamp(l.detail.height*0.025f,9.0f,13.0f);
+        DrawTextEx(font,label,{l.detail.x+pad,y},fs,1.0f,Color{195,184,215,240});
+        const float barX=l.detail.x+l.detail.width*0.29f;
+        const float barW=l.detail.width-pad-(barX-l.detail.x)-30;
+        Rectangle track={barX,y+fs*0.20f,barW,fs*0.55f};
+        DrawRectangleRounded(track,0.5f,7,Color{13,10,25,255});
+        DrawRectangleRounded({track.x,track.y,track.width*std::min(value/200.0f,1.0f),track.height},0.5f,7,color);
+        const std::string val=std::to_string(value);
+        DrawTextEx(font,val.c_str(),{track.x+track.width+6,y},fs,1.0f,RAYWHITE);
+        y += fs*1.65f;
     };
-
-    if (m_activeTab == ShopTab::Characters) {
-        drawStatRow("HP",    item.statHP,    Color{80, 200, 100, 255});
-        drawStatRow("ATK",   item.statATK,   Color{220, 80,  80,  255});
-        drawStatRow("Speed", item.statSpeed, Color{80, 180, 220, 255});
-    }
-
-    // ── Description ───────────────────────────────────────────────────────
-    if (!item.description.empty()) {
-        statY += sh * 0.01f;
-        int dfs = (int)(sh * 0.020f); if (dfs < 9) dfs = 9;
-        ::DrawText(item.description.c_str(), (int)innerX, (int)statY, dfs,
-                   Color{160,150,190,200});
-    }
+    stat("HP",item.statHP,Color{77,199,111,255});
+    stat(m_activeTab==ShopTab::Characters?"ATK":"POWER",item.statATK,Color{221,91,99,255});
+    stat("SPEED",item.statSpeed,Color{77,174,226,255});
+    y += 4;
+    DrawWrapped(font,item.description,{l.detail.x+pad,y,l.detail.width-pad*2,l.action.y-y-9},
+                std::clamp(l.detail.height*0.022f,9.0f,13.0f),Color{170,158,194,230});
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 void ShopView::RenderBuyButton() {
-    int sw = ::GetScreenWidth(), sh = ::GetScreenHeight();
-    float panelSlide  = EaseOutCubic(m_slideT);
-    float totalPanelW = sw * 0.88f;
-    float totalPanelH = sh * 0.82f;
-    float panelX      = (sw - totalPanelW) * 0.5f;
-    float panelY      = (sh - totalPanelH) * 0.5f + (1.f - panelSlide) * sh * 0.5f;
-    float gridW       = totalPanelW * 0.50f;
-    float detailX     = panelX + gridW;
-    float detailW     = totalPanelW - gridW;
-    float backH       = sh * 0.055f;
-
-    float buyW  = detailW * 0.55f;
-    float buyH  = sh * 0.062f;
-    float buyX  = detailX + (detailW - buyW) * 0.5f + m_shakeOffset;
-    float buyY  = panelY + totalPanelH - buyH - sh * 0.02f - backH - sh * 0.01f;
-
-    const auto& items = (m_activeTab == ShopTab::Characters) ? m_charItems : m_petItems;
+    const ShopLayout l = BuildShopLayout(m_slideT);
+    const Font font = m_fontLoaded ? m_font : GetFontDefault();
+    const auto& items = m_activeTab == ShopTab::Characters ? m_charItems : m_petItems;
     if (items.empty()) return;
-    int idx = std::min(m_selectedIdx, (int)items.size()-1);
-    bool unlocked  = items[idx].isUnlocked;
-    bool canAfford = (m_currentCoins >= items[idx].price);
-
-    // Scale around center
-    float sc = m_buyBtnAnim.scale;
-    float cx = buyX + buyW * 0.5f, cy = buyY + buyH * 0.5f;
-    Rectangle dr = { cx - buyW*sc*0.5f, cy - buyH*sc*0.5f, buyW*sc, buyH*sc };
-
-    Texture2D* btnTex = UIResourceManager::GetInstance().GetButton();
-    float btnFrameW = UIResourceManager::GetInstance().GetButtonFrameWidth();
-
-    if (unlocked) {
-        // "Equipped" / "Select" state
-        if (btnTex && btnTex->id != 0 && btnFrameW > 0) {
-            Rectangle src = { 0.0f, 0.0f, btnFrameW, (float)btnTex->height };
-            ::DrawTexturePro(*btnTex, src, dr, {0,0}, 0.f, Color{150, 255, 150, 255}); // greenish tint
-        } else {
-            ::DrawRectangleGradientV((int)dr.x,(int)dr.y,(int)dr.width,(int)dr.height,
-                                     Color{40,100,50,200}, Color{60,160,80,200});
-            ::DrawRectangleLinesEx(dr, 1.5f, Color{80,200,100,200});
-        }
-        const char* label = "Owned";
-        int lfs = (int)(buyH * 0.50f); if (lfs < 10) lfs = 10;
-        int lw  = ::MeasureText(label, lfs);
-        ::DrawText(label, (int)(dr.x+(dr.width-lw)*0.5f),
-                   (int)(dr.y+(dr.height-lfs)*0.5f), lfs, WHITE);
-    } else {
-        if (btnTex && btnTex->id != 0 && btnFrameW > 0) {
-            int frame = (canAfford && m_buyBtnAnim.hovered) ? 1 : 0;
-            Rectangle src = { (float)(frame * btnFrameW), 0.0f, btnFrameW, (float)btnTex->height };
-            Color tint = canAfford ? WHITE : Color{120, 120, 120, 255};
-            ::DrawTexturePro(*btnTex, src, dr, {0,0}, 0.f, tint);
-        } else {
-            Color bgTop = canAfford ? Color{80, 55, 140, 230} : Color{45, 38, 60, 180};
-            Color bgBot = canAfford ? Color{130,90, 190, 230} : Color{55, 46, 70, 180};
-            ::DrawRectangleGradientV((int)dr.x,(int)dr.y,(int)dr.width,(int)dr.height,
-                                     bgTop, bgBot);
-            Color brd = canAfford
-                ? (m_buyBtnAnim.hovered ? Color{255,210,50,230} : Color{130,100,180,200})
-                : Color{70,60,90,150};
-            ::DrawRectangleLinesEx(dr, canAfford ? 2.f : 1.5f, brd);
-        }
-
-        if (canAfford) DrawGlowBorder(dr, m_buyBtnAnim.glowAlpha, Color{220,200,80,255});
-
-        char lBuf[32];
-        snprintf(lBuf, sizeof(lBuf), "%d", items[idx].price);
-        int lfs = (int)(buyH * 0.48f); if (lfs < 10) lfs = 10;
-        int lw  = ::MeasureText(lBuf, lfs);
-        
-        float coinRadius = buyH * 0.20f;
-        float spacing = 8.0f;
-        float totalWidth = lw + spacing + coinRadius * 2.0f;
-        
-        float startX = dr.x + (dr.width - totalWidth) * 0.5f;
-        
-        Color textCol = canAfford ? Color{255,235,80,255} : Color{130,120,150,200};
-        ::DrawText(lBuf, (int)startX, (int)(dr.y+(dr.height-lfs)*0.5f), lfs, textCol);
-
-        // Coin icon directly after text
-        float iconCx = startX + lw + spacing + coinRadius;
-        ::DrawCircle((int)iconCx, (int)(dr.y + dr.height*0.5f),
-                     (int)coinRadius, Color{255,200,30,200});
-        ::DrawCircleLines((int)iconCx, (int)(dr.y + dr.height*0.5f),
-                     (int)coinRadius, Color{200,150,20,200});
-    }
+    const ShopItemData& item=items[std::clamp(m_selectedIdx,0,(int)items.size()-1)];
+    Rectangle rect=l.action; rect.x+=m_shakeOffset;
+    const float scale=m_buyBtnAnim.scale;
+    rect.x-=rect.width*(scale-1)*0.5f; rect.y-=rect.height*(scale-1)*0.5f; rect.width*=scale; rect.height*=scale;
+    const bool canAfford=m_currentCoins>=item.price;
+    Color fill=item.isEquipped?Color{40,86,69,255}:item.isUnlocked?Color{55,70,111,255}:canAfford?Color{94,61,132,255}:Color{58,42,65,255};
+    Color border=item.isEquipped?Color{104,230,164,255}:item.isUnlocked?Color{117,188,239,255}:canAfford?Color{255,211,85,255}:Color{173,91,104,220};
+    DrawRectangleRounded(rect,0.22f,9,fill);
+    DrawRectangleRoundedLinesEx(rect,0.22f,9,2.2f,border);
+    DrawGlowBorder(rect,m_buyBtnAnim.glowAlpha,border);
+    std::string label=item.isEquipped?"EQUIPPED":item.isUnlocked?"EQUIP":"BUY  "+std::to_string(item.price)+" COINS";
+    const float size=std::clamp(rect.height*0.33f,11.0f,17.0f);
+    const Vector2 measured=MeasureTextEx(font,label.c_str(),size,1.0f);
+    DrawTextEx(font,label.c_str(),{rect.x+(rect.width-measured.x)*0.5f,rect.y+(rect.height-measured.y)*0.5f},size,1.0f,item.isEquipped?Color{155,245,193,255}:RAYWHITE);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 void ShopView::RenderBackButton() {
-    int sw = ::GetScreenWidth(), sh = ::GetScreenHeight();
-    float panelSlide  = EaseOutCubic(m_slideT);
-    float totalPanelW = sw * 0.88f;
-    float totalPanelH = sh * 0.82f;
-    float panelX      = (sw - totalPanelW) * 0.5f;
-    float panelY      = (sh - totalPanelH) * 0.5f + (1.f - panelSlide) * sh * 0.5f;
-
-    float backW = sw * 0.12f, backH = sh * 0.055f;
-    float backX = panelX + totalPanelW - backW - sw * 0.01f;
-    float backY = panelY + totalPanelH - backH - sh * 0.015f;
-
-    float sc = m_backBtnAnim.scale;
-    float cx = backX + backW * 0.5f, cy = backY + backH * 0.5f;
-    Rectangle dr = { cx - backW*sc*0.5f, cy - backH*sc*0.5f, backW*sc, backH*sc };
-
-    Texture2D* btnTex = UIResourceManager::GetInstance().GetButton();
-    float btnFrameW = UIResourceManager::GetInstance().GetButtonFrameWidth();
-    
-    if (btnTex && btnTex->id != 0 && btnFrameW > 0) {
-        int frame = m_backBtnAnim.hovered ? 1 : 0;
-        Rectangle src = { (float)(frame * btnFrameW), 0.0f, btnFrameW, (float)btnTex->height };
-        ::DrawTexturePro(*btnTex, src, dr, {0,0}, 0.f, WHITE);
-    } else {
-        ::DrawRectangleGradientV((int)dr.x,(int)dr.y,(int)dr.width,(int)dr.height,
-                                 Color{50,38,72,220}, Color{70,52,100,220});
-        Color brd = m_backBtnAnim.hovered ? Color{220,180,80,220} : Color{100,80,140,180};
-        ::DrawRectangleLinesEx(dr, 1.5f, brd);
-    }
-    DrawGlowBorder(dr, m_backBtnAnim.glowAlpha, Color{220,200,80,255});
-
-    const char* label = "< Back";
-    int lfs = (int)(backH * 0.52f); if (lfs < 10) lfs = 10;
-    int lw  = ::MeasureText(label, lfs);
-    ::DrawText(label, (int)(dr.x+(dr.width-lw)*0.5f),
-               (int)(dr.y+(dr.height-lfs)*0.5f), lfs,
-               m_backBtnAnim.hovered ? Color{255,230,80,255} : WHITE);
+    const ShopLayout l=BuildShopLayout(m_slideT);
+    const Font font=m_fontLoaded?m_font:GetFontDefault();
+    Rectangle rect=l.back;
+    DrawRectangleRounded(rect,0.25f,8,m_backBtnAnim.hovered?Color{73,51,104,255}:Color{36,28,55,245});
+    DrawRectangleRoundedLinesEx(rect,0.25f,8,m_backBtnAnim.hovered?2.0f:1.1f,m_backBtnAnim.hovered?Color{255,212,89,255}:Color{109,83,139,215});
+    const char* label="< BACK"; const float size=std::max(10.0f,rect.height*0.34f);
+    const Vector2 measured=MeasureTextEx(font,label,size,1.0f);
+    DrawTextEx(font,label,{rect.x+(rect.width-measured.x)*0.5f,rect.y+(rect.height-measured.y)*0.5f},size,1.0f,RAYWHITE);
 }
