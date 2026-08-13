@@ -64,6 +64,7 @@ public:
     void ShowRoleSelect(const std::vector<std::string>& roles);
     void ShowShop();
     void ShowLevelSelect(int totalLevels, int currentUnlocked);
+    void SetLevelStars(const std::vector<int>& bestStars);
     void ShowOptions();
 
     // Feed save data to display in header (no longer shows coins in main menu)
@@ -138,6 +139,8 @@ private:
     // Level select state
     int m_totalLevels      = 3;
     int m_unlockedLevels   = 1;
+    std::vector<int> m_levelBestStars;
+    Texture2D m_levelStarIcon{};
 
     // ── Parallax textures ─────────────────────────────────────────────────
     static constexpr int kParallaxLayers = 3;

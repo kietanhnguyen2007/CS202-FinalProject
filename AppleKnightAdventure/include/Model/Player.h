@@ -79,6 +79,10 @@ public:
     bool IsDashing()    const;
     bool IsInvincible() const;
     bool CanDash()      const;
+    float GetDashCooldownRemaining() const { return m_dashCooldown; }
+    float GetDashCooldownRatio() const {
+        return DASH_COOLDOWN_MAX > 0.0f ? 1.0f - m_dashCooldown / DASH_COOLDOWN_MAX : 1.0f;
+    }
     void StartDash(bool isMoving, float dirX);
 
     // Attack state triggers (for animation syncing)

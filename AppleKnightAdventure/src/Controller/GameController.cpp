@@ -21,15 +21,20 @@
 #include "View/CharacterRenderer.h"
 #include "View/EntityRenderer.h"
 #include "View/HUDView.h"
+#include "View/SkillBarView.h"
+#include "View/InteractPrompt.h"
 #include "View/MenuView.h"
 #include "View/UIStateManager.h"
 #include "View/FloatingText.h"
 #include "View/ParticleRenderer.h"
 #include "View/TutorialRenderer.h"
+#include "View/ResultView.h"
 #include "Systems/SoundManager.h"
 #include "Utils/Constants.h"
+#include <nlohmann/json.hpp>
 #include <cmath>
 #include <algorithm>
+#include <fstream>
 #include <iostream>
 #include <filesystem>
 #include <limits>
@@ -46,6 +51,16 @@ float Distance(const Vector2& a, const Vector2& b) {
     float dx = a.x - b.x;
     float dy = a.y - b.y;
     return std::sqrt(dx * dx + dy * dy);
+}
+
+Rectangle ItemPickupBox(const Entity& item) {
+    Rectangle box = item.GetBoundingBox();
+    const float padding = TILE_SIZE * 0.5f;
+    box.x -= padding;
+    box.y -= padding;
+    box.width += padding * 2.0f;
+    box.height += padding * 2.0f;
+    return box;
 }
 
 bool LineIntersectsRect(Vector2 start, Vector2 end, const Rectangle& rect) {
@@ -72,6 +87,22 @@ bool LineIntersectsRect(Vector2 start, Vector2 end, const Rectangle& rect) {
         && ClipAxis(start.y, dy, rect.y, rect.y + rect.height)
         && farTime >= 0.0f && nearTime <= 1.0f;
 }
+
+float LoadVictoryParTime(int levelNumber) {
+    constexpr float fallback = 240.0f;
+    std::ifstream file("assets/config/victory_grades.json");
+    if (!file.is_open()) return fallback;
+    try {
+        nlohmann::json root;
+        file >> root;
+        const float defaultTime = root.value("defaultParTime", fallback);
+        if (!root.contains("levels")) return defaultTime;
+        const std::string key = std::to_string(levelNumber);
+        return std::max(1.0f, root["levels"].value(key, defaultTime));
+    } catch (...) {
+        return fallback;
+    }
+}
 } // namespace
 
 GameController& GameController::GetInstance() {
@@ -90,13 +121,19 @@ bool GameController::Init() {
     snd.LoadSound("enemy_hurt", "assets/sounds/sfx/enemy_hurt.wav");
     snd.LoadSound("coin_pickup", "assets/sounds/sfx/coin_pickup.wav");
     snd.LoadSound("chest_open", "assets/sounds/sfx/chest_open.wav");
+    snd.LoadSound("victory_reveal", "assets/sounds/sfx/victory_reveal.ogg");
+    snd.LoadSound("victory_star", "assets/sounds/sfx/victory_star.ogg");
+    snd.LoadSound("victory_confirm", "assets/sounds/sfx/victory_confirm.ogg");
     snd.LoadMusic("bgm_gameplay", "assets/sounds/music/bgm_gameplay.wav");
 
     View::GameView::GetInstance().Init();
     View::HUDView::GetInstance().Init();
     View::HUDView::GetInstance().LoadResources("assets/ui/ui_atlas.json");
+    View::SkillBarView::GetInstance().Init();
+    View::SkillBarView::GetInstance().LoadResources();
     View::UIStateManager::GetInstance().Init();
     View::TutorialRenderer::GetInstance().Init();
+    View::ResultView::GetInstance().Init();
 
     m_running = true;
     m_returnToMenu = false;
@@ -380,6 +417,9 @@ void GameController::UnregisterEntityVisuals(int entityId) {
 }
 
 void GameController::StartLevel(int levelNumber) {
+    View::ResultView::GetInstance().Dismiss();
+    View::UIStateManager::GetInstance().Clear();
+    View::SkillBarView::GetInstance().Open();
     View::CharacterRenderer::GetInstance().Clear();
     View::EntityRenderer::GetInstance().Clear();
     View::UIStateManager::GetInstance().Clear();
@@ -421,6 +461,7 @@ void GameController::StartLevel(int levelNumber) {
 
     m_scoring = LevelScoring();
     m_scoring.SetTotals(m_gameState->GetTotalItems(), m_gameState->GetTotalEnemies());
+    m_scoring.SetParTime(LoadVictoryParTime(levelNumber));
     m_defeatedEnemies = 0;
     m_collectedItems = 0;
     m_levelComplete = false;
@@ -491,6 +532,15 @@ void GameController::StartLevel(int levelNumber) {
     m_endgameFlagCapturedIds.clear();
     m_flagOutTimers.clear();
     m_activeCheckpointUid = 0;
+    m_checkpointRespawnEnemyIds.clear();
+    m_countedDefeatedEnemyIds.clear();
+    // Before the first checkpoint, the player spawn acts as the checkpoint:
+    // every regular enemy belongs to the section ahead and may respawn.
+    for (const auto& entity : m_gameState->GetAllEntities()) {
+        if (entity->GetType() == EntityType::Enemy) {
+            m_checkpointRespawnEnemyIds.insert(entity->GetId());
+        }
+    }
 }
 
 bool GameController::IsOnGround(const Character* character) const {
@@ -1254,15 +1304,18 @@ void GameController::UpdateItems(float dt) {
 
     Rectangle playerBox = player->GetBoundingBox();
     std::vector<int> collectedIds;
+    bool persistentCoinsChanged = false;
 
     for (const auto& entity : m_gameState->GetAllEntities()) {
         if (entity->GetType() != EntityType::Item || !entity->IsActive()) continue;
         auto* item = static_cast<Item*>(entity.get());
-        if (!RectOverlap(playerBox, item->GetBoundingBox())) continue;
+        if (!RectOverlap(playerBox, ItemPickupBox(*item))) continue;
 
         switch (item->GetItemType()) {
             case ItemType::Coin:
                 player->GetInventory().AddCoins(item->GetAmount());
+                SaveManager::GetInstance().AddCoins(item->GetAmount());
+                persistentCoinsChanged = true;
                 player->AddScore(item->GetAmount() * 10);
                 m_scoring.AddScore(item->GetAmount() * 10);
                 break;
@@ -1271,6 +1324,9 @@ void GameController::UpdateItems(float dt) {
                 break;
             case ItemType::Key:
                 player->GetInventory().AddKeys(1);
+                break;
+            case ItemType::Potion:
+                player->Heal(50);
                 break;
             default:
                 player->GetInventory().AddItem(
@@ -1290,6 +1346,7 @@ void GameController::UpdateItems(float dt) {
         UnregisterEntityVisuals(id);
         m_gameState->RemoveEntity(id);
     }
+    if (persistentCoinsChanged) SaveManager::GetInstance().Save();
 }
 
 void GameController::UpdateInteractions(const InputCommand& cmd) {
@@ -1363,10 +1420,11 @@ void GameController::UpdateInteractions(const InputCommand& cmd) {
             if (checkpoint->IsEndGame() || checkpoint->IsActivated()) continue;
 
             uint32_t newUid = static_cast<uint32_t>(checkpoint->GetId());
-            if (newUid > m_activeCheckpointUid) {
+            if (checkpoint->GetPosition().x >= m_respawnPoint.x) {
                 m_activeCheckpointUid = newUid;
                 checkpoint->Activate();
                 m_respawnPoint = checkpoint->GetPosition();
+                CaptureCheckpointEnemies(checkpoint->GetPosition().x);
 
                 // Switch visual: uncaptured -> flag_out animation
                 View::EntityRenderer::GetInstance().Unregister(newUid);
@@ -1432,15 +1490,62 @@ void GameController::UpdateInteractions(const InputCommand& cmd) {
 
 void GameController::OnEntityRemoved(Entity* entity) {
     if (!entity) return;
-    if (entity->GetType() == EntityType::Enemy) {
-        m_defeatedEnemies++;
-        m_scoring.DefeatEnemy();
-        m_scoring.AddScore(50);
-        SoundManager::GetInstance().PlaySound("enemy_death");
-        View::ParticleRenderer::GetInstance().EmitBurst(entity->GetPosition(), 20, RED);
-        View::GameView::GetInstance().Shake(5.0f, 0.3f);
+    if (entity->GetType() == EntityType::Enemy || entity->GetType() == EntityType::Boss) {
+        // A checkpoint can revive enemies in the section ahead. Count each
+        // authored enemy only once so repeated deaths cannot farm score/stars.
+        if (m_countedDefeatedEnemyIds.insert(entity->GetId()).second) {
+            m_defeatedEnemies++;
+            m_scoring.DefeatEnemy();
+            m_scoring.AddScore(50);
+            SoundManager::GetInstance().PlaySound("enemy_death");
+            View::ParticleRenderer::GetInstance().EmitBurst(entity->GetPosition(), 20, RED);
+            View::GameView::GetInstance().Shake(5.0f, 0.3f);
+        }
     }
     UnregisterEntityVisuals(entity->GetId());
+}
+
+void GameController::CaptureCheckpointEnemies(float checkpointX) {
+    m_checkpointRespawnEnemyIds.clear();
+    if (!m_gameState) return;
+    for (const auto& entity : m_gameState->GetAllEntities()) {
+        if (entity->GetType() != EntityType::Enemy) continue;
+        const auto* enemy = static_cast<const Enemy*>(entity.get());
+        if (enemy->GetSpawnPosition().x > checkpointX) {
+            m_checkpointRespawnEnemyIds.insert(enemy->GetId());
+        }
+    }
+}
+
+void GameController::RestoreCheckpointEnemies() {
+    if (!m_gameState) return;
+
+    m_playerProjectiles.clear();
+    m_petProjectiles.clear();
+    std::vector<int> projectileIds;
+    for (const auto& entity : m_gameState->GetAllEntities()) {
+        if (entity->GetType() == EntityType::Projectile) {
+            projectileIds.push_back(entity->GetId());
+            continue;
+        }
+        if (entity->GetType() != EntityType::Enemy ||
+            m_checkpointRespawnEnemyIds.count(entity->GetId()) == 0) continue;
+
+        auto* enemy = static_cast<Enemy*>(entity.get());
+        enemy->SetPosition(enemy->GetSpawnPosition());
+        enemy->SetVelocity({0.0f,0.0f});
+        enemy->SetHealth(enemy->GetMaxHealth());
+        enemy->SetState(EnemyState::Idle);
+        enemy->SetActive(true);
+        UnregisterEntityVisuals(enemy->GetId());
+        RegisterEnemyVisuals(enemy);
+    }
+    for (int id : projectileIds) {
+        UnregisterEntityVisuals(id);
+        m_gameState->RemoveEntity(id);
+    }
+    m_inCombat = false;
+    m_combatExitTimer = 0.0f;
 }
 
 void GameController::RespawnPlayer() {
@@ -1450,6 +1555,7 @@ void GameController::RespawnPlayer() {
     player->SetVelocity({0.0f, 0.0f});
     player->SetHealth(player->GetMaxHealth());
     player->SetActive(true);
+    RestoreCheckpointEnemies();
 
     if (m_previousLevelId != -1) {
         for (auto& entity : m_gameState->GetAllEntities()) {
@@ -1471,6 +1577,48 @@ void GameController::CheckLevelComplete() {
         m_scoring.SetClearTime(m_gameState->GetClearTime());
         m_scoring.CalculateStars();
         SoundManager::GetInstance().StopMusic("bgm_gameplay");
+
+        Player* player = m_gameState->GetLocalPlayer();
+        const int level = m_gameState->GetCurrentLevel();
+        const int score = m_scoring.GetCurrentScore();
+        SaveManager& save = SaveManager::GetInstance();
+        const bool persistentResult = level > 0;
+        const int oldHighScore = persistentResult ? save.GetLevelHighScore(level) : 0;
+        const int oldBestStars = persistentResult ? save.GetLevelBestStars(level) : 0;
+        const float oldBestTime = persistentResult ? save.GetLevelBestTime(level) : 0.0f;
+
+        View::LevelResultSnapshot snapshot;
+        snapshot.levelNumber = level;
+        snapshot.stars = m_scoring.GetStars();
+        snapshot.performance = m_scoring.GetPerformance();
+        snapshot.clearTime = m_scoring.GetClearTime();
+        snapshot.parTime = m_scoring.GetParTime();
+        snapshot.enemiesKilled = m_scoring.GetDefeatedEnemies();
+        snapshot.totalEnemies = m_scoring.GetTotalEnemies();
+        snapshot.itemsCollected = m_scoring.GetCollectedItems();
+        snapshot.totalItems = m_scoring.GetTotalItems();
+        snapshot.score = score;
+        snapshot.healthPercent = player && player->GetMaxHealth() > 0
+            ? std::clamp((float)player->GetHealth() / player->GetMaxHealth(), 0.0f, 1.0f)
+            : 0.0f;
+        snapshot.newHighScore = persistentResult && score > oldHighScore;
+        snapshot.newBestStars = persistentResult && snapshot.stars > oldBestStars;
+        snapshot.newBestTime = persistentResult &&
+            (oldBestTime <= 0.0f || snapshot.clearTime < oldBestTime);
+        snapshot.characterClass = player ? player->GetCharacterClass() : CharacterClass::Knight;
+
+        if (persistentResult) {
+            save.SetLevelHighScore(level, score);
+            save.SetLevelBestStars(level, snapshot.stars);
+            save.SetLevelBestTime(level, snapshot.clearTime);
+            save.Save();
+        }
+
+        View::ResultView::GetInstance().Show(snapshot);
+        View::HUDView::GetInstance().SetVisible(false);
+        View::SkillBarView::GetInstance().Close();
+        View::InteractPrompt::GetInstance().Hide();
+        View::UIStateManager::GetInstance().Push(View::UILayer::Result);
     }
 }
 
@@ -1539,6 +1687,20 @@ void GameController::Update(float dt) {
 
     InputCommand cmd = InputController::GetInstance().Poll();
 
+    if (m_levelComplete) {
+        View::ResultView& result = View::ResultView::GetInstance();
+        result.Update(dt);
+        const View::ResultAction action = result.ConsumeAction();
+        if (action == View::ResultAction::Retry) {
+            StartLevel(m_gameState->GetCurrentLevel());
+        } else if (action == View::ResultAction::Continue ||
+                   action == View::ResultAction::LevelSelect) {
+            m_returnToMenu = true;
+            m_running = false;
+        }
+        return;
+    }
+
     if (View::TutorialRenderer::GetInstance().IsDialogVisible()) {
         if (cmd.interact || cmd.menuConfirm || cmd.pause) {
             View::TutorialRenderer::GetInstance().HideDialog();
@@ -1595,12 +1757,6 @@ void GameController::Update(float dt) {
         return;
     }
 
-    if (m_levelComplete && (cmd.menuConfirm || IsMouseButtonPressed(MOUSE_BUTTON_LEFT))) {
-        m_returnToMenu = true;
-        m_running = false;
-        return;
-    }
-
     if (!View::UIStateManager::GetInstance().IsOverlayActive()) {
         HandlePlayerInput(cmd, dt);
         UpdateInteractions(cmd);
@@ -1612,6 +1768,18 @@ void GameController::Update(float dt) {
     }
 
     m_gameState->Update(dt);
+
+    // Enemy death animation deactivates the entity after a short delay, so the
+    // final score/removal event must be observed here rather than only on the
+    // exact attack frame.
+    for (const auto& entity : m_gameState->GetAllEntities()) {
+        if (entity->GetType() != EntityType::Enemy || entity->IsActive()) continue;
+        auto* enemy = static_cast<Enemy*>(entity.get());
+        if (enemy->GetState() == EnemyState::Dead &&
+            m_countedDefeatedEnemyIds.count(enemy->GetId()) == 0) {
+            OnEntityRemoved(enemy);
+        }
+    }
     
     // Check and register visuals for newly spawned entities (like projectiles or items)
     for (const auto& entity : m_gameState->GetAllEntities()) {
@@ -1671,8 +1839,24 @@ void GameController::Update(float dt) {
         }
     }
 
+    const Boss* activeBoss = nullptr;
+    const float hudHalfW = (GetScreenWidth() * 0.5f) / std::max(0.01f, m_camera.zoom);
+    const float hudHalfH = (GetScreenHeight() * 0.5f) / std::max(0.01f, m_camera.zoom);
+    const Rectangle hudViewport = {
+        m_camera.target.x - hudHalfW, m_camera.target.y - hudHalfH,
+        hudHalfW * 2.0f, hudHalfH * 2.0f
+    };
+    for (const auto& entity : m_gameState->GetAllEntities()) {
+        if (entity->IsActive() && entity->GetType() == EntityType::Boss
+            && RectOverlap(entity->GetBoundingBox(), hudViewport)) {
+            activeBoss = static_cast<const Boss*>(entity.get());
+            break;
+        }
+    }
+
     View::GameView::GetInstance().Update(dt);
-    View::HUDView::GetInstance().Update(dt, player);
+    View::HUDView::GetInstance().Update(dt, player, activeBoss);
+    View::SkillBarView::GetInstance().Update(dt, player);
     CheckLevelComplete();
 }
 
@@ -1683,22 +1867,11 @@ void GameController::Render() {
     View::GameView::GetInstance().Render(m_camera, m_particles.GetActive(), GetFrameTime());
     View::Renderer::GetInstance().EndFrameAndFlush();
 
-    if (m_levelComplete) {
-        Player* player = m_gameState->GetLocalPlayer();
-        int stars = m_scoring.GetStars();
-        DrawText("LEVEL COMPLETE!", 420, 280, 40, GREEN);
-        DrawText(TextFormat("Stars: %d", stars), 500, 340, 28, GOLD);
-        DrawText(TextFormat("Time: %.1fs", m_gameState->GetClearTime()), 480, 380, 24, WHITE);
-        if (player) {
-            DrawText(TextFormat("Score: %d", player->GetScore()), 480, 410, 24, WHITE);
-        }
-        DrawText("Press ENTER to return to menu", 390, 470, 22, LIGHTGRAY);
-    }
-
     View::TutorialRenderer::GetInstance().RenderDialog();
 }
 
 void GameController::Shutdown() {
+    SaveManager::GetInstance().Save();
     SoundManager::GetInstance().StopAllMusic();
     SoundManager::GetInstance().StopAllSounds();
     m_gameState.reset();
@@ -1706,6 +1879,7 @@ void GameController::Shutdown() {
     View::CharacterRenderer::GetInstance().Clear();
     View::EntityRenderer::GetInstance().Clear();
     View::UIStateManager::GetInstance().Clear();
+    View::ResultView::GetInstance().Dismiss();
     View::HUDView::GetInstance().SetVisible(false);
     View::MenuView::GetInstance().SetVisible(false);
 
@@ -2013,13 +2187,17 @@ void GameController::UpdatePets(float dt, const InputCommand& cmd) {
     // Fairy collecting items
     if (m_activePet->GetPetType() == PetType::Fairy) {
         std::vector<int> collectedIds;
+        bool persistentCoinsChanged = false;
         for (Entity* itemEnt : items) {
-            if (itemEnt->IsActive() && RectOverlap(m_activePet->GetBoundingBox(), itemEnt->GetBoundingBox())) {
+            if (itemEnt->IsActive() &&
+                RectOverlap(m_activePet->GetBoundingBox(), ItemPickupBox(*itemEnt))) {
                 Item* item = static_cast<Item*>(itemEnt);
                 
                 switch (item->GetItemType()) {
                     case ItemType::Coin:
                         player->GetInventory().AddCoins(item->GetAmount());
+                        SaveManager::GetInstance().AddCoins(item->GetAmount());
+                        persistentCoinsChanged = true;
                         player->AddScore(item->GetAmount() * 10);
                         m_scoring.AddScore(item->GetAmount() * 10);
                         break;
@@ -2028,6 +2206,9 @@ void GameController::UpdatePets(float dt, const InputCommand& cmd) {
                         break;
                     case ItemType::Key:
                         player->GetInventory().AddKeys(1);
+                        break;
+                    case ItemType::Potion:
+                        player->Heal(50);
                         break;
                     default:
                         player->GetInventory().AddItem(
@@ -2047,6 +2228,7 @@ void GameController::UpdatePets(float dt, const InputCommand& cmd) {
             UnregisterEntityVisuals(id);
             m_gameState->RemoveEntity(id);
         }
+        if (persistentCoinsChanged) SaveManager::GetInstance().Save();
     }
 
     // Dragon/Skull fire

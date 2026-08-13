@@ -20,6 +20,8 @@ protected:
     int m_defeatedEnemies;
     int m_totalEnemies;
     float m_clearTime;
+    float m_parTime;
+    float m_performance;
     std::vector<ScoreEntry> m_leaderboard;
 
 public:
@@ -36,11 +38,19 @@ public:
     void CollectItem();
     void DefeatEnemy();
     void SetClearTime(float time);
+    void SetParTime(float time);
     void SetTotals(int items, int enemies);
 
     float GetClearTime() const;
     int GetCollectedItems() const;
     int GetDefeatedEnemies() const;
+    int GetTotalItems() const;
+    int GetTotalEnemies() const;
+    float GetParTime() const;
+    float GetItemRatio() const;
+    float GetEnemyRatio() const;
+    float GetTimeRatio() const;
+    float GetPerformance() const;
 
     bool IsNewHighScore() const;
     void SaveScore(const std::string& playerName);

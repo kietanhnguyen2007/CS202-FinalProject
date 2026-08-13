@@ -10,6 +10,15 @@
 
 namespace View {
 
+namespace {
+void DrawPanel(Texture2D texture, Rectangle rect, float border = 12.0f, Color tint = WHITE) {
+    if (!texture.id) return;
+    NPatchInfo patch{{0.0f, 0.0f, (float)texture.width, (float)texture.height},
+                     (int)border, (int)border, (int)border, (int)border, NPATCH_NINE_PATCH};
+    ::DrawTextureNPatch(texture, patch, rect, {0.0f, 0.0f}, 0.0f, tint);
+}
+}
+
 TutorialRenderer& TutorialRenderer::GetInstance() {
     static TutorialRenderer instance;
     return instance;
@@ -21,6 +30,9 @@ bool TutorialRenderer::Init() {
     m_signTexture = ::LoadTexture("assets/textures/tutorial/signboard.png");
     m_cupTexture = ::LoadTexture("assets/textures/tutorial/golden_trophy.png");
     m_keyTexture = ::LoadTexture("assets/textures/tutorial/kb_dark_all.png");
+    m_panelBrown = ::LoadTexture("assets/ui/kenney_rpg/panel_brown.png");
+    m_panelInsetBrown = ::LoadTexture("assets/ui/kenney_rpg/panelInset_brown.png");
+    m_buttonRoundBrown = ::LoadTexture("assets/ui/kenney_rpg/buttonRound_brown.png");
 
     const char* ignoredGlyphText = u8"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
         u8" .,!?():-/[]'\""
@@ -56,6 +68,9 @@ bool TutorialRenderer::Init() {
     if (m_signTexture.id != 0) ::SetTextureFilter(m_signTexture, TEXTURE_FILTER_POINT);
     if (m_cupTexture.id != 0) ::SetTextureFilter(m_cupTexture, TEXTURE_FILTER_POINT);
     if (m_keyTexture.id != 0) ::SetTextureFilter(m_keyTexture, TEXTURE_FILTER_POINT);
+    if (m_panelBrown.id != 0) ::SetTextureFilter(m_panelBrown, TEXTURE_FILTER_POINT);
+    if (m_panelInsetBrown.id != 0) ::SetTextureFilter(m_panelInsetBrown, TEXTURE_FILTER_POINT);
+    if (m_buttonRoundBrown.id != 0) ::SetTextureFilter(m_buttonRoundBrown, TEXTURE_FILTER_POINT);
 
     m_initialized = true;
     return m_signTexture.id != 0 && m_cupTexture.id != 0 && m_keyTexture.id != 0;
@@ -66,10 +81,16 @@ void TutorialRenderer::Shutdown() {
     if (m_signTexture.id != 0) ::UnloadTexture(m_signTexture);
     if (m_cupTexture.id != 0) ::UnloadTexture(m_cupTexture);
     if (m_keyTexture.id != 0) ::UnloadTexture(m_keyTexture);
+    if (m_panelBrown.id != 0) ::UnloadTexture(m_panelBrown);
+    if (m_panelInsetBrown.id != 0) ::UnloadTexture(m_panelInsetBrown);
+    if (m_buttonRoundBrown.id != 0) ::UnloadTexture(m_buttonRoundBrown);
     if (m_font.texture.id != 0) ::UnloadFont(m_font);
     m_signTexture = {};
     m_cupTexture = {};
     m_keyTexture = {};
+    m_panelBrown = {};
+    m_panelInsetBrown = {};
+    m_buttonRoundBrown = {};
     m_font = {};
     m_dialogText.clear();
     m_dialogVisible = false;
@@ -139,7 +160,9 @@ void TutorialRenderer::RenderAll(const std::vector<std::unique_ptr<Entity>>& ent
             Rectangle keySource{};
             const int frame = static_cast<int>(m_time * 8.0f) % 4;
             if (m_keyTexture.id == 0 || !GetKeySource(guide->GetKey(), frame, keySource)) continue;
-            const float bob = std::sin(m_time * 3.0f + entity->GetId() * 0.43f) * 4.0f;
+            // Use one shared bob phase so prompts authored on the same guide
+            // line remain visually aligned instead of drifting independently.
+            const float bob = std::sin(m_time * 3.0f) * 4.0f;
             Vector2 iconPos{pos.x, pos.y + bob};
             renderer.SubmitSprite(&m_keyTexture, keySource,
                                   iconPos, {4.0f, 4.0f}, 0.0f, {}, WHITE,
@@ -154,13 +177,21 @@ void TutorialRenderer::RenderAll(const std::vector<std::unique_ptr<Entity>>& ent
     if (captions.empty() || m_font.texture.id == 0) return;
     renderer.EndFrameAndFlush();
     for (const auto& caption : captions) {
-        constexpr float fontSize = 15.0f;
+        constexpr float fontSize = 22.0f;
         constexpr float spacing = 1.0f;
         Vector2 measured = ::MeasureTextEx(m_font, caption.text.c_str(), fontSize, spacing);
-        Vector2 textPos{caption.pos.x - measured.x * 0.5f, caption.pos.y};
-        ::DrawTextEx(m_font, caption.text.c_str(), {textPos.x + 1.0f, textPos.y + 1.0f},
-                     fontSize, spacing, BLACK);
-        ::DrawTextEx(m_font, caption.text.c_str(), textPos, fontSize, spacing, WHITE);
+        const float panelWidth = std::max(104.0f, measured.x + 34.0f);
+        Rectangle plate{caption.pos.x - panelWidth * 0.5f, caption.pos.y - 5.0f,
+                        panelWidth, 38.0f};
+        ::DrawRectangleRounded({plate.x + 3.0f, plate.y + 4.0f, plate.width, plate.height},
+                               0.20f, 8, Color{12, 7, 4, 145});
+        DrawPanel(m_panelBrown, plate, 12.0f);
+        Vector2 textPos{caption.pos.x - measured.x * 0.5f,
+                        plate.y + (plate.height - measured.y) * 0.5f - 1.0f};
+        ::DrawTextEx(m_font, caption.text.c_str(), {textPos.x + 1.5f, textPos.y + 2.0f},
+                     fontSize, spacing, Color{50, 24, 11, 220});
+        ::DrawTextEx(m_font, caption.text.c_str(), textPos, fontSize, spacing,
+                     Color{255, 239, 190, 255});
     }
 }
 
@@ -176,106 +207,115 @@ void TutorialRenderer::HideDialog() {
 
 bool TutorialRenderer::IsDialogVisible() const { return m_dialogVisible; }
 
-void TutorialRenderer::DrawWrappedText(const std::string& text, Rectangle bounds,
-                                       float fontSize, float spacing, float lineHeight,
-                                       Color color) const {
+void TutorialRenderer::DrawWrappedCenteredText(const std::string& text, Rectangle bounds,
+                                               float fontSize, float spacing, float lineHeight,
+                                               Color color) const {
     std::istringstream input(text);
     std::string word;
     std::string line;
-    float y = bounds.y;
+    std::vector<std::string> lines;
     while (input >> word) {
         std::string candidate = line.empty() ? word : line + " " + word;
         if (!line.empty() && ::MeasureTextEx(m_font, candidate.c_str(), fontSize, spacing).x > bounds.width) {
-            ::DrawTextEx(m_font, line.c_str(), {bounds.x, y}, fontSize, spacing, color);
-            y += lineHeight;
+            lines.push_back(line);
             line = word;
         } else {
             line = std::move(candidate);
         }
     }
-    if (!line.empty() && y <= bounds.y + bounds.height) {
-        ::DrawTextEx(m_font, line.c_str(), {bounds.x, y}, fontSize, spacing, color);
+    if (!line.empty()) lines.push_back(line);
+
+    const float blockHeight = lines.empty() ? 0.0f : (lines.size() - 1) * lineHeight + fontSize;
+    float y = bounds.y + (bounds.height - blockHeight) * 0.5f;
+    for (const std::string& centeredLine : lines) {
+        Vector2 measured = ::MeasureTextEx(m_font, centeredLine.c_str(), fontSize, spacing);
+        const float x = bounds.x + (bounds.width - measured.x) * 0.5f;
+        ::DrawTextEx(m_font, centeredLine.c_str(), {x + 2.0f, y + 2.0f},
+                     fontSize, spacing, Color{109, 67, 37, 125});
+        ::DrawTextEx(m_font, centeredLine.c_str(), {x, y}, fontSize, spacing, color);
+        y += lineHeight;
     }
 }
 
 void TutorialRenderer::RenderDialog() const {
     if (!m_dialogVisible || m_font.texture.id == 0) return;
-    int screenWidth = ::GetScreenWidth();
-    int screenHeight = ::GetScreenHeight();
+    const int screenWidth = ::GetScreenWidth();
+    const int screenHeight = ::GetScreenHeight();
+    const float scale = std::clamp(std::min(screenWidth / 1280.0f, screenHeight / 720.0f), 0.72f, 1.4f);
     Rectangle panel{
-        screenWidth * 0.15f,
-        screenHeight * 0.19f,
-        screenWidth * 0.70f,
-        screenHeight * 0.57f
+        screenWidth * 0.12f,
+        screenHeight * 0.16f,
+        screenWidth * 0.76f,
+        screenHeight * 0.64f
     };
-    Rectangle shadow{panel.x + 12.0f, panel.y + 14.0f, panel.width, panel.height};
-    Rectangle paper{panel.x + 34.0f, panel.y + 102.0f,
-                    panel.width - 68.0f, panel.height - 168.0f};
-    Rectangle header{panel.x + 112.0f, panel.y + 22.0f,
-                     panel.width - 224.0f, 58.0f};
+    Rectangle shadow{panel.x + 12.0f*scale, panel.y + 14.0f*scale, panel.width, panel.height};
+    Rectangle header{panel.x + 128.0f*scale, panel.y + 25.0f*scale,
+                     panel.width - 256.0f*scale, 66.0f*scale};
+    Rectangle paper{panel.x + 42.0f*scale, panel.y + 112.0f*scale,
+                    panel.width - 84.0f*scale, panel.height - 184.0f*scale};
 
     ::DrawRectangle(0, 0, screenWidth, screenHeight, Color{5, 3, 2, 175});
-    ::DrawRectangleRounded(shadow, 0.055f, 12, Color{10, 6, 4, 185});
-    ::DrawRectangleRounded(panel, 0.055f, 12, Color{78, 39, 20, 255});
-    ::DrawRectangleRoundedLinesEx(panel, 0.055f, 12, 6.0f, Color{45, 23, 13, 255});
+    ::DrawRectangleRounded(shadow, 0.06f, 12, Color{10, 6, 4, 190});
+    DrawPanel(m_panelBrown, panel, 14.0f);
+    ::DrawRectangleRounded(paper, 0.035f, 10, Color{246, 226, 173, 255});
+    DrawPanel(m_panelInsetBrown, paper, 14.0f, Color{255, 238, 194, 255});
+    DrawPanel(m_panelBrown, header, 13.0f, Color{235, 207, 159, 255});
 
-    for (int i = 1; i < 5; ++i) {
-        float y = panel.y + panel.height * (float)i / 5.0f;
-        ::DrawLineEx({panel.x + 9.0f, y}, {panel.x + panel.width - 9.0f, y},
-                     3.0f, Color{55, 28, 16, 210});
-        ::DrawLineEx({panel.x + 12.0f, y + 3.0f}, {panel.x + panel.width - 12.0f, y + 3.0f},
-                     1.0f, Color{119, 66, 32, 190});
+    // Decorative medallions make the guide feel like a finished RPG interface.
+    if (m_buttonRoundBrown.id != 0) {
+        const float studSize = 38.0f * scale;
+        const Vector2 studs[] = {
+            {panel.x + 15.0f*scale, panel.y + 15.0f*scale},
+            {panel.x + panel.width - 15.0f*scale - studSize, panel.y + 15.0f*scale},
+            {panel.x + 15.0f*scale, panel.y + panel.height - 15.0f*scale - studSize},
+            {panel.x + panel.width - 15.0f*scale - studSize,
+             panel.y + panel.height - 15.0f*scale - studSize}
+        };
+        for (Vector2 stud : studs) {
+            ::DrawTexturePro(m_buttonRoundBrown,
+                             {0,0,(float)m_buttonRoundBrown.width,(float)m_buttonRoundBrown.height},
+                             {stud.x, stud.y, studSize, studSize}, {0,0}, 0.0f, WHITE);
+        }
     }
-
-    const Vector2 studs[] = {
-        {panel.x + 20.0f, panel.y + 20.0f},
-        {panel.x + panel.width - 20.0f, panel.y + 20.0f},
-        {panel.x + 20.0f, panel.y + panel.height - 20.0f},
-        {panel.x + panel.width - 20.0f, panel.y + panel.height - 20.0f}
-    };
-    for (Vector2 stud : studs) {
-        ::DrawCircleV(stud, 8.0f, Color{75, 42, 17, 255});
-        ::DrawCircleV(stud, 5.0f, Color{226, 170, 60, 255});
-        ::DrawCircleV({stud.x - 1.5f, stud.y - 1.5f}, 1.5f, Color{255, 229, 138, 255});
-    }
-
-    ::DrawRectangleRounded(header, 0.18f, 10, Color{48, 25, 15, 255});
-    ::DrawRectangleRoundedLinesEx(header, 0.18f, 10, 3.0f, Color{193, 120, 44, 255});
     if (m_signTexture.id != 0) {
         ::DrawTexturePro(m_signTexture,
                          {0.0f, 0.0f, (float)m_signTexture.width, (float)m_signTexture.height},
-                         {panel.x + 30.0f, panel.y + 10.0f, 72.0f, 72.0f},
+                         {panel.x + 41.0f*scale, panel.y + 15.0f*scale, 82.0f*scale, 82.0f*scale},
                          {0.0f, 0.0f}, 0.0f, WHITE);
     }
 
-    ::DrawRectangleRounded(paper, 0.045f, 10, Color{239, 220, 168, 255});
-    ::DrawRectangleRoundedLinesEx(paper, 0.045f, 10, 4.0f, Color{119, 70, 30, 255});
-    ::DrawLineEx({paper.x + 18.0f, paper.y + 14.0f},
-                 {paper.x + paper.width - 18.0f, paper.y + 14.0f},
-                 2.0f, Color{205, 174, 112, 255});
-
     const char* title = "FIELD GUIDE";
-    Vector2 titleSize = ::MeasureTextEx(m_font, title, 31.0f, 1.5f);
+    const float titleFontSize = 38.0f * scale;
+    Vector2 titleSize = ::MeasureTextEx(m_font, title, titleFontSize, 2.0f);
+    ::DrawTextEx(m_font, title,
+                 {header.x + (header.width - titleSize.x) * 0.5f + 2.0f*scale,
+                  header.y + (header.height - titleSize.y) * 0.5f + 2.0f*scale},
+                 titleFontSize, 2.0f, Color{54, 27, 12, 190});
     ::DrawTextEx(m_font, title,
                  {header.x + (header.width - titleSize.x) * 0.5f,
                   header.y + (header.height - titleSize.y) * 0.5f - 1.0f},
-                 31.0f, 1.5f, Color{255, 221, 132, 255});
-    DrawWrappedText(m_dialogText,
-                    {paper.x + 24.0f, paper.y + 28.0f,
-                     paper.width - 48.0f, paper.height - 48.0f},
-                    25.0f, 1.0f, 35.0f, Color{57, 34, 23, 255});
+                 titleFontSize, 2.0f, Color{255, 238, 185, 255});
+
+    const float bodyFontSize = 30.0f * scale;
+    DrawWrappedCenteredText(m_dialogText,
+                    {paper.x + 36.0f*scale, paper.y + 22.0f*scale,
+                     paper.width - 72.0f*scale, paper.height - 44.0f*scale},
+                    bodyFontSize, 1.4f, 42.0f*scale, Color{62, 35, 20, 255});
+
     const char* closeHint = "[F / ENTER / ESC] Close";
-    Vector2 hintSize = ::MeasureTextEx(m_font, closeHint, 18.0f, 1.0f);
+    const float hintFontSize = 20.0f * scale;
+    Vector2 hintSize = ::MeasureTextEx(m_font, closeHint, hintFontSize, 1.0f);
     Rectangle hintPlate{
-        panel.x + panel.width - hintSize.x - 58.0f,
-        panel.y + panel.height - 50.0f,
-        hintSize.x + 34.0f,
-        32.0f
+        panel.x + (panel.width - hintSize.x - 38.0f*scale) * 0.5f,
+        panel.y + panel.height - 56.0f*scale,
+        hintSize.x + 38.0f*scale,
+        36.0f*scale
     };
-    ::DrawRectangleRounded(hintPlate, 0.25f, 8, Color{45, 23, 14, 235});
+    DrawPanel(m_panelBrown, hintPlate, 11.0f, Color{215, 191, 150, 255});
     ::DrawTextEx(m_font, closeHint,
-                 {hintPlate.x + 17.0f, hintPlate.y + 6.0f},
-                 18.0f, 1.0f, Color{245, 211, 126, 255});
+                 {hintPlate.x + (hintPlate.width - hintSize.x) * 0.5f,
+                  hintPlate.y + (hintPlate.height - hintSize.y) * 0.5f},
+                 hintFontSize, 1.0f, Color{255, 239, 194, 255});
 }
 
 } // namespace View

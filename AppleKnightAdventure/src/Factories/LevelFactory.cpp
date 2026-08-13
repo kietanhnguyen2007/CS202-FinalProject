@@ -707,6 +707,89 @@ std::unique_ptr<GameState> LevelFactory::LoadLDtkLevel(const std::string& filepa
     // Merge new entities so they are available in GetAllEntities()
     state->MergeNewEntities();
 
+    // Tutorial Area 6: item pickup lesson. Keep the authored final island as the
+    // pickup room, clone its closed tile rectangle one room to the right, and
+    // move the original finish props into that new Area 7 room.
+    if (std::filesystem::path(filepath).filename() == "tutorial.ldtk" && levelIndex == 0) {
+        // The authored room begins at column 420. Starting at 424 omitted the
+        // four-tile left wall when the finish room was cloned.
+        constexpr int finalIslandStartTile = 420;
+        constexpr int roomShiftTiles = 85;
+        constexpr int extendedMapWidth = 545;
+        const float roomShift = roomShiftTiles * (float)TILE_SIZE;
+        const float finalIslandStart = finalIslandStartTile * (float)TILE_SIZE;
+
+        for (MapLayer layer : {MapLayer::Background, MapLayer::Main, MapLayer::Foreground}) {
+            std::vector<Tile> clonedTiles;
+            for (const Tile& tile : state->GetTiles(layer)) {
+                if (tile.x < finalIslandStartTile) continue;
+                Tile clone = tile;
+                clone.x += roomShiftTiles;
+                clonedTiles.push_back(clone);
+            }
+            for (const Tile& clone : clonedTiles) state->AddTile(layer, clone);
+        }
+        state->SetMapSize(extendedMapWidth, state->GetMapHeight());
+
+        for (const auto& entity : state->GetAllEntities()) {
+            if (!entity) continue;
+            const EntityType type = entity->GetType();
+            if (entity->GetPosition().x >= finalIslandStart &&
+                (type == EntityType::Signboard || type == EntityType::InMapGuide ||
+                 type == EntityType::LevelCompleteCup)) {
+                Vector2 moved = entity->GetPosition();
+                moved.x += roomShift;
+                entity->SetPosition(moved);
+            }
+
+            // Keep every tutorial prompt on one clean horizontal guide line.
+            // The four directional prompts in Area 1 deliberately keep their
+            // diamond layout, so the player can read them as a D-pad.
+            if (type == EntityType::InMapGuide) {
+                auto* guide = static_cast<InMapGuide*>(entity.get());
+                const std::string& key = guide->GetKey();
+                const bool isDirection = key == "UP" || key == "DOWN" ||
+                                         key == "LEFT" || key == "RIGHT";
+                const bool isArea1Movement = isDirection &&
+                    entity->GetPosition().x < 20.0f * TILE_SIZE;
+                if (!isArea1Movement) {
+                    Vector2 aligned = entity->GetPosition();
+                    aligned.y = 10.0f * TILE_SIZE;
+                    entity->SetPosition(aligned);
+                }
+            }
+        }
+
+        state->AddEntity(std::make_unique<Signboard>(
+            Vector2{433.0f * TILE_SIZE, 16.5f * TILE_SIZE},
+            "AREA 6 - PICKUPS: Walk over Coins to collect them. A Heal Potion restores 50 HP immediately when picked up and is not stored."));
+        state->AddEntity(std::make_unique<InMapGuide>(
+            Vector2{434.0f * TILE_SIZE, 10.0f * TILE_SIZE}, "F", "Press F to read"));
+        state->AddEntity(std::make_unique<InMapGuide>(
+            Vector2{443.0f * TILE_SIZE, 10.0f * TILE_SIZE}, "RIGHT", "Walk over items to collect"));
+
+        state->AddEntity(ItemFactory::CreateCoin(
+            Vector2{442.0f * TILE_SIZE, 16.5f * TILE_SIZE}, 1));
+        state->AddEntity(ItemFactory::CreateCoin(
+            Vector2{444.0f * TILE_SIZE, 16.5f * TILE_SIZE}, 1));
+        state->AddEntity(ItemFactory::CreateCoin(
+            Vector2{446.0f * TILE_SIZE, 16.5f * TILE_SIZE}, 1));
+        state->AddEntity(ItemFactory::CreatePotion(
+            Vector2{448.0f * TILE_SIZE, 16.5f * TILE_SIZE}, 1));
+        autoItems += 4;
+
+        // Color 6 is reserved for the new Area 6 -> Area 7 connection.
+        state->AddEntity(std::make_unique<TeleportPortal>(
+            Vector2{452.0f * TILE_SIZE + 10.0f, 14.0f * TILE_SIZE + 40.0f},
+            PortalType::Local, 6, -1));
+        state->AddEntity(std::make_unique<InMapGuide>(
+            Vector2{453.0f * TILE_SIZE, 10.0f * TILE_SIZE}, "F", "Press F to enter"));
+        state->AddEntity(std::make_unique<TeleportPortal>(
+            Vector2{510.0f * TILE_SIZE + 10.0f, 14.0f * TILE_SIZE + 40.0f},
+            PortalType::Local, 6, -1));
+        state->MergeNewEntities();
+    }
+
     // Link local portals
     std::vector<TeleportPortal*> localPortals;
     for (auto& entity : state->GetAllEntities()) {

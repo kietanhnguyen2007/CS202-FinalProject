@@ -31,6 +31,9 @@ public:
     int GetLevelBestStars(int level) const;
     void SetLevelBestStars(int level, int stars);
 
+    float GetLevelBestTime(int level) const;
+    void SetLevelBestTime(int level, float seconds);
+
     std::string GetSelectedChar() const;
     void SetSelectedChar(const std::string& charId);
     
@@ -49,6 +52,7 @@ private:
     bool isFirstTimePlaying;
     std::map<int, int> levelHighScores;
     std::map<int, int> levelBestStars;
+    std::map<int, int> levelBestTimesMs;
     std::string selectedChar = "knight";
     std::string selectedPet = ""; // empty means no pet
 };

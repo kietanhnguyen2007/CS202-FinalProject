@@ -78,19 +78,6 @@ void Player::Update(float deltaTime) {
     // Tick skill set
     if (m_skills) m_skills->Update(deltaTime);
 
-    // ---- Auto consume Potion if hurt ----
-    if (m_health < m_maxHealth) {
-        Inventory& inv = GetInventory();
-        for (int i = 0; i < inv.GetItemCount(); ++i) {
-            Item* item = inv.GetItem(i);
-            if (item && item->GetItemType() == ItemType::Potion) {
-                Heal(50);
-                inv.RemoveItem(i);
-                break; // Consume one at a time
-            }
-        }
-    }
-
     // Tick dash cooldown
     if (m_dashCooldown > 0.0f) {
         m_dashCooldown -= deltaTime;

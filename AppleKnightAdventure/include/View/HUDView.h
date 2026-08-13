@@ -4,8 +4,10 @@
 #include "View/TextureAtlas.h"
 #include "View/Animator.h"
 #include "Model/Player.h"
-#include <string>
 #include <memory>
+#include <string>
+
+class Boss;
 
 namespace View {
 
@@ -16,8 +18,7 @@ public:
     bool Init();
     bool LoadResources(const std::string& atlasJsonPath);
     void Shutdown();
-
-    void Update(float dt, const Player* player);
+    void Update(float dt, const Player* player, const Boss* boss = nullptr);
     void Render();
 
     void SetVisible(bool v) { m_visible = v; }
@@ -26,24 +27,34 @@ public:
 
 private:
     HUDView() = default;
+    void LoadAvatar(CharacterClass characterClass);
+
     bool m_visible = true;
-    const Player* m_player = nullptr;
     bool m_loaded = false;
     bool m_isPlaytest = false;
     bool m_wantsQuitTest = false;
+    const Player* m_player = nullptr;
+    const Boss* m_boss = nullptr;
+    const Boss* m_lastBoss = nullptr;
 
-    // Dark Dwellers HUD textures
-    Texture2D m_texBarBg{};         // Bar background frame
-    Texture2D m_texBarFill{};       // HP bar fill
-    Texture2D m_texBarFillMP{};     // MP bar fill
-    Texture2D m_texBarFillSP{};     // SP bar fill
-    Texture2D m_texBarFillUlt{};    // Ultimate bar fill
-    Texture2D m_texStatusSlot{};    // Buff/debuff slot sprite sheet (5 frames)
-    Texture2D m_texPortrait{};      // Portrait frame decoration
+    float m_displayHp = 1.0f;
+    float m_damageTrailHp = 1.0f;
+    float m_bossDisplayHp = 1.0f;
+    float m_bossDamageTrailHp = 1.0f;
+    float m_time = 0.0f;
 
-    int m_statusSlotFrameW = 0;     // Width of a single frame in the status slot sheet
-
-    // Coin icon animation (kept from original)
+    Texture2D m_panelBrown{};
+    Texture2D m_panelInsetBrown{};
+    Texture2D m_buttonRoundBrown{};
+    Texture2D m_barBackLeft{};
+    Texture2D m_barBackMid{};
+    Texture2D m_barBackRight{};
+    Texture2D m_barRedLeft{};
+    Texture2D m_barRedMid{};
+    Texture2D m_barRedRight{};
+    std::shared_ptr<Animations::TextureAtlas> m_avatarAtlas;
+    Rectangle m_avatarSource{};
+    int m_avatarClass = -1;
     std::shared_ptr<Animations::TextureAtlas> m_coinAtlas;
     Animations::Animator m_coinAnim;
 };

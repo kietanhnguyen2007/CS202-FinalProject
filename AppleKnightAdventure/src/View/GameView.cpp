@@ -436,6 +436,7 @@ void GameView::Render(const Camera2D& camera, const std::vector<Particle*>& part
 }
 
 void GameView::Shutdown() {
+    View::ResultView::GetInstance().Shutdown();
     View::CharacterRenderer::GetInstance().Clear();
     View::EntityRenderer::GetInstance().Clear();
     View::ParticleRenderer::GetInstance().Shutdown();

@@ -26,13 +26,16 @@ private:
     TutorialRenderer() = default;
 
     bool GetKeySource(const std::string& key, int frame, Rectangle& source) const;
-    void DrawWrappedText(const std::string& text, Rectangle bounds,
-                         float fontSize, float spacing, float lineHeight,
-                         Color color) const;
+    void DrawWrappedCenteredText(const std::string& text, Rectangle bounds,
+                                 float fontSize, float spacing, float lineHeight,
+                                 Color color) const;
 
     Texture2D m_signTexture{};
     Texture2D m_cupTexture{};
     Texture2D m_keyTexture{};
+    Texture2D m_panelBrown{};
+    Texture2D m_panelInsetBrown{};
+    Texture2D m_buttonRoundBrown{};
     Font m_font{};
     float m_time = 0.0f;
     bool m_initialized = false;

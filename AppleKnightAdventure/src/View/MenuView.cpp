@@ -64,6 +64,7 @@ bool MenuView::LoadResources(const std::string& atlasJsonPath) {
     // Try custom fonts first, fall back to raylib default
     m_fontTitle = ::LoadFont("assets/fonts/game_font.ttf");
     m_fontBody  = ::LoadFont("assets/fonts/game_font.ttf");
+    m_levelStarIcon = ::LoadTexture("assets/ui/victory/icon_star.png");
     if (m_fontTitle.texture.id != 0 && m_fontBody.texture.id != 0) {
         m_fontsLoaded = true;
     } else {
@@ -87,6 +88,10 @@ void MenuView::Shutdown() {
         ::UnloadFont(m_fontTitle);
         ::UnloadFont(m_fontBody);
         m_fontsLoaded = false;
+    }
+    if (m_levelStarIcon.id != 0) {
+        ::UnloadTexture(m_levelStarIcon);
+        m_levelStarIcon = {};
     }
     m_loaded = false;
 }
@@ -188,6 +193,10 @@ void MenuView::ShowLevelSelect(int totalLevels, int currentUnlocked) {
     m_totalLevels    = totalLevels;
     m_unlockedLevels = currentUnlocked;
     m_selected       = 0;
+}
+
+void MenuView::SetLevelStars(const std::vector<int>& bestStars) {
+    m_levelBestStars = bestStars;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -894,6 +903,99 @@ void MenuView::RenderShop() {
 // ── RENDER LEVEL SELECT ──────────────────────────────────────────────────────
 // =============================================================================
 void MenuView::RenderLevelSelect() {
+    {
+        const int screenW = Renderer::GetInstance().GetWindowWidth();
+        const int screenH = Renderer::GetInstance().GetWindowHeight();
+        const Font font = m_fontsLoaded ? m_fontBody : ::GetFontDefault();
+        auto drawCentered = [&](const char* text, float centerX, float y,
+                                float size, Color color, float spacing = 1.0f) {
+            const Vector2 measured = ::MeasureTextEx(font, text, size, spacing);
+            ::DrawTextEx(font, text, {centerX-measured.x*0.5f,y}, size, spacing, color);
+        };
+
+        ::DrawRectangle(0,0,screenW,screenH,Color{8,6,18,255});
+        const float pulse = sinf(m_spotlightPulse*2.2f)*0.5f+0.5f;
+        const float headerH = screenH*0.052f;
+        ::DrawRectangle(0,0,screenW,(int)headerH,Color{0,0,0,100});
+        ::DrawTextEx(font,m_playerName.c_str(),{18.0f,headerH*0.20f},
+                     std::max(14.0f,headerH*0.55f),1.0f,Color{220,200,255,220});
+        drawCentered("SELECT LEVEL",screenW*0.5f,screenH*0.075f,
+                     std::max(26.0f,screenH*0.058f),Color{255,230,80,255},2.0f);
+
+        constexpr int columns = 3;
+        const int rows = std::max(1,(m_totalLevels+columns-1)/columns);
+        const float gridW = screenW*0.76f;
+        const float gapX = screenW*0.035f;
+        const float gapY = screenH*0.045f;
+        const float cardW = (gridW-gapX*(columns-1))/columns;
+        const float cardH = std::min(screenH*0.255f,
+            (screenH*0.64f-gapY*(rows-1))/rows);
+        const float startX = (screenW-gridW)*0.5f;
+        const float startY = screenH*0.19f;
+
+        for (int i=0;i<m_totalLevels;++i) {
+            const int col=i%columns;
+            const int row=i/columns;
+            const float x=startX+col*(cardW+gapX);
+            const float y=startY+row*(cardH+gapY);
+            const bool unlocked=i<m_unlockedLevels;
+            const bool selected=m_selected==i;
+            if (selected) {
+                const float glow=6.0f+pulse*7.0f;
+                ::DrawRectangleRounded({x-glow,y-glow,cardW+glow*2,cardH+glow*2},
+                    0.12f,10,unlocked?Color{240,190,55,70}:Color{180,55,70,65});
+            }
+            const Color bg=unlocked
+                ?(selected?Color{74,56,116,245}:Color{40,30,65,235})
+                :Color{20,18,30,225};
+            const Color border=unlocked
+                ?(selected?Color{255,218,75,255}:Color{130,100,180,210})
+                :Color{65,55,78,190};
+            ::DrawRectangleRounded({x,y,cardW,cardH},0.10f,10,bg);
+            ::DrawRectangleRoundedLinesEx({x,y,cardW,cardH},0.10f,10,
+                                           selected?4.0f:2.0f,border);
+
+            char label[24];
+            std::snprintf(label,sizeof(label),"LEVEL %d",i+1);
+            drawCentered(label,x+cardW*0.5f,y+cardH*0.13f,
+                         std::max(18.0f,cardH*0.16f),
+                         unlocked?Color{255,240,190,255}:Color{105,98,120,220});
+            if (unlocked) {
+                const int earned=i<(int)m_levelBestStars.size()
+                    ?std::clamp(m_levelBestStars[i],0,3):0;
+                const float starSize=std::min(cardW*0.17f,cardH*0.25f);
+                const float starGap=starSize*0.22f;
+                const float starRowW=starSize*3.0f+starGap*2.0f;
+                const float starX=x+(cardW-starRowW)*0.5f;
+                const float starY=y+cardH*0.49f;
+                for (int star=0;star<3;++star) {
+                    const Color tint=star<earned?Color{255,220,75,255}:Color{82,74,103,210};
+                    if (m_levelStarIcon.id!=0) {
+                        ::DrawTexturePro(m_levelStarIcon,
+                            {0,0,(float)m_levelStarIcon.width,(float)m_levelStarIcon.height},
+                            {starX+star*(starSize+starGap),starY,starSize,starSize},
+                            {0,0},0.0f,tint);
+                    } else {
+                        drawCentered("*",starX+star*(starSize+starGap)+starSize*0.5f,
+                                     starY,starSize,tint);
+                    }
+                }
+                drawCentered(earned>0?"BEST RESULT":"NOT CLEARED",x+cardW*0.5f,
+                             y+cardH*0.80f,std::max(12.0f,cardH*0.09f),
+                             earned>0?Color{255,222,125,230}:Color{155,145,180,210});
+            } else {
+                drawCentered("LOCKED",x+cardW*0.5f,y+cardH*0.56f,
+                             std::max(14.0f,cardH*0.12f),Color{145,125,165,210});
+            }
+        }
+        drawCentered("[<- ->] NAVIGATE     [ENTER] SELECT     [ESC] BACK",
+                     screenW*0.5f,screenH*0.925f,std::max(13.0f,screenH*0.021f),
+                     Color{175,162,205,220});
+    }
+    return;
+
+#if 0 // Replaced by the responsive saved-star layout above.
+
     int sw = Renderer::GetInstance().GetWindowWidth();
     int sh = Renderer::GetInstance().GetWindowHeight();
 
@@ -974,4 +1076,5 @@ void MenuView::RenderLevelSelect() {
         int hw = ::MeasureText(hint, hfs);
         ::DrawText(hint, (sw-hw)/2, (int)(sh*0.90f), hfs, Color{160,150,190,200});
     }
+#endif
 }

@@ -5625,7 +5625,7 @@
                                                                                                      {
                                                                                                          "__type":  "String",
                                                                                                          "__identifier":  "Message",
-                                                                                                         "__value":  "AREA 6 - FINISH: Stand near the golden trophy button and press F to complete the Tutorial.",
+                                                                                                                        "__value":  "AREA 7 - FINISH: Stand near the golden trophy button and press F to complete the Tutorial.",
                                                                                                          "__tile":  null,
                                                                                                          "defUid":  117,
                                                                                                          "realEditorValues":  [

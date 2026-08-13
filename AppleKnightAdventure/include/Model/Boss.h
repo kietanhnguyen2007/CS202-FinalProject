@@ -43,6 +43,10 @@ public:
     virtual void ResetToPhase1();
 
     int GetBossType() const { return m_bossType; }
+    int GetCurrentPhaseNumber() const { return static_cast<int>(m_currentPhase) + 1; }
+    int GetTotalPhases() const {
+        return (m_bossType == 1) ? 2 : (m_bossType == 2) ? 3 : 4;
+    }
     virtual bool IsFinalPhase() const = 0;
     
     Vector2 GetCenter() const {

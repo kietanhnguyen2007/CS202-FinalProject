@@ -89,6 +89,8 @@ private:
     void CheckLevelComplete();
     void OnEntityRemoved(Entity* entity);
     void RespawnPlayer();
+    void CaptureCheckpointEnemies(float checkpointX);
+    void RestoreCheckpointEnemies();
 
     // Boss Arena helpers
     void UpdateBossArenaPortals();          // lock/unlock exit portal based on enemies alive
@@ -154,6 +156,8 @@ private:
     PlayerSaveState  m_savedPlayerState;              // HP/score/inventory snapshot
     bool             m_hasSavedState   = false;       // true when snapshot is valid
     uint32_t         m_activeCheckpointUid = 0;       // track highest checkpoint activated
+    std::set<int>    m_checkpointRespawnEnemyIds;     // enemies after the active checkpoint
+    std::set<int>    m_countedDefeatedEnemyIds;       // prevents score farming after respawn
 };
 
 #endif

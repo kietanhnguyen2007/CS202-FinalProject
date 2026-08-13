@@ -1,15 +1,54 @@
 #include "View/HUDView.h"
 #include "View/Renderer.h"
-#include "View/UIHelpers.h"
-#include "Utils/Constants.h"
-#include <string>
+#include "Model/Boss.h"
+#include <algorithm>
+#include <cmath>
 #include <cstdio>
 
 namespace View {
 
+namespace {
+float Clamp01(float value) { return std::clamp(value, 0.0f, 1.0f); }
+
+const char* BossName(int type) {
+    switch (type) {
+        case 1: return "BOSS I";
+        case 2: return "BOSS II";
+        case 3: return "BOSS III";
+        default: return "BOSS";
+    }
+}
+
+void DrawPanel(Texture2D texture, Rectangle rect, float border = 12.0f, Color tint = WHITE) {
+    if (!texture.id) return;
+    NPatchInfo patch{{0.0f, 0.0f, (float)texture.width, (float)texture.height},
+                     (int)border, (int)border, (int)border, (int)border, NPATCH_NINE_PATCH};
+    ::DrawTextureNPatch(texture, patch, rect, {0.0f, 0.0f}, 0.0f, tint);
+}
+
+void DrawThreeSlice(Texture2D left, Texture2D mid, Texture2D right,
+                    Rectangle rect, Color tint = WHITE) {
+    if (!left.id || !mid.id || !right.id || rect.width <= 0.0f) return;
+    const float capWidth = rect.height * 0.5f;
+    const float middleWidth = std::max(0.0f, rect.width - capWidth * 2.0f);
+    ::DrawTexturePro(left, {0,0,(float)left.width,(float)left.height},
+                     {rect.x, rect.y, capWidth, rect.height}, {0,0}, 0, tint);
+    if (middleWidth > 0.0f) {
+        ::DrawTexturePro(mid, {0,0,(float)mid.width,(float)mid.height},
+                         {rect.x + capWidth, rect.y, middleWidth, rect.height}, {0,0}, 0, tint);
+    }
+    ::DrawTexturePro(right, {0,0,(float)right.width,(float)right.height},
+                     {rect.x + rect.width - capWidth, rect.y, capWidth, rect.height}, {0,0}, 0, tint);
+}
+
+void DrawCenteredText(const char* text, float centerX, float y, int size, Color color) {
+    ::DrawText(text, static_cast<int>(centerX - ::MeasureText(text, size) * 0.5f), static_cast<int>(y), size, color);
+}
+} // namespace
+
 HUDView& HUDView::GetInstance() {
-    static HUDView inst;
-    return inst;
+    static HUDView instance;
+    return instance;
 }
 
 bool HUDView::Init() {
@@ -17,253 +56,230 @@ bool HUDView::Init() {
     return true;
 }
 
-bool HUDView::LoadResources(const std::string& atlasJsonPath) {
-    (void)atlasJsonPath;
-
-    // ---- Dark Dwellers HUD textures ----
-    m_texBarBg     = ::LoadTexture("assets/ui/darkDwellers/20251118darkDwellersBarD.png");
-    m_texBarFill   = ::LoadTexture("assets/ui/darkDwellers/20251118darkDwellersBarC.png");
-    m_texBarFillMP = ::LoadTexture("assets/ui/darkDwellers/20251118darkDwellersBarA.png");
-    m_texBarFillSP = ::LoadTexture("assets/ui/darkDwellers/20251118darkDwellersBarF.png");
-    m_texBarFillUlt= ::LoadTexture("assets/ui/darkDwellers/20251118darkDwellersBarJ.png");
-    m_texStatusSlot = ::LoadTexture("assets/ui/darkDwellers/20251124emptyFrameB1-Sheet.png");
-    m_texPortrait  = ::LoadTexture("assets/ui/darkDwellers/20251125portraitFrameA.png");
-
-    // The status slot sheet has 5 equal frames laid out horizontally
-    if (m_texStatusSlot.width > 0) {
-        m_statusSlotFrameW = m_texStatusSlot.width / 5;
+bool HUDView::LoadResources(const std::string&) {
+    m_panelBrown = ::LoadTexture("assets/ui/kenney_rpg/panel_brown.png");
+    m_panelInsetBrown = ::LoadTexture("assets/ui/kenney_rpg/panelInset_brown.png");
+    m_buttonRoundBrown = ::LoadTexture("assets/ui/kenney_rpg/buttonRound_brown.png");
+    m_barBackLeft = ::LoadTexture("assets/ui/kenney_rpg/barBack_horizontalLeft.png");
+    m_barBackMid = ::LoadTexture("assets/ui/kenney_rpg/barBack_horizontalMid.png");
+    m_barBackRight = ::LoadTexture("assets/ui/kenney_rpg/barBack_horizontalRight.png");
+    m_barRedLeft = ::LoadTexture("assets/ui/kenney_rpg/barRed_horizontalLeft.png");
+    m_barRedMid = ::LoadTexture("assets/ui/kenney_rpg/barRed_horizontalMid.png");
+    m_barRedRight = ::LoadTexture("assets/ui/kenney_rpg/barRed_horizontalRight.png");
+    Texture2D* uiTextures[] = {&m_panelBrown, &m_panelInsetBrown, &m_buttonRoundBrown,
+        &m_barBackLeft, &m_barBackMid, &m_barBackRight,
+        &m_barRedLeft, &m_barRedMid, &m_barRedRight};
+    for (Texture2D* texture : uiTextures) {
+        if (texture->id) ::SetTextureFilter(*texture, TEXTURE_FILTER_POINT);
     }
-
-    // ---- Coin atlas (kept from original) ----
     m_coinAtlas = Animations::TextureAtlas::LoadFromJSON("assets/textures/items/coin.json");
-    if (m_coinAtlas) {
-        m_coinAtlas->LoadTexture();
+    if (m_coinAtlas && m_coinAtlas->LoadTexture() && m_coinAtlas->HasClip("spin")) {
         m_coinAnim.SetTexture(m_coinAtlas->GetTexture());
-        if (m_coinAtlas->HasClip("spin")) {
-            m_coinAnim.AddClip(m_coinAtlas->GetClip("spin"));
-            m_coinAnim.Play("spin");
-        }
+        m_coinAnim.AddClip(m_coinAtlas->GetClip("spin"));
+        m_coinAnim.Play("spin");
     }
-
     m_loaded = true;
     return true;
 }
 
 void HUDView::Shutdown() {
-    // Unload Dark Dwellers textures
-    ::UnloadTexture(m_texBarBg);
-    ::UnloadTexture(m_texBarFill);
-    ::UnloadTexture(m_texBarFillMP);
-    ::UnloadTexture(m_texBarFillSP);
-    ::UnloadTexture(m_texBarFillUlt);
-    ::UnloadTexture(m_texStatusSlot);
-    ::UnloadTexture(m_texPortrait);
-
-    m_texBarBg    = {};
-    m_texBarFill  = {};
-    m_texBarFillMP= {};
-    m_texBarFillSP= {};
-    m_texBarFillUlt={};
-    m_texStatusSlot = {};
-    m_texPortrait = {};
-    m_statusSlotFrameW = 0;
-
-    // Coin cleanup
+    Texture2D* uiTextures[] = {&m_panelBrown, &m_panelInsetBrown, &m_buttonRoundBrown,
+        &m_barBackLeft, &m_barBackMid, &m_barBackRight,
+        &m_barRedLeft, &m_barRedMid, &m_barRedRight};
+    for (Texture2D* texture : uiTextures) {
+        if (texture->id) ::UnloadTexture(*texture);
+        *texture = {};
+    }
+    m_avatarAtlas.reset();
+    m_avatarSource = {};
+    m_avatarClass = -1;
     m_coinAnim.Stop();
     m_coinAtlas.reset();
-
+    m_player = nullptr; m_boss = nullptr; m_lastBoss = nullptr;
     m_loaded = false;
 }
 
-void HUDView::Update(float dt, const Player* player) {
+void HUDView::LoadAvatar(CharacterClass characterClass) {
+    const char* folder = "knight";
+    switch (characterClass) {
+        case CharacterClass::Fighter: folder = "fighter"; break;
+        case CharacterClass::Knight: folder = "knight"; break;
+        case CharacterClass::Ninja: folder = "ninja"; break;
+        case CharacterClass::MagicCaster: folder = "magic_caster"; break;
+    }
+    const std::string path = std::string("assets/textures/player/") + folder + "/idle.json";
+    auto atlas = Animations::TextureAtlas::LoadFromJSON(path);
+    if (!atlas || !atlas->LoadTexture() || !atlas->HasClip("idle")) return;
+    auto clip = atlas->GetClip("idle");
+    if (!clip || clip->frames.empty()) return;
+    const size_t bestFrame = clip->frames.size() / 2;
+    m_avatarSource = clip->frames[bestFrame].src;
+    m_avatarAtlas = std::move(atlas);
+    m_avatarClass = static_cast<int>(characterClass);
+}
+
+void HUDView::Update(float dt, const Player* player, const Boss* boss) {
     if (!m_loaded) return;
     m_player = player;
+    m_boss = boss;
+    m_time += dt;
     m_coinAnim.Update(dt);
+
+    if (player) {
+        if (m_avatarClass != static_cast<int>(player->GetCharacterClass())) {
+            LoadAvatar(player->GetCharacterClass());
+        }
+        const float hp = player->GetMaxHealth() > 0
+            ? Clamp01(static_cast<float>(player->GetHealth()) / player->GetMaxHealth()) : 0.0f;
+        m_displayHp += (hp - m_displayHp) * std::min(1.0f, dt * 14.0f);
+        if (hp >= m_damageTrailHp) m_damageTrailHp = hp;
+        else m_damageTrailHp += (hp - m_damageTrailHp) * std::min(1.0f, dt * 2.2f);
+    }
+
+    if (boss != m_lastBoss) {
+        m_bossDisplayHp = m_bossDamageTrailHp = 1.0f;
+        m_lastBoss = boss;
+    }
+    if (boss) {
+        const float hp = boss->GetMaxHealth() > 0
+            ? Clamp01(static_cast<float>(boss->GetHealth()) / boss->GetMaxHealth()) : 0.0f;
+        m_bossDisplayHp += (hp - m_bossDisplayHp) * std::min(1.0f, dt * 12.0f);
+        if (hp >= m_bossDamageTrailHp) m_bossDamageTrailHp = hp;
+        else m_bossDamageTrailHp += (hp - m_bossDamageTrailHp) * std::min(1.0f, dt * 1.8f);
+    }
 }
 
 bool HUDView::WantsQuitTest() {
-    bool val = m_wantsQuitTest;
+    const bool result = m_wantsQuitTest;
     m_wantsQuitTest = false;
-    return val;
+    return result;
 }
 
 void HUDView::Render() {
-    if (!m_visible || !m_player || !m_loaded) return;
+    if (!m_visible || !m_loaded || !m_player) return;
+    Renderer::GetInstance().EndFrameAndFlush();
 
-    Renderer& r = Renderer::GetInstance();
-    int w = r.GetWindowWidth();
-    int h = r.GetWindowHeight();
+    const int w = ::GetScreenWidth();
+    const int h = ::GetScreenHeight();
+    const float scale = std::clamp(std::min(w / 1280.0f, h / 720.0f), 0.65f, 1.5f);
 
-    // ==========================================
-    // 1. Health Bar (Top Left)
-    int hp    = m_player->GetHealth();
-    int maxHp = m_player->GetMaxHealth();
-    
-    float frac = (maxHp > 0) ? (float)hp / (float)maxHp : 0.0f;
-    if (frac < 0.0f) frac = 0.0f;
-    if (frac > 1.0f) frac = 1.0f;
-
-    // ======================================================================
-    // 1. Portrait Frame — top-left corner
-    // ======================================================================
-    // Position: 2% from left, 2% from top
-    // Size: ~5% of screen width (maintain aspect ratio)
-    Vector2 portraitPos = ScreenPercent(0.02f, 0.02f, w, h);
-    float portraitW = w * 0.05f;
-    float portraitAspect = (m_texPortrait.height > 0)
-        ? (float)m_texPortrait.height / (float)m_texPortrait.width
-        : 1.0f;
-    float portraitH = portraitW * portraitAspect;
-
-    if (m_texPortrait.id > 0) {
-        Rectangle portraitSrc = {
-            0.0f, 0.0f,
-            (float)m_texPortrait.width,
-            (float)m_texPortrait.height
-        };
-        float scaleX = portraitW / (float)m_texPortrait.width;
-        float scaleY = portraitH / (float)m_texPortrait.height;
-        r.SubmitSprite(&m_texPortrait, portraitSrc, portraitPos,
-                       {scaleX, scaleY}, 0.0f, {0, 0},
-                       WHITE, Layer::UI, 1.0f, false, 0);
-    }
-
-    // ======================================================================
-    // 2. Bars (HP, MP, SP, Ultimate) — to the right of the portrait
-    // ======================================================================
-    float barGap = w * 0.01f;
-    float barW   = w * 0.16f;
-    float barH   = h * 0.018f;
-    float barSpacing = barH + h * 0.002f;
-    
-    // Align top of bars with top of portrait
-    float startX = portraitPos.x + portraitW + barGap;
-    float startY = portraitPos.y; 
-
-    auto drawBar = [&](Texture2D& fillTex, Vector2 pos, float barFrac, const char* text) {
-        if (m_texBarBg.id > 0) {
-            Rectangle bgSrc = { 0.0f, 0.0f, (float)m_texBarBg.width, (float)m_texBarBg.height };
-            float scaleX = barW / (float)m_texBarBg.width;
-            float scaleY = barH / (float)m_texBarBg.height;
-            r.SubmitSprite(&m_texBarBg, bgSrc, pos, {scaleX, scaleY}, 0.0f, {0, 0}, WHITE, Layer::UI, 0.0f, false, 0);
+    auto drawHealthBar = [&](Rectangle rect, float fill, float trail) {
+        DrawThreeSlice(m_barBackLeft, m_barBackMid, m_barBackRight, rect);
+        Rectangle inner{rect.x + 4.0f*scale, rect.y + 5.0f*scale,
+                        rect.width - 8.0f*scale, rect.height - 10.0f*scale};
+        if (trail > fill && inner.width > 0.0f) {
+            Rectangle trailRect = inner;
+            trailRect.width *= Clamp01(trail);
+            ::DrawRectangleRounded(trailRect, 0.45f, 8, Color{255, 203, 83, 230});
         }
-        if (fillTex.id > 0 && barFrac > 0.0f) {
-            Rectangle fillSrc = { 0.0f, 0.0f, (float)fillTex.width * barFrac, (float)fillTex.height };
-            float scaleX = barW / (float)fillTex.width;
-            float scaleY = barH / (float)fillTex.height;
-            r.SubmitSprite(&fillTex, fillSrc, pos, {scaleX, scaleY}, 0.0f, {0, 0}, WHITE, Layer::UI, 0.5f, false, 0);
+        const int fillWidth = std::max(0, static_cast<int>(std::ceil(rect.width * Clamp01(fill))));
+        if (fillWidth > 0) {
+            ::BeginScissorMode(static_cast<int>(rect.x), static_cast<int>(rect.y), fillWidth,
+                               std::max(1, static_cast<int>(std::ceil(rect.height))));
+            const Color tint = fill < 0.25f && std::sin(m_time * 8.0f) > 0.0f
+                ? Color{255, 160, 160, 255} : WHITE;
+            DrawThreeSlice(m_barRedLeft, m_barRedMid, m_barRedRight, rect, tint);
+            ::EndScissorMode();
         }
-        int fontSize = (int)(h * 0.015f);
-        if (fontSize < 10) fontSize = 10;
-        float textX = pos.x + barW * 0.05f;
-        float textY = pos.y + (barH - fontSize) * 0.5f;
-        r.DrawText(text, {textX, textY}, fontSize, WHITE);
     };
 
-    char buf[64];
-
-    // 1. HP
-    snprintf(buf, sizeof(buf), "HP: %d/%d", hp, maxHp);
-    drawBar(m_texBarFill, {startX, startY}, frac, buf);
-
-    // 2. MP (chờ Model bổ sung GetMP/GetMaxMP)
-    // TODO: int mp = m_player->GetMP();
-    // TODO: int maxMp = m_player->GetMaxMP();
-    // drawBar(m_texBarFillMP, {startX, startY + barSpacing}, (float)mp/maxMp, buf);
-
-    // 3. SP (chờ Model bổ sung GetSP/GetMaxSP)
-    // TODO: int sp = m_player->GetSP();
-    // TODO: int maxSp = m_player->GetMaxSP();
-    // drawBar(m_texBarFillSP, {startX, startY + barSpacing * 2.0f}, (float)sp/maxSp, buf);
-
-    // 4. Ultimate (chờ Model bổ sung GetUltimateCharge/GetMaxUltimateCharge)
-    // TODO: float ult = m_player->GetUltimateCharge();
-    // TODO: float maxUlt = m_player->GetMaxUltimateCharge();
-    // snprintf(buf, sizeof(buf), "ULT: %d%%", (int)(ult/maxUlt * 100));
-    // drawBar(m_texBarFillUlt, {startX, startY + barSpacing * 3.0f}, ult/maxUlt, buf);
-
-    // ======================================================================
-    // 5. Coin Icon — right side of screen
-    // ======================================================================
-    Vector2 coinPos = ScreenPercent(0.85f, 0.02f, w, h);
-    float coinIconSize = w * 0.025f; // ~2.5% of screen width
-
-    if (m_coinAnim.IsPlaying() && m_coinAnim.HasTexture()) {
-        Rectangle src = m_coinAnim.GetCurrentSrcRect();
-        Vector2 origin = m_coinAnim.GetCurrentOrigin();
-        float scaleX = coinIconSize / src.width;
-        float scaleY = coinIconSize / src.height;
-        r.SubmitSprite(m_coinAnim.GetTexture(), src, coinPos,
-                       {scaleX, scaleY}, 0.0f, origin,
-                       WHITE, Layer::UI, 0.0f, false, 0);
-        coinPos.x += coinIconSize + w * 0.005f;
+    // Kenney RPG panel + a real idle frame from the currently selected character class.
+    const Rectangle panel{18.0f * scale, 18.0f * scale, 382.0f * scale, 96.0f * scale};
+    ::DrawRectangleRounded({panel.x + 5*scale, panel.y + 7*scale, panel.width, panel.height},
+                           0.12f, 8, Color{12, 7, 5, 145});
+    DrawPanel(m_panelBrown, panel, 13.0f);
+    const float portraitSize = 76.0f * scale;
+    Rectangle portraitRect{panel.x + 10 * scale, panel.y + 10 * scale, portraitSize, portraitSize};
+    if (m_buttonRoundBrown.id) {
+        ::DrawTexturePro(m_buttonRoundBrown,
+                         {0,0,(float)m_buttonRoundBrown.width,(float)m_buttonRoundBrown.height},
+                         portraitRect, {0,0}, 0.0f, WHITE);
     }
-
-    // ======================================================================
-    // 6. Coin Text
-    // ======================================================================
-    {
-        char buf[64];
-        snprintf(buf, sizeof(buf), "Coins: %d", m_player->GetInventory().GetCoins());
-        int fontSize = (int)(h * 0.02f);
-        if (fontSize < 10) fontSize = 10;
-        r.DrawText(buf, coinPos, fontSize, YELLOW);
+    if (m_avatarAtlas && m_avatarAtlas->GetTexture() && m_avatarAtlas->GetTexture()->id &&
+        m_avatarSource.width > 0.0f && m_avatarSource.height > 0.0f) {
+        const float avatarHeight = portraitSize * 0.91f;
+        const float avatarWidth = avatarHeight * m_avatarSource.width / m_avatarSource.height;
+        Rectangle avatarDest{portraitRect.x + (portraitSize - avatarWidth) * 0.5f,
+                             portraitRect.y + portraitSize - avatarHeight - 3.0f*scale,
+                             avatarWidth, avatarHeight};
+        ::DrawTexturePro(*m_avatarAtlas->GetTexture(), m_avatarSource, avatarDest, {0,0}, 0.0f, WHITE);
     }
+    ::DrawCircleLinesV({portraitRect.x + portraitSize*0.5f, portraitRect.y + portraitSize*0.5f},
+                       portraitSize*0.46f, Color{255, 224, 151, 220});
 
-    // ======================================================================
-    // 7. Status Slots — row of 4 empty buff/debuff slots below HP bar
-    // ======================================================================
-    if (m_texStatusSlot.id > 0 && m_statusSlotFrameW > 0) {
-        // Use frame 0 of the 5-frame horizontal sheet
-        int frameH = m_texStatusSlot.height;
-        Rectangle slotSrc = {
-            0.0f, 0.0f,
-            (float)m_statusSlotFrameW,
-            (float)frameH
-        };
+    const float barX = portraitRect.x + portraitSize + 12 * scale;
+    const float barY = panel.y + 31 * scale;
+    const float barW = panel.x + panel.width - barX - 12 * scale;
+    const float barH = 34 * scale;
+    DrawPanel(m_panelInsetBrown,
+              {barX - 5*scale, barY - 5*scale, barW + 10*scale, barH + 10*scale},
+              11.0f, Color{222, 197, 154, 255});
+    drawHealthBar({barX, barY, barW, barH}, m_displayHp, m_damageTrailHp);
+    char hpText[64];
+    std::snprintf(hpText, sizeof(hpText), "%d / %d", m_player->GetHealth(), m_player->GetMaxHealth());
+    DrawCenteredText(hpText, barX + barW * 0.5f, barY + 6 * scale,
+                     std::max(12, static_cast<int>(16 * scale)), WHITE);
 
-        // Each slot is ~3% of screen width (square)
-        float slotSize = w * 0.03f;
-        float scaleX = slotSize / (float)m_statusSlotFrameW;
-        float scaleY = slotSize / (float)frameH;
+    // Potions heal immediately on pickup, so only persistent coins need a counter.
+    const Inventory& inv = m_player->GetInventory();
+    const float resourceY = 20 * scale;
+    const float resourceW = 84 * scale;
+    const float resourceH = 48 * scale;
+    auto drawResource = [&](float x, Texture2D* texture, Rectangle source, int amount, Color tint) {
+        Rectangle box{x, resourceY, resourceW, resourceH};
+        ::DrawRectangleRounded({box.x + 3*scale, box.y + 4*scale, box.width, box.height},
+                               0.18f, 8, Color{12,7,5,130});
+        DrawPanel(m_panelBrown, box, 12.0f);
+        const float iconSize = 32 * scale;
+        if (texture && texture->id) {
+            ::DrawTexturePro(*texture, source, {x + 8*scale, resourceY + 8*scale, iconSize, iconSize}, {0,0}, 0, tint);
+        }
+        char amountText[16]; std::snprintf(amountText, sizeof(amountText), "%d", amount);
+        ::DrawText(amountText, static_cast<int>(x + 47*scale), static_cast<int>(resourceY + 13*scale),
+                   std::max(12, static_cast<int>(18*scale)), WHITE);
+    };
+    float right = w - 18 * scale;
+    Texture2D* coinTexture = m_coinAnim.GetCurrentTexture();
+    drawResource(right - resourceW, coinTexture, m_coinAnim.GetCurrentSrcRect(), inv.GetCoins(), WHITE);
 
-        // Position: below the bars with a small gap
-        float slotY = startY + barSpacing * 4.0f + h * 0.008f;
-        float slotStartX = startX;
-        float slotSpacing = w * 0.035f; // ~3.5% apart center-to-center
+    // Boss bar: exact HP plus explicit phase count and phase segments.
+    if (m_boss && m_boss->IsActive()) {
+        const float bossW = std::min(540.0f * scale, w * 0.54f);
+        const float bossH = 34.0f * scale;
+        const float bossX = (w - bossW) * 0.5f;
+        const float bossY = (w < 1000)
+            ? panel.y + panel.height + 12.0f * scale
+            : 20.0f * scale;
+        const int currentPhase = std::clamp(m_boss->GetCurrentPhaseNumber(), 1, m_boss->GetTotalPhases());
+        const int totalPhases = m_boss->GetTotalPhases();
+        char bossTitle[80];
+        std::snprintf(bossTitle, sizeof(bossTitle), "%s    PHASE %d / %d",
+                      BossName(m_boss->GetBossType()), currentPhase, totalPhases);
+        DrawCenteredText(bossTitle, w * 0.5f, bossY - 1 * scale,
+                         std::max(12, static_cast<int>(17 * scale)), Color{255,226,153,255});
+        drawHealthBar({bossX, bossY + 23*scale, bossW, bossH},
+                      m_bossDisplayHp, m_bossDamageTrailHp);
+        char bossHp[64];
+        std::snprintf(bossHp, sizeof(bossHp), "%d / %d HP", m_boss->GetHealth(), m_boss->GetMaxHealth());
+        DrawCenteredText(bossHp, w * 0.5f, bossY + 30*scale,
+                         std::max(11, static_cast<int>(15 * scale)), WHITE);
 
-        for (int i = 0; i < 4; ++i) {
-            Vector2 slotPos = { slotStartX + i * slotSpacing, slotY };
-            r.SubmitSprite(&m_texStatusSlot, slotSrc, slotPos,
-                           {scaleX, scaleY}, 0.0f, {0, 0},
-                           WHITE, Layer::UI, 0.0f, false, 0);
+        const float gap = 6 * scale;
+        const float segW = (bossW - gap * (totalPhases - 1)) / totalPhases;
+        for (int i = 0; i < totalPhases; ++i) {
+            Rectangle seg{bossX + i * (segW + gap), bossY + 62*scale, segW, 5*scale};
+            const Color color = i < currentPhase ? Color{246,184,69,255} : Color{56,45,71,230};
+            ::DrawRectangleRounded(seg, 0.8f, 4, color);
         }
     }
 
-    // ======================================================================
-    // 8. Quit Test Button (if in playtest mode)
-    // Draw this last so it overlays other HUD elements if needed
-    // ======================================================================
     if (m_isPlaytest) {
-        float btnW = 120.0f;
-        float btnH = 40.0f;
-        
-        // Put it top center to avoid UI conflicts or being cropped
-        float btnX = (w - btnW) / 2.0f; 
-        float btnY = 10.0f;
-        
-        Rectangle btnRect = {btnX, btnY, btnW, btnH};
-        
-        Vector2 mousePos = ::GetMousePosition();
-        bool hovered = ::CheckCollisionPointRec(mousePos, btnRect);
-        
-        Color bg = hovered ? RED : MAROON;
-        r.DrawRectangle({btnX, btnY}, {btnW, btnH}, bg, Layer::UI, 1.0f);
-        r.DrawText("Quit Test", {btnX + 20, btnY + 10}, 20, WHITE);
-        
-        if (hovered && ::IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-            m_wantsQuitTest = true;
-        }
+        Rectangle button{w * 0.5f - 60*scale, 92*scale, 120*scale, 34*scale};
+        bool hover = ::CheckCollisionPointRec(::GetMousePosition(), button);
+        ::DrawRectangleRounded(button, 0.35f, 8, hover ? RED : MAROON);
+        DrawCenteredText("QUIT TEST", w * 0.5f, button.y + 8*scale,
+                         std::max(10, static_cast<int>(14*scale)), WHITE);
+        if (hover && ::IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) m_wantsQuitTest = true;
     }
 }
 

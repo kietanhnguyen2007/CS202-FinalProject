@@ -7,6 +7,7 @@
 #include "View/MenuView.h"
 #include "View/GameView.h"
 #include "View/HUDView.h"
+#include "View/SkillBarView.h"
 #include "View/AssetManager.h"
 #include "View/OptionsView.h"
 #include "View/PrepareView.h"
@@ -340,6 +341,7 @@ int main() {
     }
     menu.Shutdown();
     View::GameView::GetInstance().Shutdown();
+    View::SkillBarView::GetInstance().Shutdown();
     View::HUDView::GetInstance().Shutdown();
     View::Renderer::GetInstance().Shutdown();
     CloseWindow();

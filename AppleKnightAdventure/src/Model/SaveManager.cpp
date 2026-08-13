@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <iostream>
+#include <filesystem>
 #include "raylib.h"
 
 SaveManager& SaveManager::GetInstance() {
@@ -21,6 +22,8 @@ SaveManager::SaveManager()
 
 bool SaveManager::Load(const std::string& path) {
     char* data = LoadFileText(path.c_str());
+    const std::string backupPath = path + ".bak";
+    if (!data) data = LoadFileText(backupPath.c_str());
     if (!data) {
         // Use defaults
         playerName = "Player";
@@ -29,6 +32,7 @@ bool SaveManager::Load(const std::string& path) {
         unlockedCharacters = {"Knight"};
         levelHighScores.clear();
         levelBestStars.clear();
+        levelBestTimesMs.clear();
         return false;
     }
 
@@ -140,6 +144,7 @@ bool SaveManager::Load(const std::string& path) {
     }
     levelHighScores = extractMap("levelHighScores");
     levelBestStars = extractMap("levelBestStars");
+    levelBestTimesMs = extractMap("levelBestTimesMs");
     
     std::string sChar = extractString("selectedChar");
     if (!sChar.empty()) selectedChar = sChar;
@@ -187,12 +192,48 @@ void SaveManager::Save(const std::string& path) {
         it2 = next;
     }
     ss << "},\n";
+
+    ss << "  \"levelBestTimesMs\": {";
+    auto it3 = levelBestTimesMs.begin();
+    while (it3 != levelBestTimesMs.end()) {
+        ss << "\"" << it3->first << "\": " << it3->second;
+        auto next = it3;
+        ++next;
+        if (next != levelBestTimesMs.end()) ss << ", ";
+        it3 = next;
+    }
+    ss << "},\n";
     ss << "  \"selectedChar\": \"" << selectedChar << "\",\n";
     ss << "  \"selectedPet\": \"" << selectedPet << "\"\n";
     ss << "}\n";
 
     std::string jsonStr = ss.str();
-    SaveFileText(path.c_str(), const_cast<char*>(jsonStr.c_str()));
+    const std::string tempPath = path + ".tmp";
+    const std::string backupPath = path + ".bak";
+    if (!SaveFileText(tempPath.c_str(), const_cast<char*>(jsonStr.c_str()))) {
+        TraceLog(LOG_ERROR, "SAVE: Could not write temporary save file");
+        return;
+    }
+
+    std::error_code error;
+    if (std::filesystem::exists(path, error)) {
+        std::filesystem::copy_file(path, backupPath,
+            std::filesystem::copy_options::overwrite_existing, error);
+        error.clear();
+    }
+
+    // The backup makes the two-step replacement recoverable on platforms
+    // where rename cannot overwrite an existing file (notably Windows).
+    std::filesystem::remove(path, error);
+    error.clear();
+    std::filesystem::rename(tempPath, path, error);
+    const bool replaced = !error;
+    if (!replaced) {
+        // Last-resort fallback; the backup remains available for the next load.
+        std::filesystem::copy_file(tempPath, path,
+            std::filesystem::copy_options::overwrite_existing, error);
+        std::filesystem::remove(tempPath, error);
+    }
 }
 
 std::string SaveManager::GetPlayerName() const { return playerName; }
@@ -225,7 +266,7 @@ int SaveManager::GetLevelHighScore(int level) const {
 }
 
 void SaveManager::SetLevelHighScore(int level, int score) {
-    levelHighScores[level] = score;
+    levelHighScores[level] = std::max(GetLevelHighScore(level), score);
 }
 
 int SaveManager::GetLevelBestStars(int level) const {
@@ -235,7 +276,22 @@ int SaveManager::GetLevelBestStars(int level) const {
 }
 
 void SaveManager::SetLevelBestStars(int level, int stars) {
-    levelBestStars[level] = stars;
+    levelBestStars[level] = std::max(GetLevelBestStars(level), stars);
+}
+
+float SaveManager::GetLevelBestTime(int level) const {
+    auto it = levelBestTimesMs.find(level);
+    if (it == levelBestTimesMs.end() || it->second <= 0) return 0.0f;
+    return it->second / 1000.0f;
+}
+
+void SaveManager::SetLevelBestTime(int level, float seconds) {
+    if (seconds <= 0.0f) return;
+    const int milliseconds = std::max(1, static_cast<int>(seconds * 1000.0f + 0.5f));
+    auto it = levelBestTimesMs.find(level);
+    if (it == levelBestTimesMs.end() || milliseconds < it->second) {
+        levelBestTimesMs[level] = milliseconds;
+    }
 }
 
 std::string SaveManager::GetSelectedChar() const { return selectedChar; }

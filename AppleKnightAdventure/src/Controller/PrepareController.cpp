@@ -156,7 +156,9 @@ void PrepareController::TryStartGame() {
             } else {
                 SaveManager::GetInstance().SetSelectedPet("");
             }
-            
+            // Persist the loadout before entering gameplay, not only on a
+            // graceful application shutdown.
+            SaveManager::GetInstance().Save();
             m_wantsStart = true;
             SoundManager::GetInstance().PlaySound("start");
         }

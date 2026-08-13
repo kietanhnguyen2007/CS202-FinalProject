@@ -1,6 +1,7 @@
 #include "View/InteractPrompt.h"
 #include "View/Renderer.h"
 #include "View/UIResourceManager.h"
+#include <algorithm>
 
 namespace View {
 
@@ -41,35 +42,25 @@ bool InteractPrompt::IsVisible() const {
 void InteractPrompt::Render() {
     if (!m_visible) return;
     Renderer& r = Renderer::GetInstance();
-    int w = r.GetWindowWidth();
-    int h = r.GetWindowHeight();
+    r.EndFrameAndFlush();
+    const int w = ::GetScreenWidth();
+    const int h = ::GetScreenHeight();
+    const float scale = std::clamp(std::min(w / 1280.0f, h / 720.0f), 0.65f, 1.5f);
+    const int fontSize = std::max(11, static_cast<int>(16 * scale));
+    const float textWidth = static_cast<float>(::MeasureText(m_text.c_str(), fontSize));
+    const float panelW = std::clamp(textWidth + 76 * scale, 220 * scale, 470 * scale);
+    const float panelH = 44 * scale;
+    Rectangle panel{(w - panelW) * 0.5f, h - 164 * scale, panelW, panelH};
 
-    Vector2 size = { 320.0f, 40.0f };
-    Vector2 pos = { w * 0.5f - size.x * 0.5f, h * 0.85f };
-
-    Texture2D* texPanel = UIResourceManager::GetInstance().GetPanelBg();
-    if (texPanel && texPanel->id != 0) {
-        int corner = texPanel->width / 3;
-        NPatchInfo npi;
-        npi.source = {0.0f, 0.0f, (float)texPanel->width, (float)texPanel->height};
-        npi.left = corner; npi.top = corner; npi.right = corner; npi.bottom = corner;
-        npi.layout = 0; // NPATCH_NINE_PATCH
-        r.SubmitNPatch(texPanel, npi, {pos.x, pos.y, size.x, size.y}, WHITE, Layer::UI, 0.0f);
-    } else {
-        r.DrawRectangle(pos, size, { 0, 0, 0, 180 }, Layer::UI, 0.0f);
-    }
-
-    float textX = pos.x + 16;
-    if (m_texIcon.id != 0 && m_iconFrameW > 0) {
-        float iconSize = size.y * 0.8f;
-        Rectangle iconSrc = { 0.0f, 0.0f, (float)m_iconFrameW, (float)m_texIcon.height };
-        float iScaleX = iconSize / (float)m_iconFrameW;
-        float iScaleY = iconSize / (float)m_texIcon.height;
-        r.SubmitSprite(&m_texIcon, iconSrc, {pos.x + 8, pos.y + (size.y - iconSize) * 0.5f}, {iScaleX, iScaleY}, 0.0f, {0,0}, WHITE, Layer::UI, 0.1f, false, 0);
-        textX += iconSize + 8;
-    }
-
-    r.DrawText(m_text.c_str(), { textX, pos.y + 8 }, 18, WHITE);
+    ::DrawRectangleRounded(panel, 0.45f, 10, Color{10,7,20,232});
+    ::DrawRectangleRoundedLinesEx(panel, 0.45f, 10, 1.5f * scale, Color{111,90,145,245});
+    Vector2 keyCenter{panel.x + 27 * scale, panel.y + panel.height * 0.5f};
+    ::DrawCircleV(keyCenter, 15 * scale, Color{37,28,54,255});
+    ::DrawCircleLinesV(keyCenter, 15 * scale, Color{239,198,96,255});
+    ::DrawText("F", static_cast<int>(keyCenter.x - ::MeasureText("F", fontSize) * 0.5f),
+               static_cast<int>(keyCenter.y - fontSize * 0.5f), fontSize, WHITE);
+    ::DrawText(m_text.c_str(), static_cast<int>(panel.x + 52 * scale),
+               static_cast<int>(panel.y + (panel.height - fontSize) * 0.5f), fontSize, WHITE);
 }
 
 } // namespace View

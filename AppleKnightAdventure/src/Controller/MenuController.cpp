@@ -176,7 +176,7 @@ void MenuController::HandleMainMenuInput(float dt) {
                 m_inLevelSelect = true;
                 m_selected = 0;
                 m_inputCooldown = kInputCooldown;
-                view.ShowLevelSelect(3, 3);
+                view.ShowLevelSelect(6, 1);
                 break;
 
             case 1: // Map Builder
@@ -212,6 +212,11 @@ void MenuController::HandleLevelSelectInput(float dt) {
     InputCommand cmd = InputController::GetInstance().Poll();
 
     const int kLevels = 6;
+    std::vector<int> bestStars(kLevels, 0);
+    for (int i = 0; i < kLevels; ++i) {
+        bestStars[i] = std::clamp(save.GetLevelBestStars(i + 1), 0, 3);
+    }
+    view.SetLevelStars(bestStars);
     int unlockedLevels = 1;
     for (int i = 1; i < kLevels; ++i) {
         if (save.GetLevelHighScore(i) > 0 || save.GetLevelBestStars(i) > 0) {
