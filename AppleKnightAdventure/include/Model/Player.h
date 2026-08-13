@@ -83,9 +83,9 @@ public:
 
     // Attack state triggers (for animation syncing)
     void Attack();
-    void Attack2();
+    void Attack2(float animationDuration = -1.0f);
     void Attack3();
-    void DoUltimate();
+    void DoUltimate(float animationDuration = -1.0f);
     bool IsAttacking() const;
     bool IsParrying()  const;
 

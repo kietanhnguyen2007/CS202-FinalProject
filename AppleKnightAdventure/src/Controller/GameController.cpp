@@ -12,6 +12,8 @@
 #include "Model/MagicCasterSkillSet.h"
 #include "Model/NinjaSkillSet.h"
 #include "Model/TeleportPortal.h"
+#include "Model/Signboard.h"
+#include "Model/LevelCompleteCup.h"
 #include "Model/Player.h"
 #include "Model/SaveManager.h"
 #include "Systems/ParticleSystem.h"
@@ -23,12 +25,14 @@
 #include "View/UIStateManager.h"
 #include "View/FloatingText.h"
 #include "View/ParticleRenderer.h"
+#include "View/TutorialRenderer.h"
 #include "Systems/SoundManager.h"
 #include "Utils/Constants.h"
 #include <cmath>
 #include <algorithm>
 #include <iostream>
 #include <filesystem>
+#include <limits>
 
 namespace {
 bool RectOverlap(const Rectangle& a, const Rectangle& b) {
@@ -42,6 +46,31 @@ float Distance(const Vector2& a, const Vector2& b) {
     float dx = a.x - b.x;
     float dy = a.y - b.y;
     return std::sqrt(dx * dx + dy * dy);
+}
+
+bool LineIntersectsRect(Vector2 start, Vector2 end, const Rectangle& rect) {
+    const float dx = end.x - start.x;
+    const float dy = end.y - start.y;
+    float nearTime = 0.0f;
+    float farTime = 1.0f;
+
+    auto ClipAxis = [&](float position, float delta, float minValue, float maxValue) {
+        constexpr float EPSILON = 0.0001f;
+        if (std::abs(delta) < EPSILON) {
+            return position >= minValue && position <= maxValue;
+        }
+
+        float t1 = (minValue - position) / delta;
+        float t2 = (maxValue - position) / delta;
+        if (t1 > t2) std::swap(t1, t2);
+        nearTime = std::max(nearTime, t1);
+        farTime = std::min(farTime, t2);
+        return nearTime <= farTime;
+    };
+
+    return ClipAxis(start.x, dx, rect.x, rect.x + rect.width)
+        && ClipAxis(start.y, dy, rect.y, rect.y + rect.height)
+        && farTime >= 0.0f && nearTime <= 1.0f;
 }
 } // namespace
 
@@ -67,6 +96,7 @@ bool GameController::Init() {
     View::HUDView::GetInstance().Init();
     View::HUDView::GetInstance().LoadResources("assets/ui/ui_atlas.json");
     View::UIStateManager::GetInstance().Init();
+    View::TutorialRenderer::GetInstance().Init();
 
     m_running = true;
     m_returnToMenu = false;
@@ -88,6 +118,10 @@ void GameController::LoadTilesets() {
 
 std::string GameController::GetLevelPath(int levelNumber) const {
     if (levelNumber == -99) return "assets/levels/temp_playtest.lvl";
+
+    if (levelNumber == 1 && std::filesystem::exists("assets/levels/tutorial.ldtk")) {
+        return "assets/levels/tutorial.ldtk";
+    }
     
     // Map Level 2 -> lvl1.ldtk, Level 3 -> lvl2.ldtk, ...
     if (levelNumber >= 2 && levelNumber <= 5) {
@@ -349,6 +383,7 @@ void GameController::StartLevel(int levelNumber) {
     View::CharacterRenderer::GetInstance().Clear();
     View::EntityRenderer::GetInstance().Clear();
     View::UIStateManager::GetInstance().Clear();
+    View::TutorialRenderer::GetInstance().HideDialog();
 
     m_activePet.reset();
     m_petProjectiles.clear();
@@ -366,6 +401,7 @@ void GameController::StartLevel(int levelNumber) {
     }
 
     const std::string path = GetLevelPath(levelNumber);
+    TraceLog(LOG_INFO, "GAME: Starting level %d from %s", levelNumber, path.c_str());
     const bool isLDtk = (path.size() >= 5 &&
                          path.substr(path.size() - 5) == ".ldtk");
     int ldtkIdx = 0;
@@ -439,6 +475,9 @@ void GameController::StartLevel(int levelNumber) {
 
     const float mapWidth = std::max(1, m_gameState->GetMapWidth()) * TILE_SIZE;
     const float mapHeight = std::max(1, m_gameState->GetMapHeight()) * TILE_SIZE;
+    if (levelNumber == 1 && path.find("tutorial.ldtk") != std::string::npos) {
+        m_camera.target.y = mapHeight * 0.5f;
+    }
     m_collision.SetWorldBounds({0.0f, 0.0f, mapWidth, mapHeight});
 
     SoundManager::GetInstance().StopMusic("bgm_menu");
@@ -726,7 +765,7 @@ void GameController::HandlePlayerInput(const InputCommand& cmd, float /*dt*/) {
                 SoundManager::GetInstance().PlaySound("player_attack");
             }
             if (cmd.parry     && ms->TryAttack2()) {
-                player->Attack2();
+                player->Attack2(MagicCasterSkillSet::ATTACK2_ANIMATION_DURATION);
                 SoundManager::GetInstance().PlaySound("player_attack");
             }
             if (cmd.skill1    && ms->TryAttack3()) {
@@ -755,7 +794,7 @@ void GameController::HandlePlayerInput(const InputCommand& cmd, float /*dt*/) {
                 player->Attack3();  // triggers teleport_start animation
             }
             if (cmd.ultimate  && ns->TryUltimate()) {
-                player->DoUltimate();
+                player->DoUltimate(NinjaSkillSet::ULTIMATE_CAST_DURATION);
                 SoundManager::GetInstance().PlaySound("player_attack");
             }
         }
@@ -947,51 +986,32 @@ void GameController::UpdateCombat(float dt) {
 
     // ==================== MAGIC CASTER COMBAT ====================
     } else if (MagicCasterSkillSet* ms = player->GetMagicSkills()) {
-        // Lightning (attack1): instant at nearest ON-SCREEN enemy
+        const Vector2 playerCenter = {
+            player->GetPosition().x + player->GetSize().x * 0.5f,
+            player->GetPosition().y + player->GetSize().y * 0.5f
+        };
+
+        // J: land directly on the nearest target visible in the camera with clear LOS.
         if (ms->m_wantsLightning) {
-            // Compute camera viewport in world space
-            float halfW = (SCREEN_WIDTH  * 0.5f) / m_camera.zoom;
-            float halfH = (SCREEN_HEIGHT * 0.5f) / m_camera.zoom;
-            Rectangle viewport = {
-                m_camera.target.x - halfW, m_camera.target.y - halfH,
-                halfW * 2.0f, halfH * 2.0f
-            };
-            // Find nearest enemy within range AND on screen
-            Vector2 targetPos = { -99999.0f, -99999.0f };
-            float   minDist   = MagicCasterSkillSet::LIGHTNING_RANGE;
-            bool    foundEnemy = false;
-            for (auto& e : m_gameState->GetAllEntities()) {
-                if (e->GetType() != EntityType::Enemy || !e->IsActive()) continue;
-                auto* enemy = static_cast<Enemy*>(e.get());
-                if (enemy->GetState() == EnemyState::Dead) continue;
-                // Check on-screen
-                Rectangle eBox = e->GetBoundingBox();
-                if (!RectOverlap(eBox, viewport)) continue;
-                float dx = e->GetPosition().x - player->GetPosition().x;
-                float dy = e->GetPosition().y - player->GetPosition().y;
-                float d = std::sqrt(dx*dx + dy*dy);
-                if (d < minDist) {
-                    Vector2 eCenter = { e->GetPosition().x + e->GetSize().x * 0.5f, e->GetPosition().y + e->GetSize().y * 0.5f };
-                    Vector2 pCenter = { player->GetPosition().x + player->GetSize().x * 0.5f, player->GetPosition().y + player->GetSize().y * 0.5f };
-                    if (CheckLineOfSight(pCenter, eCenter)) {
-                        minDist = d;
-                        // Use bounding-box center so strike lands ON the enemy
-                        targetPos = eCenter;
-                        foundEnemy = true;
+            Vector2 targetPos{};
+            if (!FindNearestVisibleEnemyInCamera(playerCenter, targetPos)) {
+                const float dirX = (player->GetDirection() == Direction::Left) ? -1.0f : 1.0f;
+                targetPos = {playerCenter.x + dirX * 250.0f, playerCenter.y};
+                if (!CheckLineOfSight(playerCenter, targetPos)) {
+                    targetPos = playerCenter;
+                    for (float distance = 242.0f; distance >= 48.0f; distance -= 8.0f) {
+                        Vector2 candidate = {playerCenter.x + dirX * distance, playerCenter.y};
+                        if (CheckLineOfSight(playerCenter, candidate)) {
+                            // Leave room for the 60px strike hitbox so it cannot reach through the wall.
+                            targetPos = {candidate.x - dirX * 40.0f, candidate.y};
+                            break;
+                        }
                     }
                 }
             }
-            if (!foundEnemy) {
-                // No on-screen enemy: strike a fixed distance in facing direction
-                float dirX = (player->GetDirection() == Direction::Right) ? 1.0f : -1.0f;
-                targetPos = {
-                    player->GetPosition().x + dirX * 250.0f,
-                    player->GetPosition().y + player->GetSize().y * 0.5f
-                };
-            }
             SpawnLightningAt(targetPos, ms->attack1.damage, 0.12f,
                              "assets/textures/player/magic_caster/projectile_attack1.json",
-                             0.0f, 0.8f);  // top-down bolt: 0 degrees (sprite is already vertical)
+                             0.0f, 0.8f);
             ms->ResetLightning();
         }
         // Fireball (attack2): fly forward
@@ -1019,7 +1039,7 @@ void GameController::UpdateCombat(float dt) {
                 : player->GetPosition().x;
             Vector2 spawnPos = {
                 waveSpawnX,
-                player->GetPosition().y - 65.0f  // raised significantly higher
+                player->GetPosition().y - 75.0f  // keep the enlarged hitbox just above ground
             };
             SpawnPlayerProjectile(
                 "assets/textures/player/magic_caster/projectile_attack3.json",
@@ -1027,50 +1047,30 @@ void GameController::UpdateCombat(float dt) {
                 ms->attack3.damage,
                 MagicCasterSkillSet::WAVE_SPEED,
                 1.0f, // 1.0f matches exact animation length (5 frames * 0.2s)
-                1.0f, true); // Wave at 1.0 scale
+                1.0f, true,
+                {180.0f, 100.0f}); // close to the 197x130px visual, minus transparent edges
             ms->ResetWave();
         }
-            // Ultimate Lightning: instant at nearest ON-SCREEN enemy center
+        // H: use the same nearest visible target and wall-safe line of sight as J.
         if (ms->m_wantsUltLightning) {
-            float halfW2 = (SCREEN_WIDTH  * 0.5f) / m_camera.zoom;
-            float halfH2 = (SCREEN_HEIGHT * 0.5f) / m_camera.zoom;
-            Rectangle viewport2 = {
-                m_camera.target.x - halfW2, m_camera.target.y - halfH2,
-                halfW2 * 2.0f, halfH2 * 2.0f
-            };
-            Vector2 targetPos2 = { -99999.0f, -99999.0f };
-            float   minDist2   = MagicCasterSkillSet::LIGHTNING_RANGE * 1.5f;
-            bool    foundEnemy2 = false;
-            for (auto& e : m_gameState->GetAllEntities()) {
-                if (e->GetType() != EntityType::Enemy || !e->IsActive()) continue;
-                auto* enemy = static_cast<Enemy*>(e.get());
-                if (enemy->GetState() == EnemyState::Dead) continue;
-                Rectangle eBox = e->GetBoundingBox();
-                if (!RectOverlap(eBox, viewport2)) continue;
-                float dx = e->GetPosition().x - player->GetPosition().x;
-                float dy = e->GetPosition().y - player->GetPosition().y;
-                float d = std::sqrt(dx*dx + dy*dy);
-                if (d < minDist2) {
-                    Vector2 eCenter = { e->GetPosition().x + e->GetSize().x * 0.5f, e->GetPosition().y + e->GetSize().y * 0.5f };
-                    Vector2 pCenter = { player->GetPosition().x + player->GetSize().x * 0.5f, player->GetPosition().y + player->GetSize().y * 0.5f };
-                    if (CheckLineOfSight(pCenter, eCenter)) {
-                        minDist2 = d;
-                        // Use bounding-box center
-                        targetPos2 = eCenter;
-                        foundEnemy2 = true;
+            Vector2 targetPos{};
+            if (!FindNearestVisibleEnemyInCamera(playerCenter, targetPos)) {
+                const float dirX = (player->GetDirection() == Direction::Left) ? -1.0f : 1.0f;
+                targetPos = {playerCenter.x + dirX * 300.0f, playerCenter.y};
+                if (!CheckLineOfSight(playerCenter, targetPos)) {
+                    targetPos = playerCenter;
+                    for (float distance = 292.0f; distance >= 48.0f; distance -= 8.0f) {
+                        Vector2 candidate = {playerCenter.x + dirX * distance, playerCenter.y};
+                        if (CheckLineOfSight(playerCenter, candidate)) {
+                            targetPos = {candidate.x - dirX * 40.0f, candidate.y};
+                            break;
+                        }
                     }
                 }
             }
-            if (!foundEnemy2) {
-                float dirX = (player->GetDirection() == Direction::Right) ? 1.0f : -1.0f;
-                targetPos2 = {
-                    player->GetPosition().x + dirX * 300.0f,
-                    player->GetPosition().y + player->GetSize().y * 0.5f
-                };
-            }
-            SpawnLightningAt(targetPos2, ms->ultimate.damage, 0.12f,
+            SpawnLightningAt(targetPos, ms->ultimate.damage, 0.12f,
                              "assets/textures/player/magic_caster/ultimate_skill_projectile.json",
-                             0.0f, 1.0f);  // aura explosion: original asset size (1.0f)
+                             0.0f, 1.0f);
             ms->ResetUltLightning();
         }
 
@@ -1086,7 +1086,7 @@ void GameController::UpdateCombat(float dt) {
                 : player->GetPosition().x;
             Vector2 spawnPos = {
                 brSpawnX,
-                player->GetPosition().y + player->GetSize().y * 0.25f  // raised higher
+                player->GetPosition().y - 32.0f  // keep the tallest K frame above the floor
             };
             SpawnPlayerProjectile(
                 "assets/textures/player/ninja/projectile_attack2.json",
@@ -1108,14 +1108,14 @@ void GameController::UpdateCombat(float dt) {
             // Raise it so it doesn't clip below the ground block.
             Vector2 spawnPos = {
                 cloneSpawnX,
-                player->GetPosition().y - 15.0f
+                player->GetPosition().y - 66.0f
             };
             SpawnPlayerProjectile(
                 "assets/textures/player/ninja/projectile_ultimate_attack.json",
                 spawnPos, player->GetDirection(),
                 ns->ultimate.damage,
                 NinjaSkillSet::CLONE_SPEED,
-                0.7f, // 0.7f matches exact animation length (7 frames * 0.1s)
+                NinjaSkillSet::CLONE_ANIMATION_DURATION,
                 0.5f, false); // Ninja H sprite is 0.5 scale and faces right by default
             ns->ResetShadowClone();
         }
@@ -1305,6 +1305,25 @@ void GameController::UpdateInteractions(const InputCommand& cmd) {
         expanded.x -= TILE_SIZE * 0.5f;
         expanded.width += TILE_SIZE;
         if (!RectOverlap(expanded, entity->GetBoundingBox())) continue;
+
+        if (entity->GetType() == EntityType::Signboard) {
+            auto* signboard = static_cast<Signboard*>(entity.get());
+            if (signboard->CanInteract(player)) {
+                View::TutorialRenderer::GetInstance().ShowDialog(signboard->GetMessage());
+                return;
+            }
+        }
+
+        if (entity->GetType() == EntityType::LevelCompleteCup) {
+            auto* cup = static_cast<LevelCompleteCup*>(entity.get());
+            if (cup->CanInteract(player)) {
+                cup->Activate();
+                SoundManager::GetInstance().PlaySound("coin_pickup");
+                View::ParticleRenderer::GetInstance().EmitBurst(cup->GetPosition(), 36, GOLD);
+                View::GameView::GetInstance().Shake(7.0f, 0.45f);
+                return;
+            }
+        }
 
         if (entity->GetType() == EntityType::Chest) {
             auto* chest = static_cast<Chest*>(entity.get());
@@ -1520,6 +1539,13 @@ void GameController::Update(float dt) {
 
     InputCommand cmd = InputController::GetInstance().Poll();
 
+    if (View::TutorialRenderer::GetInstance().IsDialogVisible()) {
+        if (cmd.interact || cmd.menuConfirm || cmd.pause) {
+            View::TutorialRenderer::GetInstance().HideDialog();
+        }
+        return;
+    }
+
     if (cmd.pause) {
         if (m_paused) {
             m_paused = false;
@@ -1594,8 +1620,11 @@ void GameController::Update(float dt) {
         
         bool isAnimated = View::EntityRenderer::GetInstance().IsRegistered(id) || 
                           View::CharacterRenderer::GetInstance().IsRegistered(id);
+        bool isTutorialVisual = entity->GetType() == EntityType::InMapGuide
+                             || entity->GetType() == EntityType::Signboard
+                             || entity->GetType() == EntityType::LevelCompleteCup;
         
-        if (!isAnimated) {
+        if (!isAnimated && !isTutorialVisual) {
             RegisterEntityVisuals(entity.get());
         }
     }
@@ -1633,7 +1662,13 @@ void GameController::Update(float dt) {
             player->GetPosition().y + player->GetSize().y * 0.5f
         };
         m_camera.target.x += (center.x - m_camera.target.x) * 0.1f;
-        m_camera.target.y += (center.y - m_camera.target.y) * 0.1f;
+        if (m_gameState->GetCurrentLevel() == 1 &&
+            std::filesystem::exists("assets/levels/tutorial.ldtk")) {
+            const float tutorialCenterY = m_gameState->GetMapHeight() * TILE_SIZE * 0.5f;
+            m_camera.target.y += (tutorialCenterY - m_camera.target.y) * 0.1f;
+        } else {
+            m_camera.target.y += (center.y - m_camera.target.y) * 0.1f;
+        }
     }
 
     View::GameView::GetInstance().Update(dt);
@@ -1659,6 +1694,8 @@ void GameController::Render() {
         }
         DrawText("Press ENTER to return to menu", 390, 470, 22, LIGHTGRAY);
     }
+
+    View::TutorialRenderer::GetInstance().RenderDialog();
 }
 
 void GameController::Shutdown() {
@@ -2114,40 +2151,87 @@ void GameController::UpdateProjectiles(float dt) {
 
 bool GameController::CheckLineOfSight(Vector2 start, Vector2 end) const {
     if (!m_gameState) return false;
-    float dx = end.x - start.x;
-    float dy = end.y - start.y;
-    float dist = std::sqrt(dx*dx + dy*dy);
-    if (dist < 1.0f) return true;
-    
-    int steps = static_cast<int>(dist / (TILE_SIZE / 2.0f));
-    if (steps == 0) steps = 1;
-    float xStep = dx / steps;
-    float yStep = dy / steps;
-    float cx = start.x;
-    float cy = start.y;
-    
-    for (int i = 0; i <= steps; ++i) {
-        int tx = static_cast<int>(cx / TILE_SIZE);
-        int ty = static_cast<int>(cy / TILE_SIZE);
-        for (const auto& tile : m_gameState->GetTiles(MapLayer::Main)) {
-            if (tile.solid && tile.x == tx && tile.y == ty) return false;
+
+    for (const auto& tile : m_gameState->GetTiles(MapLayer::Main)) {
+        if (!tile.solid) continue;
+        const Rectangle tileRect = {
+            static_cast<float>(tile.x * TILE_SIZE),
+            static_cast<float>(tile.y * TILE_SIZE),
+            static_cast<float>(TILE_SIZE),
+            static_cast<float>(TILE_SIZE)
+        };
+        if (LineIntersectsRect(start, end, tileRect)) return false;
+    }
+
+    for (const auto& entity : m_gameState->GetAllEntities()) {
+        if (!entity->IsActive() || entity->GetType() != EntityType::FakeWall) continue;
+        const auto* wall = static_cast<const FakeWall*>(entity.get());
+        if (!wall->IsDestroyed() && LineIntersectsRect(start, end, wall->GetBoundingBox())) {
+            return false;
         }
-        cx += xStep;
-        cy += yStep;
     }
     return true;
+}
+
+bool GameController::FindNearestVisibleEnemyInCamera(Vector2 origin, Vector2& targetCenter) const {
+    if (!m_gameState || m_camera.zoom <= 0.0f) return false;
+
+    const float halfW = (SCREEN_WIDTH * 0.5f) / m_camera.zoom;
+    const float halfH = (SCREEN_HEIGHT * 0.5f) / m_camera.zoom;
+    const Rectangle viewport = {
+        m_camera.target.x - halfW,
+        m_camera.target.y - halfH,
+        halfW * 2.0f,
+        halfH * 2.0f
+    };
+
+    float nearestDistanceSquared = std::numeric_limits<float>::max();
+    bool found = false;
+    for (const auto& entity : m_gameState->GetAllEntities()) {
+        if (!entity->IsActive()) continue;
+
+        bool canTarget = false;
+        if (entity->GetType() == EntityType::Enemy) {
+            const auto* enemy = static_cast<const Enemy*>(entity.get());
+            canTarget = enemy->GetState() != EnemyState::Dead;
+        } else if (entity->GetType() == EntityType::Boss) {
+            const auto* boss = static_cast<const Boss*>(entity.get());
+            canTarget = boss->IsAlive()
+                     && boss->GetBossState() != BossState::Die
+                     && boss->GetBossState() != BossState::Transition;
+        }
+        if (!canTarget || !RectOverlap(entity->GetBoundingBox(), viewport)) continue;
+
+        const Rectangle box = entity->GetBoundingBox();
+        const Vector2 center = {box.x + box.width * 0.5f, box.y + box.height * 0.5f};
+        if (!CheckLineOfSight(origin, center)) continue;
+
+        const float dx = center.x - origin.x;
+        const float dy = center.y - origin.y;
+        const float distanceSquared = dx * dx + dy * dy;
+        if (distanceSquared < nearestDistanceSquared) {
+            nearestDistanceSquared = distanceSquared;
+            targetCenter = center;
+            found = true;
+        }
+    }
+    return found;
 }
 
 void GameController::SpawnPlayerProjectile(const char* atlasPath, Vector2 spawnPos,
                                             Direction dir, int damage,
                                             float speed, float lifetime,
-                                            float scale, bool facesLeft) {
+                                            float scale, bool facesLeft,
+                                            Vector2 hitboxSize) {
     // Collision box size scales proportionally to visual scale.
     // Use a smaller base size (40x40) to prevent projectiles from clipping the floor upon spawning.
     float boxSize = 40.0f * scale;
+    if (hitboxSize.x <= 0.0f || hitboxSize.y <= 0.0f) {
+        hitboxSize = {boxSize, boxSize};
+    }
     
     auto proj = std::make_unique<Projectile>(
-        spawnPos, Vector2{boxSize, boxSize},
+        spawnPos, hitboxSize,
         ProjectileType::Magic,
         dir, damage,
         m_gameState->GetLocalPlayer() ? m_gameState->GetLocalPlayer()->GetId() : 0);

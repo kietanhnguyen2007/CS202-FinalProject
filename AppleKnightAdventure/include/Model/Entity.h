@@ -18,7 +18,10 @@ enum class EntityType {
     Particle,
     Effect,
     TriggerZone,
-    TeleportPortal
+    TeleportPortal,
+    InMapGuide,
+    Signboard,
+    LevelCompleteCup
 };
 
 class Entity {

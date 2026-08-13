@@ -10,6 +10,7 @@
 #include "View/MenuView.h"
 #include "View/InventoryView.h"
 #include "View/UIStateManager.h"
+#include "View/TutorialRenderer.h"
 #include "Model/GameState.h"
 #include "View/UIResourceManager.h"
 #include <cmath>
@@ -413,6 +414,7 @@ void GameView::Render(const Camera2D& camera, const std::vector<Particle*>& part
     // Render entities and particles
     View::CharacterRenderer::GetInstance().RenderAll();
     View::EntityRenderer::GetInstance().RenderAll();
+    if (m_entities) View::TutorialRenderer::GetInstance().RenderAll(*m_entities, dt);
     View::ParticleRenderer::GetInstance().RenderAll(particles, cam, dt);
 
     // Render foreground tilemap layer (above entities)
@@ -437,6 +439,7 @@ void GameView::Shutdown() {
     View::CharacterRenderer::GetInstance().Clear();
     View::EntityRenderer::GetInstance().Clear();
     View::ParticleRenderer::GetInstance().Shutdown();
+    View::TutorialRenderer::GetInstance().Shutdown();
 
     // Unload static textures
     if (m_magicTex.id != 0) ::UnloadTexture(m_magicTex);

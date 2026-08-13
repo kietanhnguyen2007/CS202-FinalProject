@@ -8,6 +8,9 @@
 #include "Model/Checkpoint.h"
 #include "Model/FakeWall.h"
 #include "Model/TeleportPortal.h"
+#include "Model/InMapGuide.h"
+#include "Model/Signboard.h"
+#include "Model/LevelCompleteCup.h"
 #include "Model/DualWorldPlayer.h"
 #include "Utils/Constants.h"
 #include "Model/TriggerZone.h"
@@ -28,6 +31,17 @@ int GetEntityFieldInt(const nlohmann::json& ei,
     for (auto& f : ei["fieldInstances"]) {
         if (f["__identifier"] == fieldName && !f["__value"].is_null())
             return f["__value"].get<int>();
+    }
+    return defaultVal;
+}
+
+std::string GetEntityFieldString(const nlohmann::json& ei,
+                                 const std::string& fieldName,
+                                 const std::string& defaultVal = {}) {
+    if (!ei.contains("fieldInstances")) return defaultVal;
+    for (auto& f : ei["fieldInstances"]) {
+        if (f["__identifier"] == fieldName && !f["__value"].is_null())
+            return f["__value"].get<std::string>();
     }
     return defaultVal;
 }
@@ -476,7 +490,7 @@ std::unique_ptr<GameState> LevelFactory::LoadLDtkLevel(const std::string& filepa
     if (lvl.contains("fieldInstances")) {
         for (auto& fi : lvl["fieldInstances"]) {
             std::string fid = fi["__identifier"];
-            if      (fid == "BackgroundTheme" && !fi["__value"].is_null())
+            if      ((fid == "BackgroundTheme" || fid == "Theme") && !fi["__value"].is_null())
                 state->SetBackgroundTheme(ParseBackgroundTheme(fi["__value"].get<std::string>()));
             else if (fid == "PlayerClass" && !fi["__value"].is_null())
                 state->SetPlayerClass(ParsePlayerClass(fi["__value"].get<std::string>()));
@@ -583,7 +597,16 @@ std::unique_ptr<GameState> LevelFactory::LoadLDtkLevel(const std::string& filepa
 
             // ── Enemies ───────────────────────────────────────────
             } else if (eid == "EnemyMelee") {
-                state->AddEntity(EnemyFactory::CreateMelee(pos));
+                auto enemy = EnemyFactory::CreateMelee(pos);
+                int health = GetEntityFieldInt(ei, "Health", enemy->GetMaxHealth());
+                enemy->SetMaxHealth(health);
+                enemy->SetHealth(health);
+                enemy->SetDamage(GetEntityFieldInt(ei, "Damage", enemy->GetDamage()));
+                enemy->SetDetectionRange((float)GetEntityFieldInt(
+                    ei, "DetectionRange", (int)enemy->GetDetectionRange()));
+                enemy->SetPatrolRange((float)GetEntityFieldInt(
+                    ei, "PatrolRange", (int)enemy->GetPatrolRange()));
+                state->AddEntity(std::move(enemy));
                 ++autoEnemies;
             } else if (eid == "EnemyRanged") {
                 state->AddEntity(EnemyFactory::CreateRanged(pos));
@@ -616,7 +639,7 @@ std::unique_ptr<GameState> LevelFactory::LoadLDtkLevel(const std::string& filepa
             } else if (eid == "Chest") {
                 state->AddEntity(std::make_unique<Chest>(pos));
                 ++autoItems;
-            } else if (eid == "CheckpointMid") {
+            } else if (eid == "CheckpointMid" || eid == "Checkpoint_Statue") {
                 auto cp = std::make_unique<Checkpoint>(pos);
                 cp->SetEndGame(false);
                 state->AddEntity(std::move(cp));
@@ -629,6 +652,18 @@ std::unique_ptr<GameState> LevelFactory::LoadLDtkLevel(const std::string& filepa
                     pos, Vector2{(float)TILE_SIZE, (float)TILE_SIZE}));
 
             // ── Fixed Items ───────────────────────────────────────
+            } else if (eid == "InMapGuide") {
+                state->AddEntity(std::make_unique<InMapGuide>(
+                    pos,
+                    GetEntityFieldString(ei, "Key", "F"),
+                    GetEntityFieldString(ei, "Caption", "")));
+            } else if (eid == "Signboard") {
+                state->AddEntity(std::make_unique<Signboard>(
+                    pos,
+                    GetEntityFieldString(ei, "Message",
+                        u8"Bấm F để đọc bảng, lưu game tại Checkpoint. Cổng Portal sẽ dịch chuyển bạn đến cổng có cùng màu sắc.")));
+            } else if (eid == "LevelCompleteCup") {
+                state->AddEntity(std::make_unique<LevelCompleteCup>(pos));
             } else if (eid == "ItemCoin") {
                 int amt = GetEntityFieldInt(ei, "Amount", 1);
                 state->AddEntity(ItemFactory::CreateCoin(pos, amt));

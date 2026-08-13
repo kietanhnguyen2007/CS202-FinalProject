@@ -180,8 +180,8 @@ void Player::Attack() {
     m_state = State::Attack;
 }
 
-void Player::Attack2() {
-    m_attackTimer = m_attackCooldown;
+void Player::Attack2(float animationDuration) {
+    m_attackTimer = (animationDuration > 0.0f) ? animationDuration : m_attackCooldown;
     m_state = State::Attack2;
 }
 
@@ -190,8 +190,8 @@ void Player::Attack3() {
     m_state = State::Attack3;
 }
 
-void Player::DoUltimate() {
-    m_attackTimer = m_attackCooldown;
+void Player::DoUltimate(float animationDuration) {
+    m_attackTimer = (animationDuration > 0.0f) ? animationDuration : m_attackCooldown;
     m_state = State::Ultimate;
 }
 

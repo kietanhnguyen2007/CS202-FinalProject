@@ -38,6 +38,8 @@ public:
     static constexpr float BLADE_RUSH_RANGE  = 550.0f;
     static constexpr float CLONE_SPEED       = 420.0f;
     static constexpr float CLONE_RANGE       = 600.0f;
+    static constexpr float ULTIMATE_CAST_DURATION = 7.0f * 0.125f;
+    static constexpr float CLONE_ANIMATION_DURATION = 7.0f * 0.13f;
 
     void Update(float deltaTime) override;
 

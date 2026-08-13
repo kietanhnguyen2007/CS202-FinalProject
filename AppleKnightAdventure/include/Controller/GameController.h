@@ -97,9 +97,11 @@ private:
 
     // Skill projectile helpers
     bool CheckLineOfSight(Vector2 start, Vector2 end) const;
+    bool FindNearestVisibleEnemyInCamera(Vector2 origin, Vector2& targetCenter) const;
     void SpawnPlayerProjectile(const char* atlasPath, Vector2 spawnPos, Direction dir,
                                int damage, float speed, float lifetime, 
-                               float scale = 0.3f, bool facesLeft = true);
+                               float scale = 0.3f, bool facesLeft = true,
+                               Vector2 hitboxSize = {0.0f, 0.0f});
     void SpawnLightningAt(Vector2 targetPos, int damage, float lifetime,
                           const char* atlasPath = "assets/textures/player/magic_caster/projectile_attack1.json",
                           float rotation = 0.0f, float scale = 0.4f);

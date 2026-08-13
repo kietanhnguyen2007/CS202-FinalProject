@@ -2,6 +2,7 @@
 #include "Model/Chest.h"
 #include "Model/Checkpoint.h"
 #include "Model/Character.h"
+#include "Model/LevelCompleteCup.h"
 #include <algorithm>
 
 GameState::GameState()
@@ -234,9 +235,15 @@ bool GameState::IsLevelComplete() const {
     
     bool enemiesAlive = false;
     bool touchingEndCheckpoint = false;
+    bool hasCompletionCup = false;
     Rectangle playerBox = m_localPlayer->GetBoundingBox();
 
     for (const auto& entity : m_entities) {
+        if (entity->GetType() == EntityType::LevelCompleteCup) {
+            hasCompletionCup = true;
+            const auto* cup = static_cast<const LevelCompleteCup*>(entity.get());
+            if (cup->IsActivated()) return true;
+        }
         if (entity->GetType() == EntityType::Enemy) {
             Character* character = static_cast<Character*>(entity.get());
             if (character->IsAlive()) {
@@ -253,6 +260,7 @@ bool GameState::IsLevelComplete() const {
         }
     }
 
+    if (hasCompletionCup) return false;
     return (!enemiesAlive && touchingEndCheckpoint);
 }
 
