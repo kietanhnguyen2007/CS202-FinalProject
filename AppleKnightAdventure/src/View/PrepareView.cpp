@@ -25,7 +25,9 @@ PrepareLayout BuildPrepareLayout() {
     const float gap = std::clamp(sw * 0.018f, 8.0f, 22.0f);
     const float sideW = std::clamp(sw * 0.245f, 180.0f, 306.0f);
     const float top = std::clamp(sh * 0.17f, 78.0f, 125.0f);
-    const float bottomReserve = std::clamp(sh * 0.18f, 76.0f, 122.0f);
+    // Keep a dedicated footer band for the start button and control hint.
+    // This prevents them from colliding on short windows.
+    const float bottomReserve = std::clamp(sh * 0.22f, 96.0f, 150.0f);
     const float panelH = std::max(170.0f, sh - top - bottomReserve);
 
     PrepareLayout l;
@@ -38,7 +40,7 @@ PrepareLayout BuildPrepareLayout() {
     const float startW = std::clamp(l.preview.width * 0.62f, 170.0f, 270.0f);
     const float startH = std::clamp(sh * 0.075f, 46.0f, 62.0f);
     l.start = {l.preview.x + (l.preview.width - startW) * 0.5f,
-               sh - bottomReserve * 0.70f, startW, startH};
+               sh - bottomReserve + 10.0f, startW, startH};
     return l;
 }
 
@@ -305,7 +307,9 @@ void PrepareView::RenderStartButton(float x, float y, float w, float h) {
     DrawRectangleRoundedLinesEx(rect, 0.20f, 9, selected ? 3.0f : 1.5f,
                                 selected ? Color{255, 220, 104, 255} : Color{126, 96, 158, 230});
     const char* text = "BEGIN ADVENTURE";
-    const float size = std::clamp(h * 0.31f, 12.0f, 19.0f);
+    float size = std::clamp(h * 0.31f, 12.0f, 19.0f);
+    while (size > 9.0f && MeasureTextEx(font, text, size, 1.0f).x > rect.width - 24.0f)
+        size -= 1.0f;
     const Vector2 measure = MeasureTextEx(font, text, size, 1.0f);
     DrawTextEx(font, text, {rect.x + (rect.width - measure.x) * 0.5f, rect.y + (rect.height - measure.y) * 0.5f},
                size, 1.0f, selected ? Color{255, 238, 174, 255} : RAYWHITE);

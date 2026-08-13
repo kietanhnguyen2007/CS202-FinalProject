@@ -423,7 +423,7 @@ void MenuController::HandleShopInput(float dt) {
     InputCommand cmd = InputController::GetInstance().Poll();
 
     // Character prices (index 0 = Knight = free)
-    const int prices[]    = { 0, 200, 350, 500 };
+    const int prices[]    = { 0, 10, 20, 30 };
     const char* names[]   = { "Knight", "Fighter", "Magic Caster", "Ninja" };
     constexpr int kCount  = 4;
 

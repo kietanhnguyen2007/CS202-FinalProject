@@ -32,19 +32,19 @@ static const CharDef kCharDefs[] = {
     {
         "fighter",  "Fighter",
         "assets/textures/player/fighter/idle.json",
-        50, 120, 120, 130,
+        10, 120, 120, 130,
         "Aggressive brawler. Lower defence, very high damage."
     },
     {
         "magic_caster", "Magic Caster",
         "assets/textures/player/magic_caster/idle.json",
-        100, 90, 160, 110,
+        20, 90, 160, 110,
         "Long-range mage. Fragile but devastating spells."
     },
     {
         "ninja",    "Ninja",
         "assets/textures/player/ninja/idle.json",
-        150, 100, 130, 190,
+        30, 100, 130, 190,
         "Elusive assassin. Extreme speed and burst damage."
     },
 };
@@ -62,25 +62,25 @@ static const PetDef kPetDefs[] = {
     {
         "skull",       "Skull",
         "assets/textures/pets/skull/idle.json",
-        30, 60, 50, 120,
+        10, 60, 50, 120,
         "Floats beside you, fires bone shards at enemies."
     },
     {
         "ghost",       "Ghost",
         "assets/textures/pets/ghost/idle.json",
-        50, 80, 40, 140,
+        20, 80, 40, 140,
         "Heals you over time. Phases through walls."
     },
     {
         "baby_dragon", "Baby Dragon",
         "assets/textures/pets/baby_dragon/idle.json",
-        100, 100, 90, 100,
+        25, 100, 90, 100,
         "Breathes fire. Loyal and ferocious."
     },
     {
         "fairy",       "Fairy",
         "assets/textures/pets/fairy/idle.json",
-        150, 70, 60, 160,
+        30, 70, 60, 160,
         "Collects nearby items automatically. Very fast."
     },
 };

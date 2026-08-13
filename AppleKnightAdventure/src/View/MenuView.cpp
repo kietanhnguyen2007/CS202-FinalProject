@@ -1201,7 +1201,7 @@ void MenuView::RenderShop() {
 
     // Grid of character cards (3 columns)
     const char* chars[] = {"Knight", "Fighter", "Magic Caster", "Ninja"};
-    const int   prices[] = {0, 200, 350, 500};
+    const int   prices[] = {0, 10, 20, 30};
     constexpr int kCols = 3;
     constexpr int kCount = 4;
 
@@ -1354,14 +1354,23 @@ void MenuView::RenderLevelSelect() {
         const char* action = selectedUnlocked
             ? "READY - CLICK OR PRESS ENTER TO PREPARE"
             : "COMPLETE THE PREVIOUS LEVEL TO UNLOCK";
-        const float actionW = std::min(screenW * 0.58f, 620.0f);
-        Rectangle actionPlate = {(screenW-actionW)*0.5f,screenH*0.825f,actionW,screenH*0.055f};
+        float actionSize = std::max(11.0f,screenH*0.018f);
+        const float maxActionW = std::min(screenW-32.0f,760.0f);
+        while (actionSize > 9.0f &&
+               ::MeasureTextEx(font,action,actionSize,1.0f).x > maxActionW-36.0f)
+            actionSize -= 1.0f;
+        const Vector2 actionMeasure = ::MeasureTextEx(font,action,actionSize,1.0f);
+        const float actionW = std::clamp(actionMeasure.x+44.0f,
+                                         std::min(screenW*0.42f,420.0f),maxActionW);
+        const float actionH = std::max(screenH*0.060f,actionMeasure.y+20.0f);
+        Rectangle actionPlate = {(screenW-actionW)*0.5f,screenH*0.815f,actionW,actionH};
         ::DrawRectangleRounded(actionPlate,0.35f,10,
             selectedUnlocked?Color{50,48,79,235}:Color{53,28,42,235});
         ::DrawRectangleRoundedLinesEx(actionPlate,0.35f,10,2.0f,
             selectedUnlocked?Color{244,196,72,225}:Color{175,77,94,210});
-        drawCentered(action,screenW*0.5f,actionPlate.y+actionPlate.height*0.27f,
-                     std::max(11.0f,screenH*0.018f),
+        drawCentered(action,screenW*0.5f,
+                     actionPlate.y+(actionPlate.height-actionMeasure.y)*0.5f,
+                     actionSize,
                      selectedUnlocked?Color{255,232,145,255}:Color{225,153,164,240});
         drawCentered("ARROWS / WASD  NAVIGATE     ENTER / CLICK  SELECT     ESC  BACK",
                      screenW*0.5f,screenH*0.925f,std::max(13.0f,screenH*0.021f),

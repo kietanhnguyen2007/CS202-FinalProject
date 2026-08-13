@@ -40,6 +40,14 @@ void DrawCentered(Font font, const char* text, float centerX, float y,
     ::DrawTextEx(font, text, {centerX - measured.x * 0.5f, y}, fontSize, spacing, color);
 }
 
+float FitFontSize(Font font, const char* text, float preferredSize,
+                  float minSize, float maxWidth, float spacing = 1.0f) {
+    float size = preferredSize;
+    while (size > minSize && ::MeasureTextEx(font, text, size, spacing).x > maxWidth)
+        size -= 1.0f;
+    return std::max(size, minSize);
+}
+
 Rectangle VictoryPanelRect() {
     const float w = (float)::GetScreenWidth();
     const float h = (float)::GetScreenHeight();
@@ -47,6 +55,10 @@ Rectangle VictoryPanelRect() {
     const float panelW = std::min(w * 0.78f, 930.0f * scale);
     const float panelH = std::min(h * 0.88f, 630.0f * scale);
     return {(w-panelW)*0.5f, (h-panelH)*0.5f, panelW, panelH};
+}
+
+float VictoryContentScale(Rectangle panel) {
+    return std::min(panel.width / 930.0f, panel.height / 630.0f);
 }
 
 Color WithAlpha(Color color, float alpha) {
@@ -200,7 +212,7 @@ void ResultView::UpdateParticles(float dt) {
 
 Rectangle ResultView::ContinueButtonRect() const {
     Rectangle panel = VictoryPanelRect();
-    const float scale = panel.width / 930.0f;
+    const float scale = VictoryContentScale(panel);
     return {panel.x + panel.width*0.5f + 10.0f*scale,
             panel.y + panel.height - 66.0f*scale,
             190.0f*scale, 46.0f*scale};
@@ -208,7 +220,7 @@ Rectangle ResultView::ContinueButtonRect() const {
 
 Rectangle ResultView::RetryButtonRect() const {
     Rectangle panel = VictoryPanelRect();
-    const float scale = panel.width / 930.0f;
+    const float scale = VictoryContentScale(panel);
     return {panel.x + panel.width*0.5f - 200.0f*scale,
             panel.y + panel.height - 66.0f*scale,
             180.0f*scale, 46.0f*scale};
@@ -265,7 +277,9 @@ void ResultView::Render() {
     const float w = (float)::GetScreenWidth();
     const float h = (float)::GetScreenHeight();
     const Rectangle panelTarget = VictoryPanelRect();
-    const float scale = panelTarget.width / 930.0f;
+    // Scale all content against both axes so short/wide windows cannot make
+    // vertical rows collide even when there is ample horizontal space.
+    const float scale = VictoryContentScale(panelTarget);
     const float panelProgress = EaseOutBack(m_elapsed / 0.48f);
     const float panelW = panelTarget.width * panelProgress;
     const float panelH = panelTarget.height * panelProgress;
@@ -320,7 +334,10 @@ void ResultView::Render() {
     DrawPanel(m_panel, header, 13.0f, m_gameOver ? Color{190,105,105,255} : WHITE);
     const float titleProgress = EaseOutBack((m_elapsed - 0.25f) / 0.40f);
     const char* title = m_gameOver ? "DEFEAT" : "VICTORY";
-    const float titleSize = 50.0f*scale*std::max(0.0f,titleProgress);
+    const float fittedTitleSize = FitFontSize(m_font, title, 50.0f*scale,
+                                               22.0f*scale,
+                                               header.width-28.0f*scale, 2.0f);
+    const float titleSize = fittedTitleSize*std::max(0.0f,titleProgress);
     if (titleSize > 1.0f) {
         DrawCentered(m_font, title, panel.x+panel.width*0.5f,
                      header.y + 7*scale, titleSize, 2.0f,
@@ -386,12 +403,13 @@ void ResultView::Render() {
     if (statsReveal > 0.0f || m_gameOver) {
         DrawPanel(m_panelInset, stats, 14.0f, Color{250,226,176,255});
         const float count = m_gameOver ? 1.0f : statsReveal;
-        const float labelSize = 22.0f*scale;
-        const float valueSize = 23.0f*scale;
+        const float labelSize = 18.0f*scale;
+        const float valueSize = 21.0f*scale;
         const float leftX = stats.x+62*scale;
         const float rightX = stats.x+stats.width*0.55f;
-        const float row1 = stats.y+35*scale;
-        const float row2 = stats.y+92*scale;
+        const float row1 = stats.y+29*scale;
+        const float row2 = stats.y+94*scale;
+        const float valueOffset = 26.0f*scale;
         auto drawIcon = [&](Texture2D tex, float x, float y, Color tint) {
             if (!tex.id) return;
             ::DrawTexturePro(tex,{0,0,(float)tex.width,(float)tex.height},
@@ -405,16 +423,16 @@ void ResultView::Render() {
         char value[96];
         ::DrawTextEx(m_font,"TIME",{leftX,row1},labelSize,1,Color{84,48,25,255});
         std::snprintf(value,sizeof(value),"%.1fs / %.0fs",m_snap.clearTime*count,m_snap.parTime);
-        ::DrawTextEx(m_font,value,{leftX,row1+25*scale},valueSize,1,Color{54,31,20,255});
+        ::DrawTextEx(m_font,value,{leftX,row1+valueOffset},valueSize,1,Color{54,31,20,255});
         ::DrawTextEx(m_font,"ENEMIES",{rightX,row1},labelSize,1,Color{84,48,25,255});
         std::snprintf(value,sizeof(value),"%d / %d",(int)std::round(m_snap.enemiesKilled*count),m_snap.totalEnemies);
-        ::DrawTextEx(m_font,value,{rightX,row1+25*scale},valueSize,1,Color{54,31,20,255});
+        ::DrawTextEx(m_font,value,{rightX,row1+valueOffset},valueSize,1,Color{54,31,20,255});
         ::DrawTextEx(m_font,"PICKUPS",{leftX,row2},labelSize,1,Color{84,48,25,255});
         std::snprintf(value,sizeof(value),"%d / %d",(int)std::round(m_snap.itemsCollected*count),m_snap.totalItems);
-        ::DrawTextEx(m_font,value,{leftX,row2+25*scale},valueSize,1,Color{54,31,20,255});
+        ::DrawTextEx(m_font,value,{leftX,row2+valueOffset},valueSize,1,Color{54,31,20,255});
         ::DrawTextEx(m_font,"SCORE",{rightX,row2},labelSize,1,Color{84,48,25,255});
         std::snprintf(value,sizeof(value),"%d",(int)std::round(m_snap.score*count));
-        ::DrawTextEx(m_font,value,{rightX,row2+25*scale},valueSize,1,Color{54,31,20,255});
+        ::DrawTextEx(m_font,value,{rightX,row2+valueOffset},valueSize,1,Color{54,31,20,255});
 
         const float barX = stats.x+36*scale;
         const float barY = stats.y+174*scale;
@@ -426,11 +444,15 @@ void ResultView::Render() {
                                0.45f,10,Color{235,169,54,255});
         std::snprintf(value,sizeof(value),"PERFORMANCE  %d%%",
                       (int)std::round(m_snap.performance*100.0f*count));
+        const float performanceSize = FitFontSize(m_font,value,19*scale,11*scale,
+                                                   barW-20*scale);
         DrawCentered(m_font,value,stats.x+stats.width*0.5f,barY+3*scale,
-                     19*scale,1,WHITE);
+                     performanceSize,1,WHITE);
         const char* rule = "1 STAR: CLEAR   |   2 STARS: 60%   |   3 STARS: 85%";
+        const float ruleSize = FitFontSize(m_font,rule,16*scale,9*scale,
+                                           stats.width-44*scale);
         DrawCentered(m_font,rule,stats.x+stats.width*0.5f,stats.y+218*scale,
-                     16*scale,1,Color{80,48,29,255});
+                     ruleSize,1,Color{80,48,29,255});
     }
 
     const bool anyRecord = m_snap.newHighScore || m_snap.newBestStars || m_snap.newBestTime;
@@ -442,8 +464,10 @@ void ResultView::Render() {
             ::DrawTexturePro(m_medal,{0,0,(float)m_medal.width,(float)m_medal.height},
                              {panel.x+panel.width-78*scale,panel.y+24*scale,medalW,medalH},
                              {medalW*0.5f,0},0,WHITE);
+            const float recordSize = FitFontSize(m_font,"NEW RECORD",14*scale,9*scale,
+                                                  128*scale);
             DrawCentered(m_font,"NEW RECORD",panel.x+panel.width-78*scale,
-                         panel.y+92*scale,14*scale,1,Color{255,239,177,255});
+                         panel.y+92*scale,recordSize,1,Color{255,239,177,255});
         }
     }
 
@@ -455,13 +479,20 @@ void ResultView::Render() {
             ::DrawRectangleRounded({rect.x+3*scale,rect.y+4*scale,rect.width,rect.height},
                                    0.22f,8,Color{20,9,4,135});
             DrawPanel(m_panel,rect,12.0f,hover?Color{255,229,169,255}:WHITE);
-            DrawCentered(m_font,label,rect.x+rect.width*0.5f,rect.y+10*scale,
-                         20*scale,1,Color{255,242,205,255});
+            const float buttonSize = FitFontSize(m_font,label,20*scale,10*scale,
+                                                  rect.width-18*scale);
+            const Vector2 buttonText = ::MeasureTextEx(m_font,label,buttonSize,1.0f);
+            ::DrawTextEx(m_font,label,
+                         {rect.x+(rect.width-buttonText.x)*0.5f,
+                          rect.y+(rect.height-buttonText.y)*0.5f},
+                         buttonSize,1.0f,Color{255,242,205,255});
         };
         drawButton(RetryButtonRect(),"[R] RETRY");
         drawButton(ContinueButtonRect(),"[ENTER] CONTINUE");
+        const float footerSize = FitFontSize(m_font,"ESC - LEVEL SELECT",13*scale,
+                                              9*scale,panel.width-40*scale);
         DrawCentered(m_font,"ESC - LEVEL SELECT",panel.x+panel.width*0.5f,
-                     panel.y+panel.height-17*scale,13*scale,1,Color{238,211,159,220});
+                     panel.y+panel.height-17*scale,footerSize,1,Color{238,211,159,220});
     }
 }
 
