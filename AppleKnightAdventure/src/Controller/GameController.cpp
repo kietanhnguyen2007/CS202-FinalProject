@@ -155,6 +155,7 @@ void GameController::LoadTilesets() {
 
 std::string GameController::GetLevelPath(int levelNumber) const {
     if (levelNumber == -99) return "assets/levels/temp_playtest.lvl";
+    if (levelNumber == -98) return "assets/levels/custom_map.lvl";
 
     if (levelNumber == 1 && std::filesystem::exists("assets/levels/tutorial.ldtk")) {
         return "assets/levels/tutorial.ldtk";

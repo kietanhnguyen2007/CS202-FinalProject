@@ -69,6 +69,7 @@ public:
 
     // Feed save data to display in header (no longer shows coins in main menu)
     void SetHeaderData(const std::string& playerName, int coins);
+    void ShowMainNotice(const std::string& message);
 
 private:
     MenuView() = default;
@@ -104,6 +105,7 @@ private:
 
     // Draw glow ring around hovered button
     void DrawGlowRect(Rectangle r, Color col, float alpha, float thickness);
+    Rectangle GetMainButtonRect(int index, int screenW, int screenH) const;
 
     // Header HUD (player name + coins) top bar
     void DrawHeaderHUD();
@@ -126,7 +128,12 @@ private:
     std::array<AnimatedButton, kMaxMainButtons> m_mainButtons{};
 
     // Label lists
-    std::vector<std::string> m_mainItems    = { "Play", "Map Builder", "Shop", "Options", "Quit" };
+    std::vector<std::string> m_mainItems    = {
+        "PLAY ADVENTURE", "PLAY CUSTOM MAP", "MAP BUILDER",
+        "SHOP", "OPTIONS", "QUIT"
+    };
+    std::string m_mainNotice;
+    float m_mainNoticeTimer = 0.0f;
     std::vector<std::string> m_pauseItems   = { "Resume", "Quit to Menu" };
     std::string              m_errorMsg;
     std::vector<std::string> m_errorItems   = { "OK" };

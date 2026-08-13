@@ -129,7 +129,20 @@ void MapBuilderController::ExitEditor() {
 void MapBuilderController::SaveMap(const std::string& filename) {
     if (!m_gameState) return;
     std::string path = "assets/levels/" + filename + ".lvl";
-    LevelFactory::SaveLevel(path, m_gameState.get());
+    const bool namedSaveOk = LevelFactory::SaveLevel(path, m_gameState.get());
+
+    // The main menu always launches this stable alias. Keep it synchronized
+    // with the latest map the player explicitly saved in the builder.
+    const std::string playablePath = "assets/levels/custom_map.lvl";
+    bool playableSaveOk = namedSaveOk;
+    if (path != playablePath) {
+        playableSaveOk = LevelFactory::SaveLevel(playablePath, m_gameState.get());
+    }
+
+    View::MapBuilderView::GetInstance().ShowStatus(
+        namedSaveOk && playableSaveOk
+            ? "MAP SAVED - READY TO PLAY FROM THE MAIN MENU"
+            : "SAVE FAILED - CHECK THE LEVELS FOLDER");
 }
 
 void MapBuilderController::Playtest() {

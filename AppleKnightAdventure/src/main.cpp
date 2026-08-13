@@ -11,8 +11,13 @@
 #include "View/AssetManager.h"
 #include "View/OptionsView.h"
 #include "View/PrepareView.h"
+#include "View/MapBuilderView.h"
+#include "View/InventoryView.h"
+#include "View/InteractPrompt.h"
+#include "View/UIStateManager.h"
 #include "Utils/Constants.h"
 #include "Systems/WindowManager.h"
+#include "Systems/SoundManager.h"
 #include "raylib.h"
 #include <filesystem>
 #include <vector>
@@ -191,6 +196,16 @@ int main() {
     if (barFill.id != 0) UnloadTexture(barFill);
     // ---------------------------------------
 
+    // The user may close the window during asset loading. Do not continue
+    // initializing the whole game just to tear it down immediately.
+    if (WindowShouldClose()) {
+        SetTraceLogLevel(LOG_WARNING);
+        assetManager.Shutdown();
+        View::Renderer::GetInstance().Shutdown();
+        CloseWindow();
+        return 0;
+    }
+
     auto& menu  = MenuController::GetInstance();
     auto& game  = GameController::GetInstance();
     auto& shop  = ShopController::GetInstance();
@@ -336,13 +351,32 @@ int main() {
         }
     }
 
-    if (inGame) {
-        game.Shutdown();
-    }
-    menu.Shutdown();
-    View::GameView::GetInstance().Shutdown();
+    // Raylib logs one INFO line for every released GPU object. With hundreds of
+    // atlases this console I/O alone can noticeably delay exit; warnings and
+    // errors remain enabled.
+    SetTraceLogLevel(LOG_WARNING);
+
+    // Release all gameplay/editor references first. GameView preloads character
+    // atlases even when no level was opened, so this must run unconditionally.
+    game.Shutdown();
+    MapBuilderController::GetInstance().ExitEditor();
+
+    // Drop view-owned atlases and textures while the OpenGL context is alive.
+    View::UIStateManager::GetInstance().Shutdown();
+    View::PrepareView::GetInstance().Shutdown();
+    shop.Shutdown();
+    opts.Shutdown();
+    View::InventoryView::GetInstance().Shutdown();
+    View::InteractPrompt::GetInstance().Shutdown();
     View::SkillBarView::GetInstance().Shutdown();
     View::HUDView::GetInstance().Shutdown();
+    View::MapBuilderView::GetInstance().Shutdown();
+    View::GameView::GetInstance().Shutdown();
+    menu.Shutdown();
+
+    // Asset atlases and audio devices must be gone before the renderer/window.
+    assetManager.Shutdown();
+    SoundManager::GetInstance().CloseAudio();
     View::Renderer::GetInstance().Shutdown();
     CloseWindow();
     return 0;

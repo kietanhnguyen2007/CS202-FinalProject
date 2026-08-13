@@ -14,6 +14,7 @@ public:
     static EnemyStatusRenderer& GetInstance();
 
     bool LoadResources(const std::string& atlasJsonPath);
+    void Shutdown();
     void Update(float dt);
     void Render(const Camera2D& camera);
 

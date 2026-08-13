@@ -126,13 +126,17 @@ void Renderer::Shutdown() {
     }
     free(s_layers);
     s_layers = nullptr;
-    if (s_mesh.vboId[0] != 0) UnloadMesh(s_mesh);
-    if (s_material.shader.id) UnloadMaterial(s_material);
-    free(s_vertices); s_vertices = nullptr;
-    free(s_texcoords); s_texcoords = nullptr;
-    free(s_colors); s_colors = nullptr;
-    free(s_indices); s_indices = nullptr;
+    // UnloadMesh releases both the GPU buffers and all CPU arrays attached to
+    // the Mesh. Freeing s_vertices/s_texcoords/s_colors/s_indices again caused
+    // a double-free, followed by a ~10 second Windows crash-report delay.
+    if (s_mesh.vertices != nullptr || s_mesh.vboId[0] != 0) UnloadMesh(s_mesh);
+    if (s_material.maps != nullptr) UnloadMaterial(s_material);
+    s_vertices = nullptr;
+    s_texcoords = nullptr;
+    s_colors = nullptr;
+    s_indices = nullptr;
     s_mesh = {0};
+    s_material = {0};
     if (s_submitBuffer) {
         free(s_submitBuffer);
         s_submitBuffer = nullptr;

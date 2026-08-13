@@ -104,6 +104,25 @@ void MenuView::SetHeaderData(const std::string& playerName, int coins) {
     m_coins      = coins;
 }
 
+void MenuView::ShowMainNotice(const std::string& message) {
+    m_mainNotice = message;
+    m_mainNoticeTimer = 3.5f;
+}
+
+Rectangle MenuView::GetMainButtonRect(int index, int screenW, int screenH) const {
+    constexpr int columns = 2;
+    const int column = index % columns;
+    const int row = index / columns;
+    const float panelW = screenW * 0.58f;
+    const float gapX = screenW * 0.022f;
+    const float gapY = screenH * 0.025f;
+    const float buttonW = (panelW-gapX)/2.0f;
+    const float buttonH = screenH * 0.082f;
+    const float startX = (screenW-panelW)*0.5f;
+    const float startY = screenH*0.50f;
+    return {startX+column*(buttonW+gapX),startY+row*(buttonH+gapY),buttonW,buttonH};
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Update
 // ─────────────────────────────────────────────────────────────────────────────
@@ -121,6 +140,9 @@ void MenuView::Update(float dt, int selectedIndex) {
     m_scrollTime    += dt;
     m_titleBobTime  += dt;
     m_spotlightPulse += dt;
+    if (m_mainNoticeTimer > 0.0f) {
+        m_mainNoticeTimer = std::max(0.0f, m_mainNoticeTimer - dt);
+    }
 
     // ── Parallax ──────────────────────────────────────────────────────────
     UpdateParallax(dt);
@@ -134,15 +156,8 @@ void MenuView::Update(float dt, int selectedIndex) {
         int w = Renderer::GetInstance().GetWindowWidth();
         int h = Renderer::GetInstance().GetWindowHeight();
 
-        float btnW    = w * 0.35f;
-        float btnH    = h * 0.080f;
-        float spacing = h * 0.100f; // btnH + 0.02f offset
-        float startY  = h * 0.46f;
-        float btnX    = ((float)w - btnW) * 0.5f;
-
         for (int i = 0; i < (int)m_mainItems.size() && i < kMaxMainButtons; ++i) {
-            float by = startY + (float)i * spacing;
-            m_mainButtons[i].baseRect = { btnX, by, btnW, btnH };
+            m_mainButtons[i].baseRect = GetMainButtonRect(i, w, h);
             UpdateButtonHover(m_mainButtons[i], mouse, dt);
         }
     }
@@ -227,17 +242,11 @@ int MenuView::GetHoveredItem(Vector2 mousePos) const {
     int h = Renderer::GetInstance().GetWindowHeight();
 
     if (m_mode == MenuMode::Main) {
-        float btnW    = w * 0.35f;
-        float btnH    = h * 0.080f;
-        float spacing = h * 0.100f; // btnH + 0.02f offset
-        float startY  = h * 0.46f;
-        float btnX    = ((float)w - btnW) * 0.5f;
-
         for (int i = 0; i < (int)m_mainItems.size(); ++i) {
-            float by   = startY + (float)i * spacing;
-            // Expand hit area slightly for the hover state (scale=1.12)
-            float expand = btnW * 0.06f;
-            Rectangle rect = { btnX - expand * 0.5f, by, btnW + expand, btnH };
+            Rectangle rect = GetMainButtonRect(i,w,h);
+            const float expand = rect.width*0.04f;
+            rect.x -= expand*0.5f;
+            rect.width += expand;
             if (::CheckCollisionPointRec(mousePos, rect)) return i;
         }
     } else if (m_mode == MenuMode::Pause) {
@@ -443,6 +452,37 @@ void MenuView::DrawGlowRect(Rectangle r, Color col, float alpha, float thickness
 }
 
 void MenuView::DrawAnimatedButton(const char* label, AnimatedButton& btn, bool selected) {
+    {
+        const float scale = btn.scale;
+        const float centerX = btn.baseRect.x+btn.baseRect.width*0.5f;
+        const float centerY = btn.baseRect.y+btn.baseRect.height*0.5f;
+        const float width = btn.baseRect.width*scale;
+        const float height = btn.baseRect.height*scale;
+        const Rectangle rect{centerX-width*0.5f,centerY-height*0.5f,width,height};
+        const bool active = selected || btn.hovered;
+        DrawGlowRect(rect,Color{255,205,83,255},active?0.30f+btn.glowAlpha*0.35f:0.0f,9.0f);
+        ::DrawRectangleRounded({rect.x+4,rect.y+6,rect.width,rect.height},0.22f,12,
+                               Color{5,2,13,150});
+        ::DrawRectangleRounded(rect,0.22f,12,
+                               active?Color{73,48,112,248}:Color{31,22,52,242});
+        ::DrawRectangleRounded({rect.x+4,rect.y+4,rect.width-8,rect.height*0.44f},
+                               0.25f,10,active?Color{121,82,167,110}:Color{78,57,108,70});
+        ::DrawRectangleRoundedLinesEx(rect,0.22f,12,active?3.0f:1.8f,
+                                     active?Color{255,216,100,255}:Color{142,112,180,220});
+        const float ornamentX=rect.x+22.0f;
+        ::DrawPoly({ornamentX,centerY},4,std::max(5.0f,height*0.10f),45.0f,
+                   active?Color{255,219,105,255}:Color{115,91,151,220});
+        ::DrawLineEx({rect.x+34,centerY},{rect.x+52,centerY},1.5f,
+                     active?Color{255,219,105,210}:Color{105,82,140,170});
+        const float fontSize=std::max(13.0f,height*0.39f);
+        const Font font=m_fontsLoaded ? m_fontBody : ::GetFontDefault();
+        const Vector2 measured=::MeasureTextEx(font,label,fontSize,1.0f);
+        ::DrawTextEx(font,label,{centerX-measured.x*0.5f,centerY-measured.y*0.5f},
+                     fontSize,1.0f,active?Color{255,238,174,255}:Color{226,215,242,245});
+    }
+    return;
+
+#if 0 // Replaced by the layered fantasy button above.
     float scale = btn.scale;
     float cxBase = btn.baseRect.x + btn.baseRect.width  * 0.5f;
     float cyBase = btn.baseRect.y + btn.baseRect.height * 0.5f;
@@ -494,6 +534,8 @@ void MenuView::DrawAnimatedButton(const char* label, AnimatedButton& btn, bool s
         float ty = scaledY + (scaledH - (float)fontSize) * 0.5f;
         ::DrawText(label, (int)tx, (int)ty, fontSize, textCol);
     }
+}
+#endif
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -602,6 +644,19 @@ void MenuView::RenderMain() {
     // ── Step 4: Dark vignette overlay ────────────────────────────────────
     ::DrawRectangle(0, 0, w, h, Color{8, 4, 18, 90});
 
+    const Rectangle commandPanel{w*0.18f,h*0.445f,w*0.64f,h*0.39f};
+    ::DrawRectangleRounded({commandPanel.x+7,commandPanel.y+9,
+                            commandPanel.width,commandPanel.height},
+                           0.08f,12,Color{3,1,10,145});
+    ::DrawRectangleRounded(commandPanel,0.08f,12,Color{18,11,34,185});
+    ::DrawRectangleRoundedLinesEx(commandPanel,0.08f,12,2.0f,Color{126,95,171,200});
+    ::DrawLineEx({commandPanel.x+35,commandPanel.y+22},
+                 {commandPanel.x+commandPanel.width-35,commandPanel.y+22},
+                 1.5f,Color{210,166,76,150});
+    ::DrawPoly({commandPanel.x+22,commandPanel.y+22},4,6.0f,45.0f,Color{230,188,88,210});
+    ::DrawPoly({commandPanel.x+commandPanel.width-22,commandPanel.y+22},
+               4,6.0f,45.0f,Color{230,188,88,210});
+
     // ── Step 5: Header HUD (player name only — no coins on main menu) ─────────────
     {
         int sw2 = Renderer::GetInstance().GetWindowWidth();
@@ -664,6 +719,18 @@ void MenuView::RenderMain() {
     // ── Step 7: Animated buttons ──────────────────────────────────────────
     for (int i = 0; i < (int)m_mainItems.size() && i < kMaxMainButtons; ++i) {
         DrawAnimatedButton(m_mainItems[i].c_str(), m_mainButtons[i], (i == m_selected));
+    }
+
+    if (m_mainNoticeTimer > 0.0f && !m_mainNotice.empty()) {
+        const Font font=m_fontsLoaded ? m_fontBody : ::GetFontDefault();
+        const float size=std::max(14.0f,h*0.024f);
+        const Vector2 measured=::MeasureTextEx(font,m_mainNotice.c_str(),size,1.0f);
+        const Rectangle notice{(w-measured.x)*0.5f-22,h*0.865f,
+                               measured.x+44,measured.y+18};
+        ::DrawRectangleRounded(notice,0.35f,10,Color{48,20,34,235});
+        ::DrawRectangleRoundedLinesEx(notice,0.35f,10,2.0f,Color{255,157,115,230});
+        ::DrawTextEx(font,m_mainNotice.c_str(),{notice.x+22,notice.y+9},size,1.0f,
+                     Color{255,225,196,255});
     }
 }
 

@@ -75,6 +75,8 @@ private:
     Texture2D m_texPortalGreen{};
     Texture2D m_texPortalPurple{};
     Texture2D m_texPortalRed{};
+    Font m_uiFont{};
+    bool m_resourcesLoaded = false;
 
     // Layer visibility
     bool m_layerVisible[static_cast<int>(MapLayer::Count)] = {true, true, true};
@@ -98,16 +100,23 @@ private:
     std::string m_fileName = "custom_map";
     bool m_isTypingFileName = false;
     bool m_showSaveConfirm = false;
+    std::string m_statusMessage;
+    float m_statusTimer = 0.0f;
 
     void DrawToolbar(GameState* state, int screenW, int screenH);
     void DrawPalette(int screenW, int screenH);
     void DrawLayersPanel(int screenW, int screenH);
     void DrawPropertiesPanel(int screenW, int screenH);
     void DrawMinimap(const Camera2D& camera, GameState* state, int screenW, int screenH);
+    void DrawEditorPanel(Rectangle rect, const char* title = nullptr) const;
+    void DrawEditorButton(Rectangle rect, const char* label, bool active,
+                          Color accent) const;
+    void DrawEditorText(const char* text, Vector2 pos, float size, Color color) const;
 
 public:
     static MapBuilderView& GetInstance();
     void Init();
+    void Shutdown();
     
     // Returns true if the mouse is hovering over any UI element (meaning clicks shouldn't affect the map)
     bool IsMouseOverUI() const;
@@ -154,6 +163,7 @@ public:
     
     std::string GetFileName() const { return m_fileName; }
     void SetFileName(const std::string& name) { m_fileName = name; }
+    void ShowStatus(const std::string& message) { m_statusMessage = message; m_statusTimer = 3.0f; }
 
     int WantsResizeW() { int v = m_wantsResizeW; m_wantsResizeW = 0; return v; }
     int WantsResizeH() { int v = m_wantsResizeH; m_wantsResizeH = 0; return v; }

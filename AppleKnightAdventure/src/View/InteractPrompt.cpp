@@ -20,9 +20,10 @@ bool InteractPrompt::LoadResources(const std::string& atlasJsonPath) {
 }
 
 void InteractPrompt::Shutdown() {
-    ::UnloadTexture(m_texIcon);
+    if (m_texIcon.id != 0) ::UnloadTexture(m_texIcon);
     m_texIcon = {};
     m_iconFrameW = 0;
+    Hide();
 }
 
 void InteractPrompt::Show(const std::string& text) {

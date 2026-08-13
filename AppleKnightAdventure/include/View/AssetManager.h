@@ -18,6 +18,10 @@ public:
     // Start loading a list of JSON paths on a background thread.
     void StartLoading(const std::vector<std::string>& jsonPaths);
 
+    // Stop the loader thread and release every cached atlas while the graphics
+    // context is still alive. Safe to call more than once.
+    void Shutdown();
+
     // Update main thread: upload loaded images to GPU
     void UpdateMainThread();
 
@@ -44,6 +48,7 @@ private:
     // Threading
     std::thread m_workerThread;
     std::atomic<bool> m_isRunning{false};
+    std::atomic<bool> m_shutdownComplete{false};
     
     std::queue<std::string> m_pendingPaths;
     std::mutex m_queueMutex;

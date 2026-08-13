@@ -9,7 +9,13 @@
 namespace View::Animations {
 
 TextureAtlas::~TextureAtlas() {
+    if (m_isImageLoaded && m_image.data != nullptr) {
+        ::UnloadImage(m_image);
+        m_image = {};
+        m_isImageLoaded = false;
+    }
     if (m_texture.id != 0) ::UnloadTexture(m_texture);
+    m_texture = {};
 }
 
 std::shared_ptr<TextureAtlas> TextureAtlas::LoadFromJSON(const std::string& jsonPath) {

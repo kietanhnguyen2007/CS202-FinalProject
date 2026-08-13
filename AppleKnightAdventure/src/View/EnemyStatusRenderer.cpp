@@ -29,6 +29,12 @@ bool EnemyStatusRenderer::LoadResources(const std::string& atlasJsonPath) {
     return true;
 }
 
+void EnemyStatusRenderer::Shutdown() {
+    m_status.clear();
+    m_atlas.reset();
+    m_loaded = false;
+}
+
 void EnemyStatusRenderer::Update(float dt) {
     // nothing for now
 }

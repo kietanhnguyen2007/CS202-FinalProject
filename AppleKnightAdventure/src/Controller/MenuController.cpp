@@ -12,6 +12,7 @@
 #include "Systems/TweenSystem.h"
 #include "raylib.h"
 #include <algorithm>
+#include <filesystem>
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Singleton
@@ -139,19 +140,26 @@ void MenuController::Update(float dt) {
 
 // =============================================================================
 // HandleMainMenuInput
-// Items: 0=Play, 1=Shop, 2=Options, 3=Quit
+// Items: 0=Adventure, 1=Custom Map, 2=Builder, 3=Shop, 4=Options, 5=Quit
 // =============================================================================
 void MenuController::HandleMainMenuInput(float dt) {
     (void)dt;
     auto& view = View::MenuView::GetInstance();
     InputCommand cmd = InputController::GetInstance().Poll();
 
-    const int kItemCount = 5;
+    const int kItemCount = 6;
 
     // ── Keyboard navigation ───────────────────────────────────────────────
     if (m_inputCooldown <= 0.0f) {
         if (cmd.menuDelta != 0) {
-            m_selected = (m_selected + cmd.menuDelta + kItemCount) % kItemCount;
+            // The main menu is a 2 x 3 grid: vertical input keeps the column.
+            m_selected = (m_selected + cmd.menuDelta * 2 + kItemCount) % kItemCount;
+            m_inputCooldown = kInputCooldown;
+        } else if (cmd.menuDeltaX != 0) {
+            // Horizontal input toggles between the two buttons in the same row.
+            const int row = m_selected / 2;
+            const int col = m_selected % 2;
+            m_selected = row * 2 + (col + cmd.menuDeltaX + 2) % 2;
             m_inputCooldown = kInputCooldown;
         }
     }
@@ -179,23 +187,35 @@ void MenuController::HandleMainMenuInput(float dt) {
                 view.ShowLevelSelect(6, 1);
                 break;
 
-            case 1: // Map Builder
+            case 1: // Play the most recently saved Map Builder level
+                if (std::filesystem::exists("assets/levels/custom_map.lvl")) {
+                    m_selectedLevel = -98;
+                    m_startGame = true;
+                    m_inputCooldown = kInputCooldown;
+                } else {
+                    if (snd.IsAudioInitialized()) snd.PlaySound("ui_error");
+                    view.ShowMainNotice("SAVE A MAP IN MAP BUILDER FIRST");
+                    m_inputCooldown = kInputCooldown;
+                }
+                break;
+
+            case 2: // Map Builder
                 m_openMapBuilder = true;
                 m_inputCooldown = kInputCooldown;
                 break;
 
-            case 2: // Shop
+            case 3: // Shop
                 m_openShop = true;
                 m_inputCooldown = kInputCooldown;
                 break;
 
-            case 3: // Options
+            case 4: // Options
                 m_openOptions = true;
                 m_inputCooldown = kInputCooldown;
                 view.ShowOptions();
                 break;
 
-            case 4: // Quit
+            case 5: // Quit
                 m_quit = true;
                 break;
         }

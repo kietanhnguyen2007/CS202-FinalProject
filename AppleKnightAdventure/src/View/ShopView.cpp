@@ -61,9 +61,17 @@ bool ShopView::Init() {
 
 // ─────────────────────────────────────────────────────────────────────────────
 void ShopView::Shutdown() {
-    if (m_tabTexLoaded)   { ::UnloadTexture(m_texTabNormal); ::UnloadTexture(m_texTabActive); m_tabTexLoaded = false; }
-    if (m_portraitLoaded) { ::UnloadTexture(m_texPortrait);  m_portraitLoaded = false; }
-    if (m_panelLoaded)    { ::UnloadTexture(m_texPanel);     m_panelLoaded = false; }
+    if (m_texTabNormal.id) ::UnloadTexture(m_texTabNormal);
+    if (m_texTabActive.id) ::UnloadTexture(m_texTabActive);
+    if (m_texPortrait.id) ::UnloadTexture(m_texPortrait);
+    if (m_texPanel.id) ::UnloadTexture(m_texPanel);
+    m_texTabNormal = {};
+    m_texTabActive = {};
+    m_texPortrait = {};
+    m_texPanel = {};
+    m_tabTexLoaded = false;
+    m_portraitLoaded = false;
+    m_panelLoaded = false;
     m_previewAtlas.reset();
     m_loadedPreviewPath.clear();
     m_visible = false;

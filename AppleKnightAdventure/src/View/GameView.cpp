@@ -439,11 +439,13 @@ void GameView::Shutdown() {
     View::ResultView::GetInstance().Shutdown();
     View::CharacterRenderer::GetInstance().Clear();
     View::EntityRenderer::GetInstance().Clear();
+    View::EnemyStatusRenderer::GetInstance().Shutdown();
     View::ParticleRenderer::GetInstance().Shutdown();
     View::TutorialRenderer::GetInstance().Shutdown();
 
     // Unload static textures
     if (m_magicTex.id != 0) ::UnloadTexture(m_magicTex);
+    m_magicTex = {};
 
     // Unload tilesets
     for (auto& kv : m_tilesets) {

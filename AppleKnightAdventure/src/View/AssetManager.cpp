@@ -14,13 +14,48 @@ AssetManager::AssetManager() {
 }
 
 AssetManager::~AssetManager() {
+    Shutdown();
+}
+
+void AssetManager::Shutdown() {
+    // Only the first caller owns the teardown. main() invokes this before
+    // CloseWindow(); the destructor is a harmless fallback.
+    if (m_shutdownComplete.exchange(true)) return;
+
     m_isRunning = false;
     if (m_workerThread.joinable()) {
         m_workerThread.join();
     }
+
+    // Destroy queued and cached atlases now, on the main thread and while the
+    // OpenGL context is valid. This avoids hundreds of UnloadTexture calls
+    // being deferred until static destruction after CloseWindow().
+    {
+        std::lock_guard<std::mutex> lock(m_uploadMutex);
+        decltype(m_uploadQueue) empty;
+        m_uploadQueue.swap(empty);
+    }
+    {
+        std::lock_guard<std::mutex> lock(m_atlasMutex);
+        m_atlases.clear();
+    }
+    {
+        std::lock_guard<std::mutex> lock(m_queueMutex);
+        decltype(m_pendingPaths) empty;
+        m_pendingPaths.swap(empty);
+    }
+    {
+        std::lock_guard<std::mutex> lock(m_currentNameMutex);
+        m_currentAssetName.clear();
+    }
+
+    m_totalToLoad = 0;
+    m_loadedCount = 0;
+    m_displayProgress = 1.0f;
 }
 
 void AssetManager::StartLoading(const std::vector<std::string>& jsonPaths) {
+    if (m_shutdownComplete.load()) return;
     std::lock_guard<std::mutex> lock(m_queueMutex);
     for (const auto& path : jsonPaths) {
         // Skip if already loaded
