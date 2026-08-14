@@ -22,7 +22,7 @@ public:
     // Parry damage reduction: 70% less damage while parrying
     static constexpr float PARRY_DAMAGE_MULT  = 0.3f;
     // Hurt flash duration after taking damage
-    static constexpr float HURT_FLASH_DURATION = 0.3f;
+    static constexpr float HURT_FLASH_DURATION = 0.67f;
 
 protected:
     Inventory    m_inventory;
@@ -86,9 +86,9 @@ public:
     void StartDash(bool isMoving, float dirX);
 
     // Attack state triggers (for animation syncing)
-    void Attack();
+    void Attack(float animationDuration = -1.0f);
     void Attack2(float animationDuration = -1.0f);
-    void Attack3();
+    void Attack3(float animationDuration = -1.0f);
     void DoUltimate(float animationDuration = -1.0f);
     bool IsAttacking() const;
     bool IsParrying()  const;

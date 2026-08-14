@@ -11,6 +11,12 @@
 // H = Ultimate (launches projectile orb), P = Parry
 class FighterSkillSet : public CharacterSkillSet {
 public:
+    // V2 animation lengths. Hit windows and cooldowns remain gameplay-controlled.
+    static constexpr float ATTACK1_ANIMATION_DURATION  = 0.64f;
+    static constexpr float ATTACK2_ANIMATION_DURATION  = 0.72f;
+    static constexpr float ATTACK3_ANIMATION_DURATION  = 0.80f;
+    static constexpr float ULTIMATE_ANIMATION_DURATION = 1.00f;
+
     SkillData attack1 { 20, 0.35f, 0.0f, 0.20f };   // J — Punch
     SkillData attack2 { 35, 0.75f, 0.0f, 0.35f };   // K — Combo (2-hit window)
     SkillData attack3 { 50, 1.5f,  0.40f, 0.25f };  // U — Energy Punch (charged)

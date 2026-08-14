@@ -23,6 +23,12 @@ struct SkillData {
 // The Controller reads IsAttackNActive() to determine when to deal damage.
 class KnightSkillSet : public CharacterSkillSet {
 public:
+    // V2 animation lengths. Gameplay cooldowns and active hit windows stay independent.
+    static constexpr float ATTACK1_ANIMATION_DURATION  = 0.64f;
+    static constexpr float ATTACK2_ANIMATION_DURATION  = 0.72f;
+    static constexpr float ATTACK3_ANIMATION_DURATION  = 0.68f;
+    static constexpr float ULTIMATE_ANIMATION_DURATION = 1.00f;
+
     // Attack 1 — Quick Slash (J): fast, low damage
     SkillData attack1 { 20, 0.35f, 0.0f, 0.20f };
     // Attack 2 — Heavy Strike (K): charge delay, high damage, 0.75s cooldown

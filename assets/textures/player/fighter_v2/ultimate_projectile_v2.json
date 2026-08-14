@@ -1,0 +1,22 @@
+{
+  "image": "ultimate_projectile_v2.png",
+  "clips": {
+    "ultimate_projectile": {
+      "loop": false,
+      "frames": [
+        { "rect": [0, 0, 208, 160], "duration": 0.075 },
+        { "rect": [208, 0, 208, 160], "duration": 0.075 },
+        { "rect": [416, 0, 208, 160], "duration": 0.075 },
+        { "rect": [624, 0, 208, 160], "duration": 0.075 },
+        { "rect": [832, 0, 208, 160], "duration": 0.075 },
+        { "rect": [1040, 0, 208, 160], "duration": 0.075 },
+        { "rect": [1248, 0, 208, 160], "duration": 0.075 },
+        { "rect": [1456, 0, 208, 160], "duration": 0.075 },
+        { "rect": [1664, 0, 208, 160], "duration": 0.075 },
+        { "rect": [1872, 0, 208, 160], "duration": 0.075 },
+        { "rect": [2080, 0, 208, 160], "duration": 0.075 },
+        { "rect": [2288, 0, 208, 160], "duration": 0.075 }
+      ]
+    }
+  }
+}

@@ -183,24 +183,39 @@ std::string GameController::GetPlayerAtlasRoot(CharacterClass playerClass) const
 void GameController::RegisterPlayerVisuals(Player* player, CharacterClass playerClass) {
     if (!player) return;
     const std::string root = GetPlayerAtlasRoot(playerClass);
+    const auto atlasPath = [&](const std::string& stem) {
+        std::string v2Root;
+        switch (playerClass) {
+            case CharacterClass::Fighter:     v2Root = "assets/textures/player/fighter_v2/"; break;
+            case CharacterClass::MagicCaster: v2Root = "assets/textures/player/magic_caster_v2/"; break;
+            case CharacterClass::Ninja:       v2Root = "assets/textures/player/ninja_v2/"; break;
+            case CharacterClass::Knight:      v2Root = "assets/textures/player/knight_v2/"; break;
+        }
+        if (!v2Root.empty()) {
+            const std::string v2Path = v2Root + stem + "_v2.json";
+            if (std::filesystem::exists(v2Path)) return v2Path;
+        }
+        return root + stem + ".json";
+    };
     auto& cr = View::CharacterRenderer::GetInstance();
     const uint32_t id = static_cast<uint32_t>(player->GetId());
 
     // Register all clips with explicit aliases so CharacterRenderer can find them by name.
-    cr.Register(player, root + "idle.json", "idle");
-    cr.MergeAtlas(id, root + "walk.json",        "walk");
-    cr.MergeAtlas(id, root + "jump.json",        "jump");
-    cr.MergeAtlas(id, root + "hurt.json",        "hurt");
-    cr.MergeAtlas(id, root + "dead.json",        "dead");
-    cr.MergeAtlas(id, root + "attack1.json",     "attack");
-    cr.MergeAtlas(id, root + "attack2.json",     "attack_2");
-    if (std::filesystem::exists(root + "parry.json"))
-        cr.MergeAtlas(id, root + "parry.json",   "parry");
-    if (std::filesystem::exists(root + "ultimate_skill.json"))
-        cr.MergeAtlas(id, root + "ultimate_skill.json", "ultimate_skill");
+    cr.Register(player, atlasPath("idle"), "idle");
+    cr.MergeAtlas(id, atlasPath("walk"),        "walk");
+    // Jump atlases contain both "jump" and "jump_fall"; preserve both names.
+    cr.MergeAtlas(id, atlasPath("jump"));
+    cr.MergeAtlas(id, atlasPath("hurt"),        "hurt");
+    cr.MergeAtlas(id, atlasPath("dead"),        "dead");
+    cr.MergeAtlas(id, atlasPath("attack1"),     "attack");
+    cr.MergeAtlas(id, atlasPath("attack2"),     "attack_2");
+    if (std::filesystem::exists(atlasPath("parry")))
+        cr.MergeAtlas(id, atlasPath("parry"),   "parry");
+    if (std::filesystem::exists(atlasPath("ultimate_skill")))
+        cr.MergeAtlas(id, atlasPath("ultimate_skill"), "ultimate_skill");
     // run.json is used exclusively for Dash animation
-    if (std::filesystem::exists(root + "run.json"))
-        cr.MergeAtlas(id, root + "run.json",     "run");
+    if (std::filesystem::exists(atlasPath("run")))
+        cr.MergeAtlas(id, atlasPath("run"),     "run");
     // Attack3: class-specific
     if (playerClass == CharacterClass::Ninja) {
         // Ninja: teleport_start plays for Attack3, teleport_end plays after snap
@@ -209,8 +224,8 @@ void GameController::RegisterPlayerVisuals(Player* player, CharacterClass player
         if (std::filesystem::exists(root + "skill3_teleport_end.json"))
             cr.MergeAtlas(id, root + "skill3_teleport_end.json",   "skill3_teleport_end");
     } else {
-        if (std::filesystem::exists(root + "attack3.json"))
-            cr.MergeAtlas(id, root + "attack3.json", "attack_3");
+        if (std::filesystem::exists(atlasPath("attack3")))
+            cr.MergeAtlas(id, atlasPath("attack3"), "attack_3");
     }
 }
 
@@ -783,15 +798,15 @@ void GameController::HandlePlayerInput(Player* player, const InputCommand& cmd, 
     if (KnightSkillSet* skills = player->GetKnightSkills()) {
         if (!player->IsDashing() && !player->IsParrying()) {
             if (cmd.attack  && skills->TryAttack1()) {
-                player->Attack();
+                player->Attack(KnightSkillSet::ATTACK1_ANIMATION_DURATION);
                 SoundManager::GetInstance().PlaySound("knight_attack_1");
             }
             if (cmd.parry   && skills->TryAttack2()) {
-                player->Attack2();
+                player->Attack2(KnightSkillSet::ATTACK2_ANIMATION_DURATION);
                 SoundManager::GetInstance().PlaySound("knight_attack_2");
             }
             if (cmd.skill1  && skills->TryAttack3()) {
-                player->Attack3();
+                player->Attack3(KnightSkillSet::ATTACK3_ANIMATION_DURATION);
                 SoundManager::GetInstance().PlaySound("knight_attack_3");
                 float lDir = (player->GetDirection() == Direction::Right) ? 1.0f : -1.0f;
                 if (cmd.moveRight && !cmd.moveLeft) { lDir = 1.0f; player->SetDirection(Direction::Right); }
@@ -800,7 +815,7 @@ void GameController::HandlePlayerInput(Player* player, const InputCommand& cmd, 
                 player->SetVelocity(lv);
             }
             if (cmd.ultimate && skills->TryUltimate()) {
-                player->DoUltimate();
+                player->DoUltimate(KnightSkillSet::ULTIMATE_ANIMATION_DURATION);
                 SoundManager::GetInstance().PlaySound("knight_ultimate");
             }
         }
@@ -811,19 +826,19 @@ void GameController::HandlePlayerInput(Player* player, const InputCommand& cmd, 
     } else if (FighterSkillSet* fs = player->GetFighterSkills()) {
         if (!player->IsDashing() && !player->IsParrying()) {
             if (cmd.attack    && fs->TryAttack1()) {
-                player->Attack();
+                player->Attack(FighterSkillSet::ATTACK1_ANIMATION_DURATION);
                 SoundManager::GetInstance().PlaySound("fighter_attack_1");
             }
             if (cmd.parry     && fs->TryAttack2()) {
-                player->Attack2();
+                player->Attack2(FighterSkillSet::ATTACK2_ANIMATION_DURATION);
                 SoundManager::GetInstance().PlaySound("fighter_attack_2");
             }
             if (cmd.skill1    && fs->TryAttack3()) {
-                player->Attack3();
+                player->Attack3(FighterSkillSet::ATTACK3_ANIMATION_DURATION);
                 SoundManager::GetInstance().PlaySound("fighter_attack_3");
             }
             if (cmd.ultimate  && fs->TryUltimate()) {
-                player->DoUltimate();
+                player->DoUltimate(FighterSkillSet::ULTIMATE_ANIMATION_DURATION);
                 SoundManager::GetInstance().PlaySound("fighter_ultimate");
             }
         }
@@ -1065,6 +1080,10 @@ void GameController::UpdateCombat(Player* player, float dt, bool updateEnemyCool
                             fs->attack3.damage);
         // Fighter Ultimate: spawn projectile when charge done
         if (fs->WantsToFire()) {
+            const std::string projectileAtlas =
+                std::filesystem::exists("assets/textures/player/fighter_v2/ultimate_projectile_v2.json")
+                    ? "assets/textures/player/fighter_v2/ultimate_projectile_v2.json"
+                    : "assets/textures/player/fighter/ultimate_projectile.json";
             // Spawn at horizontal edge of player, raised high enough to not clip ground
             float spawnX = (player->GetDirection() == Direction::Right)
                 ? player->GetPosition().x + player->GetSize().x
@@ -1074,9 +1093,9 @@ void GameController::UpdateCombat(Player* player, float dt, bool updateEnemyCool
                 player->GetPosition().y + 10.0f  // centered on player body
             };
             SpawnPlayerProjectile(
-                "assets/textures/player/fighter/ultimate_projectile.json",
+                projectileAtlas.c_str(),
                 spawnPos, player->GetDirection(),
-                fs->ultimate.damage, 400.0f, 0.9f, // 0.9f matches exact animation length (9 frames * 0.1s)
+                fs->ultimate.damage, 400.0f, 0.9f, // V2: 12 frames * 0.075s; legacy: 9 * 0.1s
                 0.8f, false);  // Fighter H faces right by default
             fs->ResetFireFlag();
             SoundManager::GetInstance().PlaySound("fighter_ultimate");
