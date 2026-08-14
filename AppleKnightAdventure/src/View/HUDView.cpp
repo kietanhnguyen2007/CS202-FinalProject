@@ -93,9 +93,12 @@ void HUDView::Shutdown() {
     m_avatarAtlas.reset();
     m_avatarSource = {};
     m_avatarClass = -1;
+    m_secondAvatarAtlas.reset();
+    m_secondAvatarSource = {};
+    m_secondAvatarClass = -1;
     m_coinAnim.Stop();
     m_coinAtlas.reset();
-    m_player = nullptr; m_boss = nullptr; m_lastBoss = nullptr;
+    m_player = nullptr; m_secondPlayer = nullptr; m_boss = nullptr; m_lastBoss = nullptr;
     m_loaded = false;
 }
 
@@ -118,9 +121,28 @@ void HUDView::LoadAvatar(CharacterClass characterClass) {
     m_avatarClass = static_cast<int>(characterClass);
 }
 
-void HUDView::Update(float dt, const Player* player, const Boss* boss) {
+void HUDView::LoadSecondAvatar(CharacterClass characterClass) {
+    const char* folder = "knight";
+    switch (characterClass) {
+        case CharacterClass::Fighter: folder = "fighter"; break;
+        case CharacterClass::Knight: folder = "knight"; break;
+        case CharacterClass::Ninja: folder = "ninja"; break;
+        case CharacterClass::MagicCaster: folder = "magic_caster"; break;
+    }
+    const std::string path = std::string("assets/textures/player/") + folder + "/idle.json";
+    auto atlas = Animations::TextureAtlas::LoadFromJSON(path);
+    if (!atlas || !atlas->LoadTexture() || !atlas->HasClip("idle")) return;
+    auto clip = atlas->GetClip("idle");
+    if (!clip || clip->frames.empty()) return;
+    m_secondAvatarSource = clip->frames[clip->frames.size() / 2].src;
+    m_secondAvatarAtlas = std::move(atlas);
+    m_secondAvatarClass = static_cast<int>(characterClass);
+}
+
+void HUDView::Update(float dt, const Player* player, const Boss* boss, const Player* secondPlayer) {
     if (!m_loaded) return;
     m_player = player;
+    m_secondPlayer = secondPlayer;
     m_boss = boss;
     m_time += dt;
     m_coinAnim.Update(dt);
@@ -134,6 +156,19 @@ void HUDView::Update(float dt, const Player* player, const Boss* boss) {
         m_displayHp += (hp - m_displayHp) * std::min(1.0f, dt * 14.0f);
         if (hp >= m_damageTrailHp) m_damageTrailHp = hp;
         else m_damageTrailHp += (hp - m_damageTrailHp) * std::min(1.0f, dt * 2.2f);
+    }
+
+    if (secondPlayer) {
+        if (m_secondAvatarClass != static_cast<int>(secondPlayer->GetCharacterClass())) {
+            LoadSecondAvatar(secondPlayer->GetCharacterClass());
+        }
+        const float hp = secondPlayer->GetMaxHealth() > 0
+            ? Clamp01(static_cast<float>(secondPlayer->GetHealth()) / secondPlayer->GetMaxHealth()) : 0.0f;
+        m_secondDisplayHp += (hp - m_secondDisplayHp) * std::min(1.0f, dt * 14.0f);
+        if (hp >= m_secondDamageTrailHp) m_secondDamageTrailHp = hp;
+        else m_secondDamageTrailHp += (hp - m_secondDamageTrailHp) * std::min(1.0f, dt * 2.2f);
+    } else {
+        m_secondDisplayHp = m_secondDamageTrailHp = 1.0f;
     }
 
     if (boss != m_lastBoss) {
@@ -222,7 +257,7 @@ void HUDView::Render() {
 
     // Potions heal immediately on pickup, so only persistent coins need a counter.
     const Inventory& inv = m_player->GetInventory();
-    const float resourceY = 20 * scale;
+    const float resourceY = (m_secondPlayer ? 218.0f : 20.0f) * scale;
     const float resourceW = 84 * scale;
     const float resourceH = 48 * scale;
     auto drawResource = [&](float x, Texture2D* texture, Rectangle source, int amount, Color tint) {
@@ -241,6 +276,54 @@ void HUDView::Render() {
     float right = w - 18 * scale;
     Texture2D* coinTexture = m_coinAnim.GetCurrentTexture();
     drawResource(right - resourceW, coinTexture, m_coinAnim.GetCurrentSrcRect(), inv.GetCoins(), WHITE);
+
+    if (m_secondPlayer) {
+        const Rectangle secondPanel{w - 18.0f * scale - panel.width, panel.y,
+                                    panel.width, panel.height};
+        ::DrawRectangleRounded({secondPanel.x + 5*scale, secondPanel.y + 7*scale,
+                                secondPanel.width, secondPanel.height},
+                               0.12f, 8, Color{10, 7, 20, 150});
+        DrawPanel(m_panelBrown, secondPanel, 13.0f, Color{220, 202, 242, 255});
+
+        Rectangle secondPortrait{secondPanel.x + secondPanel.width - portraitSize - 10*scale,
+                                  secondPanel.y + 10*scale, portraitSize, portraitSize};
+        if (m_buttonRoundBrown.id) {
+            ::DrawTexturePro(m_buttonRoundBrown,
+                {0,0,(float)m_buttonRoundBrown.width,(float)m_buttonRoundBrown.height},
+                secondPortrait, {0,0}, 0.0f, Color{220, 196, 255, 255});
+        }
+        if (m_secondAvatarAtlas && m_secondAvatarAtlas->GetTexture() &&
+            m_secondAvatarAtlas->GetTexture()->id && m_secondAvatarSource.width > 0.0f &&
+            m_secondAvatarSource.height > 0.0f) {
+            const float avatarHeight = portraitSize * 0.91f;
+            const float avatarWidth = avatarHeight * m_secondAvatarSource.width / m_secondAvatarSource.height;
+            const Rectangle avatarDest{
+                secondPortrait.x + (portraitSize - avatarWidth) * 0.5f,
+                secondPortrait.y + portraitSize - avatarHeight - 3.0f*scale,
+                avatarWidth, avatarHeight};
+            ::DrawTexturePro(*m_secondAvatarAtlas->GetTexture(), m_secondAvatarSource,
+                             avatarDest, {0,0}, 0.0f, WHITE);
+        }
+        ::DrawCircleLinesV({secondPortrait.x + portraitSize*0.5f,
+                            secondPortrait.y + portraitSize*0.5f},
+                           portraitSize*0.46f, Color{222, 184, 255, 235});
+
+        const float secondBarX = secondPanel.x + 12*scale;
+        const float secondBarY = secondPanel.y + 31*scale;
+        const float secondBarW = secondPortrait.x - secondBarX - 12*scale;
+        DrawPanel(m_panelInsetBrown,
+                  {secondBarX - 5*scale, secondBarY - 5*scale,
+                   secondBarW + 10*scale, barH + 10*scale},
+                  11.0f, Color{218, 198, 235, 255});
+        drawHealthBar({secondBarX, secondBarY, secondBarW, barH},
+                      m_secondDisplayHp, m_secondDamageTrailHp);
+        char secondHp[48];
+        std::snprintf(secondHp, sizeof(secondHp), "%d / %d",
+                      m_secondPlayer->GetHealth(), m_secondPlayer->GetMaxHealth());
+        DrawCenteredText(secondHp, secondBarX + secondBarW * 0.5f,
+                         secondBarY + 6*scale,
+                         std::max(12, static_cast<int>(16*scale)), WHITE);
+    }
 
     // Boss bar: exact HP plus explicit phase count and phase segments.
     if (m_boss && m_boss->IsActive()) {

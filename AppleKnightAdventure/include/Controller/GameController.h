@@ -44,6 +44,7 @@ public:
     static GameController& GetInstance();
 
     bool Init();
+    void ConfigureLocalCoop(bool enabled, CharacterClass secondPlayerClass = CharacterClass::Knight);
     void StartLevel(int levelNumber);
     void Update(float dt);
     void Render();
@@ -68,16 +69,16 @@ private:
     void RegisterCheckpointVisuals(Checkpoint* checkpoint);
     void RegisterItemVisuals(Item* item);
 
-    void HandlePlayerInput(const struct InputCommand& cmd, float dt);
+    void HandlePlayerInput(Player* player, const struct InputCommand& cmd, float dt);
     void ApplyGravity(Character* character, float dt);
     void ResolveTileCollisions(Character* character, float dt);
     void ClampEntityToMapBounds(Entity* entity);
     bool IsOnGround(const Character* character) const;
     bool IsRectOnGround(Rectangle box) const;  // item/entity ground check
     void UpdateEnemyAI(float dt);
-    void UpdateCombat(float dt);
-    void UpdateInteractions(const struct InputCommand& cmd);
-    void UpdateItems(float dt);
+    void UpdateCombat(Player* player, float dt, bool updateEnemyCooldown);
+    void UpdateInteractions(Player* player, const struct InputCommand& cmd);
+    void UpdateItems(Player* player, float dt);
     void UpdateItemPhysics(float dt);           // gravity + tile collision for coin scatter
     void UpdateEndgameCheckpoints();            // viewport reveal + flag animation state machine
     void UpdatePets(float dt, const struct InputCommand& cmd);
@@ -88,7 +89,7 @@ private:
     void FireDragonProjectile(Pet* pet);
     void CheckLevelComplete();
     void OnEntityRemoved(Entity* entity);
-    void RespawnPlayer();
+    void RespawnPlayer(Player* player, bool restoreEncounter = true);
     void CaptureCheckpointEnemies(float checkpointX);
     void RestoreCheckpointEnemies();
 
@@ -129,6 +130,8 @@ private:
     bool m_returnToMenu   = false;
     bool m_levelComplete  = false;
     bool m_playerOnGround = false;
+    bool m_localCoop      = false;
+    CharacterClass m_secondPlayerClass = CharacterClass::Knight;
     int  m_defeatedEnemies = 0;
     int  m_collectedItems  = 0;
     float m_enemyAttackCooldown = 0.0f;

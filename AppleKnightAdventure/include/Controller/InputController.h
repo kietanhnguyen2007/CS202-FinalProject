@@ -27,6 +27,8 @@ public:
     static InputController& GetInstance();
 
     InputCommand Poll();
+    InputCommand PollPlayerOne();
+    InputCommand PollPlayerTwo();
 
 private:
     InputController() = default;

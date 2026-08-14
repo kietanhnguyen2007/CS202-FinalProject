@@ -267,7 +267,6 @@ int main() {
         } else if (inPrepare) {
             auto& prep = PrepareController::GetInstance();
             prep.Update(dt);
-            View::PrepareView::GetInstance().Update(dt);
             
             if (prep.ShouldReturnToMenu()) {
                 inPrepare = false;
@@ -276,6 +275,7 @@ int main() {
             } else if (prep.ShouldStartGame()) {
                 inPrepare = false;
                 inGame = true;
+                game.ConfigureLocalCoop(prep.IsLocalCoop(), prep.GetSecondPlayerClass());
                 game.StartLevel(prep.GetLevelId());
             }
             

@@ -12,6 +12,8 @@ namespace {
 
 struct PrepareLayout {
     Rectangle back{};
+    Rectangle solo{};
+    Rectangle coop{};
     Rectangle characters{};
     Rectangle preview{};
     Rectangle pets{};
@@ -24,7 +26,7 @@ PrepareLayout BuildPrepareLayout() {
     const float margin = std::clamp(sw * 0.025f, 12.0f, 32.0f);
     const float gap = std::clamp(sw * 0.018f, 8.0f, 22.0f);
     const float sideW = std::clamp(sw * 0.245f, 180.0f, 306.0f);
-    const float top = std::clamp(sh * 0.17f, 78.0f, 125.0f);
+    const float top = std::clamp(sh * 0.19f, 128.0f, 150.0f);
     // Keep a dedicated footer band for the start button and control hint.
     // This prevents them from colliding on short windows.
     const float bottomReserve = std::clamp(sh * 0.22f, 96.0f, 150.0f);
@@ -32,6 +34,10 @@ PrepareLayout BuildPrepareLayout() {
 
     PrepareLayout l;
     l.back = {margin, 18.0f, std::clamp(sw * 0.09f, 92.0f, 120.0f), 40.0f};
+    const float modeW = std::clamp(sw * 0.12f, 122.0f, 168.0f);
+    const float modeGap = 10.0f;
+    l.solo = {sw * 0.5f - modeW - modeGap * 0.5f, top - 45.0f, modeW, 34.0f};
+    l.coop = {sw * 0.5f + modeGap * 0.5f, top - 45.0f, modeW, 34.0f};
     l.characters = {margin, top, sideW, panelH};
     l.pets = {sw - margin - sideW, top, sideW, panelH};
     l.preview = {l.characters.x + l.characters.width + gap, top,
@@ -96,6 +102,14 @@ void PrepareView::Update(float dt) {
     auto& ctrl = PrepareController::GetInstance();
     auto& sound = SoundManager::GetInstance();
 
+    if (clicked && CheckCollisionPointRec(mouse, l.solo)) {
+        ctrl.SetLocalCoop(false);
+        sound.PlaySound("ui_confirm");
+    } else if (clicked && CheckCollisionPointRec(mouse, l.coop)) {
+        ctrl.SetLocalCoop(true);
+        sound.PlaySound("ui_confirm");
+    }
+
     m_backBtnAnim.hovered = CheckCollisionPointRec(mouse, l.back);
     m_startBtnAnim.hovered = CheckCollisionPointRec(mouse, l.start);
     if (m_backBtnAnim.hovered && clicked) {
@@ -119,19 +133,26 @@ void PrepareView::Update(float dt) {
         }
     }
     if (CheckCollisionPointRec(mouse, l.pets)) {
-        const int count = static_cast<int>(ctrl.GetPetItems().size()) + 1;
+        const int count = ctrl.IsLocalCoop()
+            ? static_cast<int>(ctrl.GetCharItems().size())
+            : static_cast<int>(ctrl.GetPetItems().size()) + 1;
         for (int row = 0; row < count; ++row) {
             if (clicked && CheckCollisionPointRec(mouse, ItemRect(l.pets, row, count))) {
                 ctrl.SetFocusColumn(1);
-                sound.PlaySound(ctrl.SetSelectedPetIdx(row - 1) ? "ui_confirm" : "ui_error");
+                const bool accepted = ctrl.IsLocalCoop()
+                    ? ctrl.SetSecondCharIdx(row)
+                    : ctrl.SetSelectedPetIdx(row - 1);
+                sound.PlaySound(accepted ? "ui_confirm" : "ui_error");
             }
         }
     }
 
     const int cIdx = ctrl.GetSelectedCharIdx();
-    const int pIdx = ctrl.GetSelectedPetIdx();
+    const int pIdx = ctrl.IsLocalCoop() ? ctrl.GetSecondCharIdx() : ctrl.GetSelectedPetIdx();
     const std::string charPath = cIdx >= 0 ? ctrl.GetCharItems()[cIdx].idlePath : "";
-    const std::string petPath = pIdx >= 0 ? ctrl.GetPetItems()[pIdx].idlePath : "";
+    const std::string petPath = ctrl.IsLocalCoop()
+        ? (pIdx >= 0 ? ctrl.GetCharItems()[pIdx].idlePath : "")
+        : (pIdx >= 0 ? ctrl.GetPetItems()[pIdx].idlePath : "");
     LoadPreview(charPath, petPath);
     m_charAnim.Update(dt);
     m_petAnim.Update(dt);
@@ -155,11 +176,27 @@ void PrepareView::Render() {
     const Vector2 titleMeasure = MeasureTextEx(font, title.c_str(), titleSize, 1.5f);
     DrawTextEx(font, title.c_str(), {(sw - titleMeasure.x) * 0.5f, 24.0f}, titleSize, 1.5f,
                Color{255, 220, 104, 255});
-    const char* subtitle = "CHOOSE YOUR HERO AND COMPANION";
+    const char* subtitle = ctrl.IsLocalCoop()
+        ? "BUILD A TWO-HERO TEAM FOR LOCAL CO-OP"
+        : "CHOOSE YOUR HERO AND COMPANION";
     const float subSize = std::clamp(sh * 0.022f, 11.0f, 16.0f);
     const Vector2 subMeasure = MeasureTextEx(font, subtitle, subSize, 1.0f);
     DrawTextEx(font, subtitle, {(sw - subMeasure.x) * 0.5f, 24.0f + titleSize + 4.0f},
                subSize, 1.0f, Color{174, 156, 203, 230});
+
+    auto drawMode = [&](Rectangle rect, const char* label, bool active) {
+        DrawRectangleRounded(rect, 0.28f, 8,
+            active ? Color{85, 58, 124, 255} : Color{29, 23, 47, 245});
+        DrawRectangleRoundedLinesEx(rect, 0.28f, 8, active ? 2.5f : 1.0f,
+            active ? Color{255, 218, 105, 255} : Color{104, 82, 132, 210});
+        const float fs = 13.0f;
+        const Vector2 ms = MeasureTextEx(font, label, fs, 1.0f);
+        DrawTextEx(font, label, {rect.x + (rect.width - ms.x) * 0.5f,
+                                 rect.y + (rect.height - ms.y) * 0.5f},
+                   fs, 1.0f, active ? Color{255, 237, 174, 255} : Color{184, 171, 205, 255});
+    };
+    drawMode(l.solo, "1 PLAYER", !ctrl.IsLocalCoop());
+    drawMode(l.coop, "2 PLAYERS", ctrl.IsLocalCoop());
 
     RenderGrid(0, l.characters.x, l.characters.y, l.characters.width, l.characters.height);
     RenderPreview(l.preview.x, l.preview.y, l.preview.width, l.preview.height);
@@ -177,7 +214,9 @@ void PrepareView::Render() {
                             l.back.y + (l.back.height - backMeasure.y) * 0.5f},
                backSize, 1.0f, RAYWHITE);
 
-    const char* hint = "A/D: CHANGE PANEL     W/S: CHOOSE     ENTER: CONFIRM     ESC: BACK";
+    const char* hint = ctrl.IsLocalCoop()
+        ? "TAB: SOLO / CO-OP     A/D: PANEL     W/S: HERO     ENTER: START     ESC: BACK"
+        : "TAB: SOLO / CO-OP     A/D: PANEL     W/S: CHOOSE     ENTER: START     ESC: BACK";
     const float hintSize = std::clamp(sh * 0.019f, 9.0f, 13.0f);
     const Vector2 hintMeasure = MeasureTextEx(font, hint, hintSize, 1.0f);
     DrawTextEx(font, hint, {(sw - hintMeasure.x) * 0.5f, sh - hintSize - 9.0f},
@@ -198,7 +237,7 @@ void PrepareView::RenderGrid(int col, float x, float y, float w, float h) {
     DrawRectangleGradientV((int)x + 2, (int)y + 2, (int)w - 4, 42,
                            Fade(accent, focused ? 0.30f : 0.17f), Color{24, 18, 43, 0});
 
-    const char* heading = col == 0 ? "HERO" : "COMPANION";
+    const char* heading = col == 0 ? "PLAYER 1" : (ctrl.IsLocalCoop() ? "PLAYER 2" : "COMPANION");
     const float headingSize = std::clamp(w * 0.072f, 12.0f, 19.0f);
     const Vector2 headingMeasure = MeasureTextEx(font, heading, headingSize, 1.0f);
     DrawTextEx(font, heading, {x + (w - headingMeasure.x) * 0.5f, y + 14.0f},
@@ -218,6 +257,24 @@ void PrepareView::RenderGrid(int col, float x, float y, float w, float h) {
             DrawTextEx(font, items[i].displayName.c_str(), {card.x + 13, card.y + (card.height - fs) * 0.5f},
                        fs, 1.0f, items[i].isUnlocked ? RAYWHITE : Color{113, 104, 127, 255});
             if (selected) DrawCircleV({card.x + card.width - 17, card.y + card.height * 0.5f}, 5.0f, Color{255, 215, 83, 255});
+            if (!items[i].isUnlocked) DrawLockOverlay(card.x, card.y, card.width, card.height);
+        }
+    } else if (ctrl.IsLocalCoop()) {
+        const auto& items = ctrl.GetCharItems();
+        const int count = static_cast<int>(items.size());
+        for (int i = 0; i < count; ++i) {
+            const Rectangle card = ItemRect(panel, i, count);
+            const bool selected = ctrl.GetSecondCharIdx() == i;
+            DrawRectangleRounded(card, 0.14f, 7,
+                selected ? Color{70, 47, 91, 255} : Color{33, 27, 53, 245});
+            DrawRectangleRoundedLinesEx(card, 0.14f, 7, selected ? 2.0f : 1.0f,
+                selected ? Color{255, 211, 83, 255} : Color{91, 73, 118, 190});
+            const float fs = std::clamp(card.height * 0.31f, 10.0f, 16.0f);
+            DrawTextEx(font, items[i].displayName.c_str(),
+                       {card.x + 13, card.y + (card.height - fs) * 0.5f},
+                       fs, 1.0f, items[i].isUnlocked ? RAYWHITE : Color{113, 104, 127, 255});
+            if (selected) DrawCircleV({card.x + card.width - 17, card.y + card.height * 0.5f},
+                                      5.0f, Color{255, 215, 83, 255});
             if (!items[i].isUnlocked) DrawLockOverlay(card.x, card.y, card.width, card.height);
         }
     } else {
@@ -255,7 +312,7 @@ void PrepareView::RenderPreview(float x, float y, float w, float h) {
     DrawEllipse((int)(x + w * 0.54f), (int)(y + h * 0.76f), w * 0.27f, h * 0.035f, Fade(BLACK, 0.62f));
 
     const float characterScale = std::clamp(std::min(w, h) / 105.0f, 1.6f, 3.4f);
-    const Vector2 characterPos = {x + w * 0.57f, y + h * 0.58f};
+    const Vector2 characterPos = {x + w * (ctrl.IsLocalCoop() ? 0.67f : 0.57f), y + h * 0.58f};
     if (m_charAtlas && m_charAtlas->IsTextureLoaded() && m_charAnim.HasTexture()) {
         const Rectangle src = m_charAnim.GetCurrentSrcRect();
         Texture2D* texture = m_charAnim.GetCurrentTexture();
@@ -269,26 +326,38 @@ void PrepareView::RenderPreview(float x, float y, float w, float h) {
         const Rectangle src = m_petAnim.GetCurrentSrcRect();
         Texture2D* texture = m_petAnim.GetCurrentTexture();
         if (texture) {
-            const float scale = characterScale * 0.48f;
+            const float scale = ctrl.IsLocalCoop() ? characterScale : characterScale * 0.48f;
             const float fw = fabsf(src.width) * scale;
             const float fh = fabsf(src.height) * scale;
-            const Vector2 petPos = {x + w * 0.25f, y + h * 0.62f + sinf(m_pulseTime * 2.2f) * 4.0f};
+            const Vector2 petPos = {x + w * (ctrl.IsLocalCoop() ? 0.33f : 0.25f),
+                                    y + h * (ctrl.IsLocalCoop() ? 0.58f : 0.62f)
+                                    + (ctrl.IsLocalCoop() ? 0.0f : sinf(m_pulseTime * 2.2f) * 4.0f)};
             DrawTexturePro(*texture, src, {petPos.x - fw * 0.5f, petPos.y - fh * 0.5f, fw, fh}, {0,0}, 0, WHITE);
         }
     }
 
     const auto& chars = ctrl.GetCharItems();
     const int c = ctrl.GetSelectedCharIdx();
-    const int p = ctrl.GetSelectedPetIdx();
+    const int p = ctrl.IsLocalCoop() ? ctrl.GetSecondCharIdx() : ctrl.GetSelectedPetIdx();
     const std::string heroName = c >= 0 && c < (int)chars.size() ? chars[c].displayName : "Knight";
-    const std::string petName = p >= 0 && p < (int)ctrl.GetPetItems().size()
-        ? ctrl.GetPetItems()[p].displayName : "No Companion";
+    const std::string petName = ctrl.IsLocalCoop()
+        ? (p >= 0 && p < (int)chars.size() ? chars[p].displayName : "Knight")
+        : (p >= 0 && p < (int)ctrl.GetPetItems().size()
+            ? ctrl.GetPetItems()[p].displayName : "No Companion");
     const float nameSize = std::clamp(w * 0.055f, 12.0f, 21.0f);
-    const Vector2 nameMeasure = MeasureTextEx(font, heroName.c_str(), nameSize, 1.0f);
-    DrawTextEx(font, heroName.c_str(), {x + (w - nameMeasure.x) * 0.5f, y + 18.0f},
+    const std::string teamName = ctrl.IsLocalCoop()
+        ? "P1 " + heroName + "  +  P2 " + petName
+        : heroName;
+    const Vector2 nameMeasure = MeasureTextEx(font, teamName.c_str(), nameSize, 1.0f);
+    DrawTextEx(font, teamName.c_str(), {x + (w - nameMeasure.x) * 0.5f, y + 18.0f},
                nameSize, 1.0f, Color{255, 224, 132, 255});
-    const float petSize = std::max(9.0f, nameSize * 0.62f);
-    const std::string companion = "Companion: " + petName;
+    float petSize = std::max(9.0f, nameSize * 0.62f);
+    const std::string companion = ctrl.IsLocalCoop()
+        ? "P2: ARROWS | 1 2 3 ATTACK | 0 ULT | 4 DASH | 5 GUARD | 6 USE | 7 RUN"
+        : "Companion: " + petName;
+    while (petSize > 7.0f && MeasureTextEx(font, companion.c_str(), petSize, 1.0f).x > w - 24.0f) {
+        petSize -= 0.5f;
+    }
     const Vector2 petMeasure = MeasureTextEx(font, companion.c_str(), petSize, 1.0f);
     DrawTextEx(font, companion.c_str(), {x + (w - petMeasure.x) * 0.5f, y + h - petSize - 18.0f},
                petSize, 1.0f, Color{174, 159, 202, 235});

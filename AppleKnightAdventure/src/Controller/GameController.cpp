@@ -111,6 +111,11 @@ GameController& GameController::GetInstance() {
     return instance;
 }
 
+void GameController::ConfigureLocalCoop(bool enabled, CharacterClass secondPlayerClass) {
+    m_localCoop = enabled;
+    m_secondPlayerClass = secondPlayerClass;
+}
+
 bool GameController::Init() {
     auto& snd = SoundManager::GetInstance();
     if (!snd.IsAudioInitialized()) {
@@ -478,9 +483,18 @@ void GameController::StartLevel(int levelNumber) {
         
         RegisterPlayerVisuals(player, m_gameState->GetPlayerClass());
         m_respawnPoint = player->GetPosition();
+
+        if (m_localCoop) {
+            Vector2 secondSpawn = player->GetPosition();
+            secondSpawn.x += std::max(56.0f, player->GetSize().x + 16.0f);
+            auto secondPlayer = std::make_unique<Player>(secondSpawn, m_secondPlayerClass);
+            secondPlayer->SetName("Player 2");
+            m_gameState->SetSecondLocalPlayer(std::move(secondPlayer));
+            RegisterPlayerVisuals(m_gameState->GetSecondLocalPlayer(), m_secondPlayerClass);
+        }
         
         // Auto-spawn equipped pet
-        std::string petId = SaveManager::GetInstance().GetSelectedPet();
+        std::string petId = m_localCoop ? "" : SaveManager::GetInstance().GetSelectedPet();
         if (!petId.empty()) {
             PetType equippedType = PetType::BabyDragon; // Default fallback
             if (petId == "skull") equippedType = PetType::Skull;
@@ -721,8 +735,7 @@ void GameController::ResolveTileCollisions(Character* character, float dt) {
     }
 }
 
-void GameController::HandlePlayerInput(const InputCommand& cmd, float /*dt*/) {
-    Player* player = m_gameState ? m_gameState->GetLocalPlayer() : nullptr;
+void GameController::HandlePlayerInput(Player* player, const InputCommand& cmd, float /*dt*/) {
     if (!player || !player->IsAlive()) return;
 
     KnightSkillSet* skills = player->GetKnightSkills();
@@ -881,6 +894,23 @@ void GameController::UpdateEnemyAI(float dt) {
 
     for (auto& entity : m_gameState->GetAllEntities()) {
         if (!entity->IsActive()) continue;
+        playerCenter = {
+            player->GetPosition().x + player->GetSize().x * 0.5f,
+            player->GetPosition().y + player->GetSize().y * 0.5f
+        };
+        if (Player* second = m_gameState->GetSecondLocalPlayer(); second && second->IsAlive()) {
+            const Vector2 secondCenter = {
+                second->GetPosition().x + second->GetSize().x * 0.5f,
+                second->GetPosition().y + second->GetSize().y * 0.5f
+            };
+            const Vector2 entityCenter = {
+                entity->GetPosition().x + entity->GetSize().x * 0.5f,
+                entity->GetPosition().y + entity->GetSize().y * 0.5f
+            };
+            if (Distance(secondCenter, entityCenter) < Distance(playerCenter, entityCenter)) {
+                playerCenter = secondCenter;
+            }
+        }
         
         if (entity->GetType() == EntityType::Boss) {
             auto* boss = static_cast<Boss*>(entity.get());
@@ -954,8 +984,7 @@ void GameController::UpdateEnemyAI(float dt) {
     }
 }
 
-void GameController::UpdateCombat(float dt) {
-    Player* player = m_gameState ? m_gameState->GetLocalPlayer() : nullptr;
+void GameController::UpdateCombat(Player* player, float dt, bool updateEnemyCooldown) {
     if (!player) return;
 
     // ---- Helper: deal damage to enemies in a rect ----
@@ -1194,7 +1223,7 @@ void GameController::UpdateCombat(float dt) {
         HitEnemiesInBox(player->GetAttackBoundingBox(), 25);
     }
 
-    m_enemyAttackCooldown -= dt;
+    if (updateEnemyCooldown) m_enemyAttackCooldown -= dt;
     if (m_enemyAttackCooldown > 0.0f) return;
 
     Vector2 playerCenter = {
@@ -1293,7 +1322,7 @@ void GameController::UpdateCombat(float dt) {
                 if (proj->GetDirection() != Direction::None && proj->GetSubType() != 3) {
                     proj->OnHit();
                 }
-                if (!player->IsAlive()) RespawnPlayer();
+                if (!player->IsAlive()) RespawnPlayer(player, !m_localCoop);
             }
             continue; // Skip the regular attack check for Projectiles
         }
@@ -1312,15 +1341,14 @@ void GameController::UpdateCombat(float dt) {
         m_enemyAttackCooldown = 0.4f;
 
         if (!player->IsAlive()) {
-            RespawnPlayer();
+            RespawnPlayer(player, !m_localCoop);
         }
         break;
     }
 }
 
-void GameController::UpdateItems(float dt) {
+void GameController::UpdateItems(Player* player, float dt) {
     (void)dt;
-    Player* player = m_gameState->GetLocalPlayer();
     if (!player) return;
 
     Rectangle playerBox = player->GetBoundingBox();
@@ -1337,6 +1365,10 @@ void GameController::UpdateItems(float dt) {
             case ItemType::Coin:
                 pickupSound = "coin_pickup";
                 player->GetInventory().AddCoins(item->GetAmount());
+                if (m_localCoop && m_gameState->GetLocalPlayer() != player &&
+                    m_gameState->GetLocalPlayer()) {
+                    m_gameState->GetLocalPlayer()->GetInventory().AddCoins(item->GetAmount());
+                }
                 SaveManager::GetInstance().AddCoins(item->GetAmount());
                 persistentCoinsChanged = true;
                 player->AddScore(item->GetAmount() * 10);
@@ -1373,8 +1405,7 @@ void GameController::UpdateItems(float dt) {
     if (persistentCoinsChanged) SaveManager::GetInstance().Save();
 }
 
-void GameController::UpdateInteractions(const InputCommand& cmd) {
-    Player* player = m_gameState ? m_gameState->GetLocalPlayer() : nullptr;
+void GameController::UpdateInteractions(Player* player, const InputCommand& cmd) {
     if (!player || !cmd.interact) return;
 
     Rectangle playerBox = player->GetBoundingBox();
@@ -1469,6 +1500,17 @@ void GameController::UpdateInteractions(const InputCommand& cmd) {
                     Vector2 dest = { destBox.x + destBox.width / 2.0f - player->GetSize().x / 2.0f, destBox.y + destBox.height - player->GetSize().y };
                     player->SetPosition(dest);
                     player->SetVelocity({0, 0});
+                    if (m_localCoop) {
+                        Player* partner = player == m_gameState->GetLocalPlayer()
+                            ? m_gameState->GetSecondLocalPlayer()
+                            : m_gameState->GetLocalPlayer();
+                        if (partner) {
+                            Vector2 partnerDest = dest;
+                            partnerDest.x += player == m_gameState->GetLocalPlayer() ? 54.0f : -54.0f;
+                            partner->SetPosition(partnerDest);
+                            partner->SetVelocity({0.0f, 0.0f});
+                        }
+                    }
                     return; // Prevent instant back-teleportation in the same frame!
                 }
             } else if (portal->GetPortalType() == PortalType::LevelTransition) {
@@ -1482,7 +1524,7 @@ void GameController::UpdateInteractions(const InputCommand& cmd) {
                     // Cổng thoát (boss arena → level cũ)
                     if (m_previousLevelId != -1) {
                         // Lưu trạng thái player sau khi đánh boss (có thể được thưởng items)
-                        SavePlayerState(player);
+                        SavePlayerState(m_gameState->GetLocalPlayer());
                         int prev = m_previousLevelId;
                         m_previousLevelId = -1;
                         StartLevel(prev);
@@ -1501,7 +1543,7 @@ void GameController::UpdateInteractions(const InputCommand& cmd) {
                     Rectangle portalBox = portal->GetBoundingBox();
                     m_exitSpawnPos = { portalBox.x + portalBox.width + 8.0f, portalBox.y + portalBox.height - player->GetSize().y };
                     m_previousLevelId = m_gameState->GetCurrentLevel();
-                    SavePlayerState(player);
+                    SavePlayerState(m_gameState->GetLocalPlayer());
                     StartLevel(target);
                     // Restore state vào level boss
                     if (Player* newPlayer = m_gameState ? m_gameState->GetLocalPlayer() : nullptr) {
@@ -1575,14 +1617,23 @@ void GameController::RestoreCheckpointEnemies() {
     m_combatExitTimer = 0.0f;
 }
 
-void GameController::RespawnPlayer() {
-    Player* player = m_gameState->GetLocalPlayer();
+void GameController::RespawnPlayer(Player* player, bool restoreEncounter) {
     if (!player) return;
-    player->SetPosition(m_respawnPoint);
+    Vector2 respawn = m_respawnPoint;
+    if (m_localCoop && !restoreEncounter && m_gameState) {
+        Player* partner = player == m_gameState->GetLocalPlayer()
+            ? m_gameState->GetSecondLocalPlayer()
+            : m_gameState->GetLocalPlayer();
+        if (partner && partner->IsAlive()) {
+            respawn = partner->GetPosition();
+            respawn.x += player == m_gameState->GetLocalPlayer() ? -56.0f : 56.0f;
+        }
+    }
+    player->SetPosition(respawn);
     player->SetVelocity({0.0f, 0.0f});
     player->SetHealth(player->GetMaxHealth());
     player->SetActive(true);
-    RestoreCheckpointEnemies();
+    if (restoreEncounter) RestoreCheckpointEnemies();
 
     if (m_previousLevelId != -1) {
         for (auto& entity : m_gameState->GetAllEntities()) {
@@ -1713,6 +1764,10 @@ void GameController::Update(float dt) {
     if (dt > 0.1f) dt = 0.1f;
 
     InputCommand cmd = InputController::GetInstance().Poll();
+    InputCommand playerOneCmd = m_localCoop
+        ? InputController::GetInstance().PollPlayerOne()
+        : cmd;
+    InputCommand playerTwoCmd = InputController::GetInstance().PollPlayerTwo();
 
     if (m_levelComplete) {
         View::ResultView& result = View::ResultView::GetInstance();
@@ -1741,7 +1796,7 @@ void GameController::Update(float dt) {
     }
 
     if (View::TutorialRenderer::GetInstance().IsDialogVisible()) {
-        if (cmd.interact || cmd.menuConfirm || cmd.pause) {
+        if (cmd.interact || (m_localCoop && playerTwoCmd.interact) || cmd.menuConfirm || cmd.pause) {
             SoundManager::GetInstance().PlaySound("ui_confirm");
             View::TutorialRenderer::GetInstance().HideDialog();
         }
@@ -1807,13 +1862,21 @@ void GameController::Update(float dt) {
     }
 
     if (!View::UIStateManager::GetInstance().IsOverlayActive()) {
-        HandlePlayerInput(cmd, dt);
-        UpdateInteractions(cmd);
+        HandlePlayerInput(m_gameState->GetLocalPlayer(), playerOneCmd, dt);
+        UpdateInteractions(m_gameState->GetLocalPlayer(), playerOneCmd);
+        if (m_localCoop) {
+            HandlePlayerInput(m_gameState->GetSecondLocalPlayer(), playerTwoCmd, dt);
+            UpdateInteractions(m_gameState->GetSecondLocalPlayer(), playerTwoCmd);
+        }
     }
 
     Player* player = m_gameState->GetLocalPlayer();
+    Player* secondPlayer = m_localCoop ? m_gameState->GetSecondLocalPlayer() : nullptr;
     if (player && player->IsActive()) {
         ApplyGravity(player, dt);
+    }
+    if (secondPlayer && secondPlayer->IsActive()) {
+        ApplyGravity(secondPlayer, dt);
     }
 
     m_gameState->Update(dt);
@@ -1864,10 +1927,16 @@ void GameController::Update(float dt) {
         }
     }
 
-    UpdateCombat(dt);
+    if (secondPlayer && secondPlayer->IsActive()) {
+        ResolveTileCollisions(secondPlayer, dt);
+    }
+
+    UpdateCombat(player, dt, true);
+    if (secondPlayer) UpdateCombat(secondPlayer, dt, false);
     UpdateItemPhysics(dt);
-    UpdateItems(dt);
-    UpdatePets(dt, cmd);
+    UpdateItems(player, dt);
+    if (secondPlayer) UpdateItems(secondPlayer, dt);
+    UpdatePets(dt, playerOneCmd);
     UpdateProjectiles(dt);
     UpdatePlayerProjectiles(dt);
     UpdateEndgameCheckpoints();
@@ -1880,7 +1949,16 @@ void GameController::Update(float dt) {
         if (player->GetPosition().y > mapHeight + TILE_SIZE * 2) {
             player->TakeDamage(player->GetMaxHealth()); // Technically dies
             SoundManager::GetInstance().PlaySound("player_die");
-            RespawnPlayer();
+            RespawnPlayer(player, !m_localCoop);
+        }
+    }
+
+    if (secondPlayer && secondPlayer->IsAlive()) {
+        const float mapHeight = std::max(1, m_gameState->GetMapHeight()) * TILE_SIZE;
+        if (secondPlayer->GetPosition().y > mapHeight + TILE_SIZE * 2) {
+            secondPlayer->TakeDamage(secondPlayer->GetMaxHealth());
+            SoundManager::GetInstance().PlaySound("player_die");
+            RespawnPlayer(secondPlayer, false);
         }
     }
 
@@ -1889,6 +1967,20 @@ void GameController::Update(float dt) {
             player->GetPosition().x + player->GetSize().x * 0.5f,
             player->GetPosition().y + player->GetSize().y * 0.5f
         };
+        float desiredZoom = 1.0f;
+        if (secondPlayer && secondPlayer->IsAlive()) {
+            const Vector2 secondCenter = {
+                secondPlayer->GetPosition().x + secondPlayer->GetSize().x * 0.5f,
+                secondPlayer->GetPosition().y + secondPlayer->GetSize().y * 0.5f
+            };
+            center = {(center.x + secondCenter.x) * 0.5f, (center.y + secondCenter.y) * 0.5f};
+            const float separationX = std::abs(secondCenter.x - center.x) * 2.0f;
+            const float separationY = std::abs(secondCenter.y - center.y) * 2.0f;
+            const float fitX = GetScreenWidth() / std::max(1.0f, separationX + 360.0f);
+            const float fitY = GetScreenHeight() / std::max(1.0f, separationY + 260.0f);
+            desiredZoom = std::clamp(std::min(fitX, fitY), 0.62f, 1.0f);
+        }
+        m_camera.zoom += (desiredZoom - m_camera.zoom) * std::min(1.0f, dt * 3.5f);
         m_camera.target.x += (center.x - m_camera.target.x) * 0.1f;
         if (m_gameState->GetCurrentLevel() == 1 &&
             std::filesystem::exists("assets/levels/tutorial.ldtk")) {
@@ -1915,8 +2007,8 @@ void GameController::Update(float dt) {
     }
 
     View::GameView::GetInstance().Update(dt);
-    View::HUDView::GetInstance().Update(dt, player, activeBoss);
-    View::SkillBarView::GetInstance().Update(dt, player);
+    View::HUDView::GetInstance().Update(dt, player, activeBoss, secondPlayer);
+    View::SkillBarView::GetInstance().Update(dt, player, secondPlayer);
     CheckLevelComplete();
 }
 
@@ -1926,6 +2018,27 @@ void GameController::Render() {
     View::Renderer::GetInstance().BeginFrame();
     View::GameView::GetInstance().Render(m_camera, m_particles.GetActive(), GetFrameTime());
     View::Renderer::GetInstance().EndFrameAndFlush();
+
+    if (m_localCoop && m_gameState) {
+        auto drawPlayerMarker = [&](Player* localPlayer, const char* label, Color color,
+                                    float horizontalOffset) {
+            if (!localPlayer || !localPlayer->IsActive()) return;
+            const Rectangle bounds = localPlayer->GetBoundingBox();
+            const Vector2 world = {
+                bounds.x + bounds.width * 0.5f,
+                bounds.y + bounds.height * 0.48f
+            };
+            Vector2 screen = GetWorldToScreen2D(world, m_camera);
+            screen.x += horizontalOffset;
+            DrawCircleV(screen, 12.0f, Color{8, 7, 18, 220});
+            DrawCircleLinesV(screen, 12.0f, color);
+            const int size = 11;
+            DrawText(label, static_cast<int>(screen.x - MeasureText(label, size) * 0.5f),
+                     static_cast<int>(screen.y - size * 0.5f), size, color);
+        };
+        drawPlayerMarker(m_gameState->GetLocalPlayer(), "P1", Color{104, 210, 255, 255}, -48.0f);
+        drawPlayerMarker(m_gameState->GetSecondLocalPlayer(), "P2", Color{220, 168, 255, 255}, 48.0f);
+    }
 
     if (View::OptionsView::GetInstance().IsVisible()) {
         View::OptionsView::GetInstance().Render();

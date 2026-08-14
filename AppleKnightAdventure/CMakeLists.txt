@@ -50,9 +50,21 @@ if(MINGW)
     target_link_options(AppleKnightAdventure PRIVATE "-Wl,--defsym,stat64i32=_stat64i32")
 endif()
 
-# 9. Copy assets to the build folder after building
-add_custom_command(TARGET AppleKnightAdventure POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-    "${CMAKE_CURRENT_SOURCE_DIR}/../assets"
-    "$<TARGET_FILE_DIR:AppleKnightAdventure>/assets"
+# 9. Keep runtime assets in sync even when only an LDtk/image/audio file changes.
+# A POST_BUILD command alone does not run when the executable is already up to date.
+file(GLOB_RECURSE GAME_ASSET_FILES CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/../assets/*"
 )
+set(ASSET_SYNC_STAMP "${CMAKE_BINARY_DIR}/assets_sync.stamp")
+add_custom_command(
+    OUTPUT "${ASSET_SYNC_STAMP}"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CMAKE_CURRENT_SOURCE_DIR}/../assets"
+            "${CMAKE_BINARY_DIR}/assets"
+    COMMAND ${CMAKE_COMMAND} -E touch "${ASSET_SYNC_STAMP}"
+    DEPENDS ${GAME_ASSET_FILES}
+    COMMENT "Syncing runtime assets"
+    VERBATIM
+)
+add_custom_target(SyncAssets ALL DEPENDS "${ASSET_SYNC_STAMP}")
+add_dependencies(AppleKnightAdventure SyncAssets)

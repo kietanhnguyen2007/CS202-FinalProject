@@ -169,6 +169,7 @@ void MapBuilderController::Playtest() {
     // 2. Hand over to GameController
     m_playtestMode = true;
     m_isRunning = false; // exit editor loop
+    GameController::GetInstance().ConfigureLocalCoop(false);
     GameController::GetInstance().StartLevel(-99); // -99 signals to load temp map? Or just pass path.
     // Wait, GameController takes int level. I need to modify GameController::GetLevelPath or just pass a special flag.
     // For now, I'll let the user know we need to integrate this.

@@ -23,12 +23,20 @@ GameMode GameState::GetMode() const { return m_mode; }
 void GameState::SetMode(GameMode mode) { m_mode = mode; }
 
 Player* GameState::GetLocalPlayer() const { return m_localPlayer.get(); }
+Player* GameState::GetSecondLocalPlayer() const { return m_secondLocalPlayer.get(); }
 
 void GameState::SetLocalPlayer(std::unique_ptr<Player> player) {
     if (player && player->GetId() == 0) {
         player->SetId(GenerateEntityId());
     }
     m_localPlayer = std::move(player);
+}
+
+void GameState::SetSecondLocalPlayer(std::unique_ptr<Player> player) {
+    if (player && player->GetId() == 0) {
+        player->SetId(GenerateEntityId());
+    }
+    m_secondLocalPlayer = std::move(player);
 }
 
 void GameState::AddEntity(std::unique_ptr<Entity> entity) {
@@ -133,6 +141,12 @@ Entity* GameState::GetEntityAt(float x, float y, float tolerance) const {
             return m_localPlayer.get();
         }
     }
+    if (m_secondLocalPlayer) {
+        Vector2 pos = m_secondLocalPlayer->GetPosition();
+        if (std::abs(pos.x - x) <= tolerance && std::abs(pos.y - y) <= tolerance) {
+            return m_secondLocalPlayer.get();
+        }
+    }
     for (const auto& e : m_entities) {
         Vector2 pos = e->GetPosition();
         if (std::abs(pos.x - x) <= tolerance && std::abs(pos.y - y) <= tolerance) {
@@ -147,6 +161,13 @@ void GameState::RemoveEntityAt(float x, float y, float tolerance) {
         Vector2 pos = m_localPlayer->GetPosition();
         if (std::abs(pos.x - x) <= tolerance && std::abs(pos.y - y) <= tolerance) {
             m_localPlayer.reset();
+            return;
+        }
+    }
+    if (m_secondLocalPlayer) {
+        Vector2 pos = m_secondLocalPlayer->GetPosition();
+        if (std::abs(pos.x - x) <= tolerance && std::abs(pos.y - y) <= tolerance) {
+            m_secondLocalPlayer.reset();
             return;
         }
     }
@@ -255,11 +276,13 @@ bool GameState::IsLevelComplete() const {
                 Rectangle checkpointBox = cp->GetBoundingBox();
                 if (CheckCollisionRecs(playerBox, checkpointBox)) {
                     touchingEndCheckpoint = true;
+                } else if (m_secondLocalPlayer &&
+                           CheckCollisionRecs(m_secondLocalPlayer->GetBoundingBox(), checkpointBox)) {
+                    touchingEndCheckpoint = true;
                 }
             }
         }
     }
-
     if (hasCompletionCup) return false;
     return (!enemiesAlive && touchingEndCheckpoint);
 }
@@ -280,6 +303,9 @@ void GameState::Update(float deltaTime) {
     if (m_localPlayer) {
         m_localPlayer->Update(deltaTime);
     }
+    if (m_secondLocalPlayer) {
+        m_secondLocalPlayer->Update(deltaTime);
+    }
     for (auto& entity : m_entities) {
         if (entity->IsActive()) {
             entity->Update(deltaTime);
@@ -290,6 +316,7 @@ void GameState::Update(float deltaTime) {
 void GameState::Clear() {
     m_entities.clear();
     m_localPlayer.reset();
+    m_secondLocalPlayer.reset();
     for(int i = 0; i < static_cast<int>(MapLayer::Count); ++i) {
         m_tiles[i].clear();
     }

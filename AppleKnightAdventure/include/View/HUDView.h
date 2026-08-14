@@ -18,7 +18,8 @@ public:
     bool Init();
     bool LoadResources(const std::string& atlasJsonPath);
     void Shutdown();
-    void Update(float dt, const Player* player, const Boss* boss = nullptr);
+    void Update(float dt, const Player* player, const Boss* boss = nullptr,
+                const Player* secondPlayer = nullptr);
     void Render();
 
     void SetVisible(bool v) { m_visible = v; }
@@ -28,17 +29,21 @@ public:
 private:
     HUDView() = default;
     void LoadAvatar(CharacterClass characterClass);
+    void LoadSecondAvatar(CharacterClass characterClass);
 
     bool m_visible = true;
     bool m_loaded = false;
     bool m_isPlaytest = false;
     bool m_wantsQuitTest = false;
     const Player* m_player = nullptr;
+    const Player* m_secondPlayer = nullptr;
     const Boss* m_boss = nullptr;
     const Boss* m_lastBoss = nullptr;
 
     float m_displayHp = 1.0f;
     float m_damageTrailHp = 1.0f;
+    float m_secondDisplayHp = 1.0f;
+    float m_secondDamageTrailHp = 1.0f;
     float m_bossDisplayHp = 1.0f;
     float m_bossDamageTrailHp = 1.0f;
     float m_time = 0.0f;
@@ -55,6 +60,9 @@ private:
     std::shared_ptr<Animations::TextureAtlas> m_avatarAtlas;
     Rectangle m_avatarSource{};
     int m_avatarClass = -1;
+    std::shared_ptr<Animations::TextureAtlas> m_secondAvatarAtlas;
+    Rectangle m_secondAvatarSource{};
+    int m_secondAvatarClass = -1;
     std::shared_ptr<Animations::TextureAtlas> m_coinAtlas;
     Animations::Animator m_coinAnim;
 };

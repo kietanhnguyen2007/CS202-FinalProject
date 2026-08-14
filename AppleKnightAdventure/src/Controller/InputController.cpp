@@ -33,3 +33,37 @@ InputCommand InputController::Poll() {
 
     return cmd;
 }
+
+InputCommand InputController::PollPlayerOne() {
+    InputCommand cmd;
+    cmd.moveLeft   = IsKeyDown(KEY_A);
+    cmd.moveRight  = IsKeyDown(KEY_D);
+    cmd.jump       = IsKeyPressed(KEY_W) || IsKeyPressed(KEY_SPACE);
+    cmd.attack     = IsKeyPressed(KEY_J);
+    cmd.parry      = IsKeyPressed(KEY_K);
+    cmd.skill1     = IsKeyPressed(KEY_U);
+    cmd.ultimate   = IsKeyPressed(KEY_H);
+    cmd.parryBlock = IsKeyDown(KEY_P);
+    cmd.interact   = IsKeyPressed(KEY_F);
+    cmd.openInventory = IsKeyPressed(KEY_I);
+    cmd.pause      = IsKeyPressed(KEY_ESCAPE);
+    cmd.sprint     = IsKeyDown(KEY_LEFT_SHIFT);
+    cmd.dash       = IsKeyPressed(KEY_L);
+    return cmd;
+}
+
+InputCommand InputController::PollPlayerTwo() {
+    InputCommand cmd;
+    cmd.moveLeft   = IsKeyDown(KEY_LEFT);
+    cmd.moveRight  = IsKeyDown(KEY_RIGHT);
+    cmd.jump       = IsKeyPressed(KEY_UP);
+    cmd.attack     = IsKeyPressed(KEY_KP_1);
+    cmd.parry      = IsKeyPressed(KEY_KP_2);
+    cmd.skill1     = IsKeyPressed(KEY_KP_3);
+    cmd.ultimate   = IsKeyPressed(KEY_KP_0);
+    cmd.dash       = IsKeyPressed(KEY_KP_4);
+    cmd.parryBlock = IsKeyDown(KEY_KP_5);
+    cmd.interact   = IsKeyPressed(KEY_KP_6);
+    cmd.sprint     = IsKeyDown(KEY_KP_7);
+    return cmd;
+}

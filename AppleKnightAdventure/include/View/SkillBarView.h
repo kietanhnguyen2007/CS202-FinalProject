@@ -31,7 +31,7 @@ public:
     bool Init();
     bool LoadResources(const std::string& atlasJsonPath = "");
     void Shutdown();
-    void Update(float dt, const Player* player);
+    void Update(float dt, const Player* player, const Player* secondPlayer = nullptr);
     void Render();
 
     void Open() { m_open = true; }
@@ -42,15 +42,21 @@ public:
 private:
     SkillBarView() = default;
     void LoadClassIcons(CharacterClass cls);
+    void LoadSecondClassIcons(CharacterClass cls);
     void CopySkill(int index, const char* key, float cooldown, float timer, bool charging, bool active);
+    void CopySecondSkill(int index, const char* key, float cooldown, float timer, bool charging, bool active);
 
     bool m_open = true;
     bool m_loaded = false;
     const Player* m_player = nullptr;
+    const Player* m_secondPlayer = nullptr;
     CharacterClass m_loadedClass = static_cast<CharacterClass>(-1);
+    CharacterClass m_secondLoadedClass = static_cast<CharacterClass>(-1);
     float m_time = 0.0f;
     std::array<GameplaySkillSlot, 4> m_skills{};
     std::array<GameplaySkillIcon, 4> m_icons{};
+    std::array<GameplaySkillSlot, 4> m_secondSkills{};
+    std::array<GameplaySkillIcon, 4> m_secondIcons{};
 };
 
 } // namespace View

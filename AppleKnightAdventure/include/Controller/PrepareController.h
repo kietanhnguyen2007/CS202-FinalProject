@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include <vector>
+#include "Utils/Types.h"
 
 struct PrepareItemData {
     std::string id;
@@ -25,11 +26,16 @@ public:
     const std::vector<PrepareItemData>& GetPetItems() const { return m_petItems; }
     int GetSelectedCharIdx() const { return m_selectedCharIdx; }
     int GetSelectedPetIdx() const { return m_selectedPetIdx; }
+    int GetSecondCharIdx() const { return m_secondCharIdx; }
+    bool IsLocalCoop() const { return m_localCoop; }
+    CharacterClass GetSecondPlayerClass() const;
     int GetFocusColumn() const { return m_focusColumn; } // 0=Chars, 1=Pets, 2=Start Btn
 
     // Setters for view clicks
     bool SetSelectedCharIdx(int idx);
     bool SetSelectedPetIdx(int idx);
+    bool SetSecondCharIdx(int idx);
+    void SetLocalCoop(bool enabled);
     void SetFocusColumn(int col);
     void SetWantsBack() { m_wantsBack = true; }
     void TryStartGame();
@@ -46,9 +52,12 @@ private:
     
     int m_selectedCharIdx = 0;
     int m_selectedPetIdx = -1;
+    int m_secondCharIdx = 0;
+    bool m_localCoop = false;
     int m_focusColumn = 0;
     float m_inputCooldown = 0.f;
 
     void MoveCharacterSelection(int direction);
     void MovePetSelection(int direction);
+    void MoveSecondCharacterSelection(int direction);
 };

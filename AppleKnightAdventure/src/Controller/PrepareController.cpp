@@ -66,6 +66,14 @@ void PrepareController::Open(int levelId) {
             break;
         }
     }
+
+    m_secondCharIdx = 0;
+    for (size_t i = 0; i < m_charItems.size(); ++i) {
+        if (m_charItems[i].isUnlocked && static_cast<int>(i) != m_selectedCharIdx) {
+            m_secondCharIdx = static_cast<int>(i);
+            break;
+        }
+    }
     
     View::PrepareView::GetInstance().Show();
 }
@@ -104,13 +112,20 @@ void PrepareController::Update(float dt) {
     }
     else if (m_focusColumn == 1) {
         if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_W)) {
-            MovePetSelection(-1);
+            if (m_localCoop) MoveSecondCharacterSelection(-1);
+            else MovePetSelection(-1);
             SoundManager::GetInstance().PlaySound("hover");
         }
         else if (IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_S)) {
-            MovePetSelection(1);
+            if (m_localCoop) MoveSecondCharacterSelection(1);
+            else MovePetSelection(1);
             SoundManager::GetInstance().PlaySound("hover");
         }
+    }
+
+    if (IsKeyPressed(KEY_TAB)) {
+        SetLocalCoop(!m_localCoop);
+        SoundManager::GetInstance().PlaySound("ui_confirm");
     }
     
     if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE)) {
@@ -141,6 +156,30 @@ bool PrepareController::SetSelectedPetIdx(int idx) {
     return false;
 }
 
+bool PrepareController::SetSecondCharIdx(int idx) {
+    if (idx >= 0 && idx < static_cast<int>(m_charItems.size()) && m_charItems[idx].isUnlocked) {
+        m_secondCharIdx = idx;
+        return true;
+    }
+    return false;
+}
+
+void PrepareController::SetLocalCoop(bool enabled) {
+    m_localCoop = enabled;
+    if (enabled) m_selectedPetIdx = -1;
+}
+
+CharacterClass PrepareController::GetSecondPlayerClass() const {
+    if (m_secondCharIdx < 0 || m_secondCharIdx >= static_cast<int>(m_charItems.size())) {
+        return CharacterClass::Knight;
+    }
+    const std::string& id = m_charItems[m_secondCharIdx].id;
+    if (id == "fighter") return CharacterClass::Fighter;
+    if (id == "magic_caster") return CharacterClass::MagicCaster;
+    if (id == "ninja") return CharacterClass::Ninja;
+    return CharacterClass::Knight;
+}
+
 void PrepareController::MoveCharacterSelection(int direction) {
     if (m_charItems.empty() || direction == 0) return;
     int idx = m_selectedCharIdx;
@@ -167,6 +206,19 @@ void PrepareController::MovePetSelection(int direction) {
     }
 }
 
+void PrepareController::MoveSecondCharacterSelection(int direction) {
+    if (m_charItems.empty() || direction == 0) return;
+    int idx = m_secondCharIdx;
+    for (int step = 0; step < static_cast<int>(m_charItems.size()); ++step) {
+        idx = std::clamp(idx + direction, 0, static_cast<int>(m_charItems.size()) - 1);
+        if (m_charItems[idx].isUnlocked) {
+            m_secondCharIdx = idx;
+            return;
+        }
+        if (idx == 0 || idx == static_cast<int>(m_charItems.size()) - 1) return;
+    }
+}
+
 void PrepareController::SetFocusColumn(int col) {
     m_focusColumn = std::clamp(col, 0, 2);
 }
@@ -175,9 +227,12 @@ void PrepareController::TryStartGame() {
     if (m_selectedCharIdx >= 0 && m_selectedCharIdx < (int)m_charItems.size()) {
         const auto& charItem = m_charItems[m_selectedCharIdx];
         if (charItem.isUnlocked) {
+            if (m_localCoop && (m_secondCharIdx < 0 ||
+                m_secondCharIdx >= static_cast<int>(m_charItems.size()) ||
+                !m_charItems[m_secondCharIdx].isUnlocked)) return;
             SaveManager::GetInstance().SetSelectedChar(charItem.id);
             
-            if (m_selectedPetIdx >= 0 && m_selectedPetIdx < (int)m_petItems.size()) {
+            if (!m_localCoop && m_selectedPetIdx >= 0 && m_selectedPetIdx < (int)m_petItems.size()) {
                 const auto& petItem = m_petItems[m_selectedPetIdx];
                 if (petItem.isUnlocked) {
                     SaveManager::GetInstance().SetSelectedPet(petItem.id);

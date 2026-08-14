@@ -36,6 +36,7 @@ class GameState {
 protected:
     GameMode m_mode;
     std::unique_ptr<Player> m_localPlayer;
+    std::unique_ptr<Player> m_secondLocalPlayer;
     std::vector<std::unique_ptr<Entity>> m_entities;
     std::vector<std::unique_ptr<Entity>> m_newEntities; // Buffer for dynamically added entities
     std::vector<Tile> m_tiles[static_cast<int>(MapLayer::Count)];
@@ -59,7 +60,9 @@ public:
     void SetMode(GameMode mode);
 
     Player* GetLocalPlayer() const;
+    Player* GetSecondLocalPlayer() const;
     void SetLocalPlayer(std::unique_ptr<Player> player);
+    void SetSecondLocalPlayer(std::unique_ptr<Player> player);
     void AddEntity(std::unique_ptr<Entity> entity);
     void MergeNewEntities();
     void RemoveEntity(int entityId);
