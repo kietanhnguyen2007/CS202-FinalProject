@@ -2008,6 +2008,8 @@ void GameController::Update(float dt) {
         } else {
             m_camera.target.y += (center.y - m_camera.target.y) * 0.1f;
         }
+        // Always keep player centered regardless of current window size
+        m_camera.offset = {GetScreenWidth() * 0.5f, GetScreenHeight() * 0.5f};
     }
 
     const Boss* activeBoss = nullptr;

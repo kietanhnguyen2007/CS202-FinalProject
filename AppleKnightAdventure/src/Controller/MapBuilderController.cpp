@@ -178,6 +178,11 @@ void MapBuilderController::Playtest() {
 void MapBuilderController::Update(float deltaTime) {
     if (!m_isRunning || !m_gameState) return;
 
+    // Keep camera centered relative to current window size on resize
+    if (!m_isDragging) {
+        m_camera.offset = {GetScreenWidth() * 0.5f, GetScreenHeight() * 0.5f};
+    }
+
     m_gameState->Update(deltaTime); // Merges m_newEntities
 
     auto& view = View::MapBuilderView::GetInstance();
@@ -426,7 +431,7 @@ void MapBuilderController::HandleTool(Vector2 mouseWorldPos) {
                             newEntity = std::make_unique<Boss2>(pos, Vector2{TILE_SIZE * 0.5f, TILE_SIZE * 0.99f});
                         } else {
                             pos.y += TILE_SIZE - (TILE_SIZE * 0.99f);
-                            newEntity = std::make_unique<Boss1>(pos, Vector2{TILE_SIZE * 0.5f, TILE_SIZE * 0.99f}); 
+                            newEntity = std::make_unique<Boss1>(pos, Vector2{TILE_SIZE * 0.85f, TILE_SIZE * 1.683f}); 
                         }
                         break;
                     case EntityType::Chest: 

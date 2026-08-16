@@ -219,12 +219,12 @@ void HUDView::Render() {
     };
 
     // Kenney RPG panel + a real idle frame from the currently selected character class.
-    const Rectangle panel{18.0f * scale, 18.0f * scale, 382.0f * scale, 96.0f * scale};
+    const Rectangle panel{18.0f * scale, 18.0f * scale, 229.0f * scale, 48.0f * scale};
     ::DrawRectangleRounded({panel.x + 5*scale, panel.y + 7*scale, panel.width, panel.height},
                            0.12f, 8, Color{12, 7, 5, 145});
     DrawPanel(m_panelBrown, panel, 13.0f);
-    const float portraitSize = 76.0f * scale;
-    Rectangle portraitRect{panel.x + 10 * scale, panel.y + 10 * scale, portraitSize, portraitSize};
+    const float portraitSize = 38.0f * scale;
+    Rectangle portraitRect{panel.x + 5 * scale, panel.y + 5 * scale, portraitSize, portraitSize};
     if (m_buttonRoundBrown.id) {
         ::DrawTexturePro(m_buttonRoundBrown,
                          {0,0,(float)m_buttonRoundBrown.width,(float)m_buttonRoundBrown.height},
@@ -235,25 +235,25 @@ void HUDView::Render() {
         const float avatarHeight = portraitSize * 0.91f;
         const float avatarWidth = avatarHeight * m_avatarSource.width / m_avatarSource.height;
         Rectangle avatarDest{portraitRect.x + (portraitSize - avatarWidth) * 0.5f,
-                             portraitRect.y + portraitSize - avatarHeight - 3.0f*scale,
+                             portraitRect.y + portraitSize - avatarHeight - 2.0f*scale,
                              avatarWidth, avatarHeight};
         ::DrawTexturePro(*m_avatarAtlas->GetTexture(), m_avatarSource, avatarDest, {0,0}, 0.0f, WHITE);
     }
     ::DrawCircleLinesV({portraitRect.x + portraitSize*0.5f, portraitRect.y + portraitSize*0.5f},
                        portraitSize*0.46f, Color{255, 224, 151, 220});
 
-    const float barX = portraitRect.x + portraitSize + 12 * scale;
-    const float barY = panel.y + 31 * scale;
-    const float barW = panel.x + panel.width - barX - 12 * scale;
-    const float barH = 34 * scale;
+    const float barX = portraitRect.x + portraitSize + 6 * scale;
+    const float barY = panel.y + 15 * scale;
+    const float barW = panel.x + panel.width - barX - 6 * scale;
+    const float barH = 17 * scale;
     DrawPanel(m_panelInsetBrown,
               {barX - 5*scale, barY - 5*scale, barW + 10*scale, barH + 10*scale},
               11.0f, Color{222, 197, 154, 255});
     drawHealthBar({barX, barY, barW, barH}, m_displayHp, m_damageTrailHp);
     char hpText[64];
     std::snprintf(hpText, sizeof(hpText), "%d / %d", m_player->GetHealth(), m_player->GetMaxHealth());
-    DrawCenteredText(hpText, barX + barW * 0.5f, barY + 6 * scale,
-                     std::max(12, static_cast<int>(16 * scale)), WHITE);
+    DrawCenteredText(hpText, barX + barW * 0.5f, barY + 3 * scale,
+                     std::max(9, static_cast<int>(11 * scale)), WHITE);
 
     // Potions heal immediately on pickup, so only persistent coins need a counter.
     const Inventory& inv = m_player->GetInventory();
@@ -285,8 +285,8 @@ void HUDView::Render() {
                                0.12f, 8, Color{10, 7, 20, 150});
         DrawPanel(m_panelBrown, secondPanel, 13.0f, Color{220, 202, 242, 255});
 
-        Rectangle secondPortrait{secondPanel.x + secondPanel.width - portraitSize - 10*scale,
-                                  secondPanel.y + 10*scale, portraitSize, portraitSize};
+        Rectangle secondPortrait{secondPanel.x + secondPanel.width - portraitSize - 5*scale,
+                                  secondPanel.y + 5*scale, portraitSize, portraitSize};
         if (m_buttonRoundBrown.id) {
             ::DrawTexturePro(m_buttonRoundBrown,
                 {0,0,(float)m_buttonRoundBrown.width,(float)m_buttonRoundBrown.height},
@@ -299,7 +299,7 @@ void HUDView::Render() {
             const float avatarWidth = avatarHeight * m_secondAvatarSource.width / m_secondAvatarSource.height;
             const Rectangle avatarDest{
                 secondPortrait.x + (portraitSize - avatarWidth) * 0.5f,
-                secondPortrait.y + portraitSize - avatarHeight - 3.0f*scale,
+                secondPortrait.y + portraitSize - avatarHeight - 2.0f*scale,
                 avatarWidth, avatarHeight};
             ::DrawTexturePro(*m_secondAvatarAtlas->GetTexture(), m_secondAvatarSource,
                              avatarDest, {0,0}, 0.0f, WHITE);
@@ -308,9 +308,9 @@ void HUDView::Render() {
                             secondPortrait.y + portraitSize*0.5f},
                            portraitSize*0.46f, Color{222, 184, 255, 235});
 
-        const float secondBarX = secondPanel.x + 12*scale;
-        const float secondBarY = secondPanel.y + 31*scale;
-        const float secondBarW = secondPortrait.x - secondBarX - 12*scale;
+        const float secondBarX = secondPanel.x + 6*scale;
+        const float secondBarY = secondPanel.y + 15*scale;
+        const float secondBarW = secondPortrait.x - secondBarX - 6*scale;
         DrawPanel(m_panelInsetBrown,
                   {secondBarX - 5*scale, secondBarY - 5*scale,
                    secondBarW + 10*scale, barH + 10*scale},
@@ -321,8 +321,8 @@ void HUDView::Render() {
         std::snprintf(secondHp, sizeof(secondHp), "%d / %d",
                       m_secondPlayer->GetHealth(), m_secondPlayer->GetMaxHealth());
         DrawCenteredText(secondHp, secondBarX + secondBarW * 0.5f,
-                         secondBarY + 6*scale,
-                         std::max(12, static_cast<int>(16*scale)), WHITE);
+                         secondBarY + 3*scale,
+                         std::max(9, static_cast<int>(11*scale)), WHITE);
     }
 
     // Boss bar: exact HP plus explicit phase count and phase segments.

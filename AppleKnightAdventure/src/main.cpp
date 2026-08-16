@@ -30,7 +30,7 @@ int main() {
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Apple Knight Adventure");
     SetExitKey(0); // Disable ESC to quit so we can use it for Pause Menu
     SetWindowState(FLAG_WINDOW_RESIZABLE);
-    SetWindowMinSize(640, 360);  // minimum 16:9 at half base resolution
+    SetWindowMinSize(960, 540);  // minimum 3/4 base resolution to prevent UI layout issues
     WindowManager::GetInstance().Init(SCREEN_WIDTH, SCREEN_HEIGHT);
     SetTargetFPS(60);
 

@@ -323,8 +323,10 @@ void CharacterRenderer::RenderAll() {
             // Dynamic scale adjustment for boss based on native sprite height and desired bounding box height
             float currentHeight = (float)animator.GetCurrentSrcRect().height;
             if (currentHeight > 0) {
-                // Ensure the boss is always drawn matching its logical m_size.y
-                visualScale = (entity->GetSize().y / currentHeight) * baseScale;
+                // Boss hitbox is 1.7× original; we want the sprite to appear 2× original.
+                // Extra visual multiplier = 2.0 / 1.7 so the sprite is larger than the hitbox.
+                const float kBossVisualOverscale = 2.0f / 1.7f;
+                visualScale = (entity->GetSize().y / currentHeight) * baseScale * kBossVisualOverscale;
             }
         }
 
