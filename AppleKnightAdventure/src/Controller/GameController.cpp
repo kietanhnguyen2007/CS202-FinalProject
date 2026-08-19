@@ -158,7 +158,7 @@ std::string GameController::GetLevelPath(int levelNumber) const {
     }
     
     // Map Level 2 -> lvl1.ldtk, Level 3 -> lvl2.ldtk, ...
-    if (levelNumber >= 2 && levelNumber <= 5) {
+    if (levelNumber >= 2 && levelNumber <= 6) {
         std::string path = "assets/levels/lvl" + std::to_string(levelNumber - 1) + ".ldtk";
         if (std::filesystem::exists(path)) return path;
     }
