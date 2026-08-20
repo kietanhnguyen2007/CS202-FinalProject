@@ -25,25 +25,25 @@ struct CharDef {
 static const CharDef kCharDefs[] = {
     {
         "knight",   "Knight",
-        "assets/textures/player/knight/idle.json",
+        "assets/textures/player/knight_v2/idle_v2.json",
         0, 150, 70, 100,
         "Stalwart warrior. High defence, balanced offence."
     },
     {
         "fighter",  "Fighter",
-        "assets/textures/player/fighter/idle.json",
+        "assets/textures/player/fighter_v2/idle_v2.json",
         10, 120, 120, 130,
         "Aggressive brawler. Lower defence, very high damage."
     },
     {
         "magic_caster", "Magic Caster",
-        "assets/textures/player/magic_caster/idle.json",
+        "assets/textures/player/magic_caster_v2/idle_v2.json",
         20, 90, 160, 110,
         "Long-range mage. Fragile but devastating spells."
     },
     {
         "ninja",    "Ninja",
-        "assets/textures/player/ninja/idle.json",
+        "assets/textures/player/ninja_v2/idle_v2.json",
         30, 100, 130, 190,
         "Elusive assassin. Extreme speed and burst damage."
     },

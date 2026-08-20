@@ -174,9 +174,11 @@ bool Boss::IsPointSolid(Vector2 point) const {
 }
 
 void Boss::ResetToPhase1() {
+    m_active = true;
     m_currentPhase = BossPhase::Phase1;
     m_currentState = BossState::Idle;
     m_health = m_maxHealth;
+    m_phaseTimer = 0.0f;
     m_chargeTimer = 0.0f;
     m_activeTimer = 0.0f;
     m_cooldownTimer = 2.0f;
@@ -184,6 +186,8 @@ void Boss::ResetToPhase1() {
     m_superArmor = false;
     m_comboStep = 0;
     m_wantsMelee = false;
+    m_recentDamage = 0;
+    m_damageTimer = 0.0f;
     m_velocity = {0.0f, 0.0f};
     // Reset character state
     m_state = Character::State::Idle;

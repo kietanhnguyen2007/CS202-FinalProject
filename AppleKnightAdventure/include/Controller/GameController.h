@@ -106,7 +106,7 @@ private:
                                float scale = 0.3f, bool facesLeft = true,
                                Vector2 hitboxSize = {0.0f, 0.0f});
     void SpawnLightningAt(Vector2 targetPos, int damage, float lifetime,
-                          const char* atlasPath = "assets/textures/player/magic_caster/projectile_attack1.json",
+                          const char* atlasPath = "assets/textures/player/magic_caster_v2/projectile_attack1_v2.json",
                           float rotation = 0.0f, float scale = 0.4f);
     void UpdatePlayerProjectiles(float dt);
     void UpdateNinjaTeleport(Player* player, float dt);

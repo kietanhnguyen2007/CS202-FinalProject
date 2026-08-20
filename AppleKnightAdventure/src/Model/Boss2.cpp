@@ -6,9 +6,17 @@
 #include <cmath>
 #include <algorithm>
 
+namespace {
+constexpr float ATTACK_DURATION = 0.8f;
+constexpr float ATTACK_RELEASE_TIME = 0.55f;
+constexpr float HEAL_DURATION = 1.2f;
+constexpr float TRANSITION_DURATION = 1.5f;
+constexpr float AOE_WARNING_DURATION = 0.5f;
+constexpr float AOE_ACTIVE_DURATION = 0.8f;
+}
+
 Boss2::Boss2(Vector2 position, Vector2 size) 
     : Boss(position, size, 2)
-    , m_telegraphSpawned(false)
 {
     m_damage = 25; 
     m_cooldownTimer = 3.0f;
@@ -23,16 +31,25 @@ void Boss2::TransitionToNextPhase() {
         SetPhase(BossPhase::Phase2);
         ChangeState(BossState::Transition);
         m_cooldownTimer = 2.5f;
-        m_activeTimer = 3.0f;
+        m_activeTimer = TRANSITION_DURATION;
         m_health = m_maxHealth;
     } else if (m_currentPhase == BossPhase::Phase2) {
         SetPhase(BossPhase::Phase3);
         ChangeState(BossState::Transition);
         m_damage = 30;
         m_cooldownTimer = 2.0f;
-        m_activeTimer = 3.0f;
+        m_activeTimer = TRANSITION_DURATION;
         m_health = m_maxHealth;
     }
+}
+
+void Boss2::ResetToPhase1() {
+    Boss::ResetToPhase1();
+    m_damage = 25;
+    m_cooldownTimer = 3.0f;
+    m_attackRange = 600.0f;
+    m_detectionRange = 700.0f;
+    m_aoeTarget = {0.0f, 0.0f};
 }
 
 void Boss2::UpdateState(float deltaTime, Vector2 playerPos) {
@@ -186,8 +203,8 @@ void Boss2::UpdateState(float deltaTime, Vector2 playerPos) {
         if (m_cooldownTimer <= 0.0f) {
             if (dist < 150.0f) { // Player too close, Teleport
                 ChangeState(BossState::Skill4);
-                m_chargeTimer = 0.3f; // Wind-up
-                m_activeTimer = m_chargeTimer + 0.1f;
+                m_chargeTimer = ATTACK_RELEASE_TIME;
+                m_activeTimer = ATTACK_DURATION;
                 return;
             }
             
@@ -195,23 +212,23 @@ void Boss2::UpdateState(float deltaTime, Vector2 playerPos) {
             if (m_currentPhase == BossPhase::Phase3 && (rand() % 2 == 0)) {
                 if (!IsPointSolid(playerPos)) {
                     ChangeState(BossState::Skill3);
-                    m_chargeTimer = 0.5f; // Reduced from 1.0f to make it harder to dodge
-                    m_activeTimer = m_chargeTimer + 0.5f;
+                    m_chargeTimer = AOE_WARNING_DURATION;
+                    m_activeTimer = AOE_WARNING_DURATION + AOE_ACTIVE_DURATION;
                     m_aoeTarget = playerPos;
                     CheckAndSpawnTelegraph(m_aoeTarget);
                 } else {
                     ChangeState(BossState::Skill1);
-                    m_chargeTimer = 0.4f;
-                    m_activeTimer = m_chargeTimer + 0.2f;
+                    m_chargeTimer = ATTACK_RELEASE_TIME;
+                    m_activeTimer = ATTACK_DURATION;
                 }
             } else if ((m_currentPhase == BossPhase::Phase2 || m_currentPhase == BossPhase::Phase3) && hpRatio < 0.75f && (rand() % 2 == 0)) {
                 ChangeState(BossState::Skill2); // Heal + Zoning
-                m_chargeTimer = 1.0f;
-                m_activeTimer = m_chargeTimer + 0.5f;
+                m_chargeTimer = 0.9f;
+                m_activeTimer = HEAL_DURATION;
             } else {
                 ChangeState(BossState::Skill1); // Spread Projectile
-                m_chargeTimer = (m_currentPhase == BossPhase::Phase1) ? 0.6f : 0.4f;
-                m_activeTimer = m_chargeTimer + 0.2f; 
+                m_chargeTimer = ATTACK_RELEASE_TIME;
+                m_activeTimer = ATTACK_DURATION;
             }
         } else {
             // Keep distance using walk if teleport is on CD
@@ -273,11 +290,6 @@ void Boss2::ExecuteHealing() {
     View::FloatingTextManager::GetInstance().Emit(
         {m_position.x + m_size.x * 0.5f, m_position.y}, "+50", GREEN, 1.0f);
     
-    // Zoning Combo: Spawn AoE on self to prevent player melee interrupts
-    Vector2 selfTarget = {m_position.x + m_size.x/2, m_position.y + m_size.y - 1};
-    CheckAndSpawnTelegraph(selfTarget); // Spawn telegraph, actual explosion is synced with charge timer?
-    // Note: Skill3 normally handles the explosion, but here we can just do a fake telegraph or immediate spawn.
-    // For simplicity, we just heal and let telegraph play.
 }
 
 void Boss2::ExecuteTargetedAoE(Vector2 playerPos) {
@@ -291,11 +303,23 @@ void Boss2::ExecuteTargetedAoE(Vector2 playerPos) {
     
     auto proj = std::make_unique<Projectile>(spawnPos, pSize, ProjectileType::BossAttack, Direction::None, 40, m_id);
     proj->SetVelocity({0.0f, 0.0f});
-    proj->SetLifetime(0.5f); // 0.5s matches animation duration
+    proj->SetLifetime(AOE_ACTIVE_DURATION);
+    proj->SetSubType(2);
     m_gameState->AddEntity(std::move(proj));
 }
 
 void Boss2::CheckAndSpawnTelegraph(Vector2 playerPos) {
-    m_telegraphSpawned = true;
-    // View layer will draw a warning circle at m_aoeTarget if m_currentState == Skill3 and m_chargeTimer > 0
+    if (!m_gameState) return;
+
+    Vector2 pSize = {120.0f, 120.0f};
+    Vector2 spawnPos = {
+        playerPos.x - pSize.x * 0.5f,
+        playerPos.y - pSize.y * 0.7f
+    };
+    auto warning = std::make_unique<Projectile>(
+        spawnPos, pSize, ProjectileType::BossAttack, Direction::None, 0, m_id);
+    warning->SetVelocity({0.0f, 0.0f});
+    warning->SetLifetime(AOE_WARNING_DURATION);
+    warning->SetSubType(5);
+    m_gameState->AddEntity(std::move(warning));
 }

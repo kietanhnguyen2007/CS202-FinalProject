@@ -12,10 +12,10 @@ PrepareController& PrepareController::GetInstance() {
 
 bool PrepareController::Init() {
     m_charItems = {
-        {"knight", "Knight", "assets/textures/player/knight/idle.json", true},
-        {"fighter", "Fighter", "assets/textures/player/fighter/idle.json", false},
-        {"magic_caster", "Mage", "assets/textures/player/magic_caster/idle.json", false},
-        {"ninja", "Ninja", "assets/textures/player/ninja/idle.json", false}
+        {"knight", "Knight", "assets/textures/player/knight_v2/idle_v2.json", true},
+        {"fighter", "Fighter", "assets/textures/player/fighter_v2/idle_v2.json", false},
+        {"magic_caster", "Mage", "assets/textures/player/magic_caster_v2/idle_v2.json", false},
+        {"ninja", "Ninja", "assets/textures/player/ninja_v2/idle_v2.json", false}
     };
     
     m_petItems = {

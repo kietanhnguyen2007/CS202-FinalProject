@@ -11,8 +11,13 @@
 // U = Teleport (near nearest enemy), H = Shadow Clone (projectile), P = Parry
 class NinjaSkillSet : public CharacterSkillSet {
 public:
+    static constexpr float ATTACK1_ANIMATION_DURATION  = 0.72f;
+    static constexpr float ATTACK2_ANIMATION_DURATION  = 0.72f;
+    static constexpr float ULTIMATE_CAST_DURATION      = 1.10f;
+    static constexpr float CLONE_ANIMATION_DURATION    = 0.91f;
+
     SkillData attack1 { 25, 0.40f, 0.0f,  0.20f };  // J — Slash (melee)
-    SkillData attack2 { 40, 1.0f,  0.0f,  0.35f };  // K — Blade Rush (projectile on anim end)
+    SkillData attack2 { 40, 1.0f,  0.0f,  ATTACK2_ANIMATION_DURATION };  // K — projectile on final frame
     SkillData attack3 { 0,  2.0f,  0.0f,  0.0f  };  // U — Teleport
     SkillData ultimate{ 60, 7.0f,  0.40f, 0.0f  };  // H — Shadow Clone (projectile)
     SkillData parry   { 0,  0.0f,  0.0f,  0.30f };  // P — Block (no cooldown)
@@ -23,8 +28,8 @@ public:
     bool  m_isTeleporting   = false;
     bool  m_teleportDone    = false;  // true once position has been snapped
     float m_teleportTimer   = 0.0f;
-    static constexpr float TELEPORT_START_DURATION = 0.30f; // play start anim, then snap
-    static constexpr float TELEPORT_END_DURATION   = 0.30f; // play end anim
+    static constexpr float TELEPORT_START_DURATION = 0.60f; // play all 8 teleport-out frames, then snap
+    static constexpr float TELEPORT_END_DURATION   = 0.60f; // play all 8 teleport-in frames
     static constexpr float TELEPORT_OFFSET         = 80.0f; // pixels in front of enemy
     static constexpr float TELEPORT_MAX_RANGE      = 500.0f;
     static constexpr float TELEPORT_NO_ENEMY_DIST  = 200.0f; // teleport distance if no enemy
@@ -38,9 +43,6 @@ public:
     static constexpr float BLADE_RUSH_RANGE  = 550.0f;
     static constexpr float CLONE_SPEED       = 420.0f;
     static constexpr float CLONE_RANGE       = 600.0f;
-    static constexpr float ULTIMATE_CAST_DURATION = 7.0f * 0.125f;
-    static constexpr float CLONE_ANIMATION_DURATION = 7.0f * 0.13f;
-
     void Update(float deltaTime) override;
 
     bool TryAttack1();

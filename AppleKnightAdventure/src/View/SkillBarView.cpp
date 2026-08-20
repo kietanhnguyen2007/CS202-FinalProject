@@ -17,26 +17,26 @@ struct IconConfig { const char* path; const char* clip; };
 std::array<IconConfig, 4> IconConfigs(CharacterClass cls) {
     switch (cls) {
         case CharacterClass::Fighter:
-            return {{{"assets/textures/player/fighter/attack1.json", "attack"},
-                     {"assets/textures/player/fighter/attack2.json", "attack_2"},
-                     {"assets/textures/player/fighter/attack3.json", "attack_3"},
-                     {"assets/textures/player/fighter/ultimate_projectile.json", "ultimate_projectile"}}};
+            return {{{"assets/textures/player/fighter_v2/attack1_v2.json", "attack"},
+                     {"assets/textures/player/fighter_v2/attack2_v2.json", "attack_2"},
+                     {"assets/textures/player/fighter_v2/attack3_v2.json", "attack_3"},
+                     {"assets/textures/player/fighter_v2/ultimate_projectile_v2.json", "ultimate_projectile"}}};
         case CharacterClass::Knight:
-            return {{{"assets/textures/player/knight/attack1.json", "attack"},
-                     {"assets/textures/player/knight/attack2.json", "attack_2"},
-                     {"assets/textures/player/knight/attack3.json", "attack_3"},
-                     {"assets/textures/player/knight/ultimate_skill.json", "ultimate_skill"}}};
+            return {{{"assets/textures/player/knight_v2/attack1_v2.json", "attack"},
+                     {"assets/textures/player/knight_v2/attack2_v2.json", "attack_2"},
+                     {"assets/textures/player/knight_v2/attack3_v2.json", "attack_3"},
+                     {"assets/textures/player/knight_v2/ultimate_skill_v2.json", "ultimate_skill"}}};
         case CharacterClass::Ninja:
-            return {{{"assets/textures/player/ninja/attack1.json", "attack"},
-                     {"assets/textures/player/ninja/projectile_attack2.json", "projectile_attack2"},
-                     {"assets/textures/player/ninja/skill3_teleport_start.json", "skill3_teleport_start"},
-                     {"assets/textures/player/ninja/projectile_ultimate_attack.json", "projectile_ultimate_attack"}}};
+            return {{{"assets/textures/player/ninja_v2/attack1_v2.json", "attack"},
+                     {"assets/textures/player/ninja_v2/projectile_attack2_v2.json", "projectile_attack2"},
+                     {"assets/textures/player/ninja_v2/skill3_teleport_start_v2.json", "skill3_teleport_start"},
+                     {"assets/textures/player/ninja_v2/projectile_ultimate_attack_v2.json", "projectile_ultimate_attack"}}};
         case CharacterClass::MagicCaster:
         default:
-            return {{{"assets/textures/player/magic_caster/projectile_attack1.json", "projectile_attack1"},
-                     {"assets/textures/player/magic_caster/projectile_attack2.json", "projectile_attack2"},
-                     {"assets/textures/player/magic_caster/projectile_attack3.json", "projectile_attack3"},
-                     {"assets/textures/player/magic_caster/ultimate_skill_projectile.json", "ultimate_skill_projectile"}}};
+            return {{{"assets/textures/player/magic_caster_v2/projectile_attack1_v2.json", "projectile_attack1"},
+                     {"assets/textures/player/magic_caster_v2/projectile_attack2_v2.json", "projectile_attack2"},
+                     {"assets/textures/player/magic_caster_v2/projectile_attack3_v2.json", "projectile_attack3"},
+                     {"assets/textures/player/magic_caster_v2/ultimate_skill_projectile_v2.json", "ultimate_skill_projectile"}}};
     }
 }
 

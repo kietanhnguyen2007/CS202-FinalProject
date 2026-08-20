@@ -405,16 +405,16 @@ Khi gọi `CharacterRenderer::Register(entity, path, clip)`, dùng path sau cho 
 
 | Entity type | Atlas path | Default clip | Ghi chú |
 |---|---|---|---|
-| **Player** — Fighter | `"assets/textures/player/fighter/idle.json"` | `"idle"` | 10+ state files riêng (walk/run/jump/attack1-3/hurt/dead/...) |
-| **Player** — Knight | `"assets/textures/player/knight/idle.json"` | `"idle"` | Tương tự Fighter |
-| **Player** — Ninja | `"assets/textures/player/ninja/idle.json"` | `"idle"` | Có thêm teleport + projectile |
-| **Player** — Magic Caster | `"assets/textures/player/magic_caster/idle.json"` | `"idle"` | Có thêm projectile_attack |
+| **Player** — Fighter | `"assets/textures/player/fighter_v2/idle_v2.json"` | `"idle"` | 10+ state files riêng (walk/run/jump/attack1-3/hurt/dead/...) |
+| **Player** — Knight | `"assets/textures/player/knight_v2/idle_v2.json"` | `"idle"` | Tương tự Fighter |
+| **Player** — Ninja | `"assets/textures/player/ninja_v2/idle_v2.json"` | `"idle"` | Có thêm teleport + projectile |
+| **Player** — Magic Caster | `"assets/textures/player/magic_caster_v2/idle_v2.json"` | `"idle"` | Có thêm projectile_attack |
 | **Enemy** — Melee | `"assets/textures/enemies/melee_idle.json"` | `"idle"` | 6 state files (idle/walk/attack/hurt/death/...) |
 | **Enemy** — Ranged | `"assets/textures/enemies/ranged_idle.json"` | `"idle"` | 6 state files + `ranged_bomb.json` |
 | **Enemy** — Flying | `"assets/textures/enemies/flying_spritesheet.json"` | `"idle"` | 5 state files + `flying_projectile.json` |
-| **Boss 1 — Knight** (phase1) | `"assets/textures/boss/boss1/phase1/idle.json"` | `"idle"` | Dùng `SetBossAssetRoot(id, "boss/boss1")` + `SwitchPhase()` |
-| **Boss 2 — Witch** (phase1) | `"assets/textures/boss/boss2/phase1/idle.json"` | `"idle"` | 3 phase, mỗi phase có projectile |
-| **Boss 3 — 4-phase** (phase1) | `"assets/textures/boss/boss3/phase1/idle.json"` | `"idle"` | 4 phase, mỗi phase attack riêng + projectile |
+| **Boss 1 — Knight** (phase1) | `"assets/textures/boss_v2/boss1/phase1/idle.json"` | `"idle"` | Dùng `SetBossAssetRoot(id, "assets/textures/boss_v2/boss1/")` + `SwitchPhase()` |
+| **Boss 2 — Witch** (phase1) | `"assets/textures/boss_v2/boss2/phase1/idle.json"` | `"idle"` | 3 phase, mỗi phase có projectile |
+| **Boss 3 — 4-phase** (phase1) | `"assets/textures/boss_v2/boss3/phase1/idle.json"` | `"idle"` | 4 phase, mỗi phase attack riêng + projectile |
 | **Chest** | `"assets/textures/objects/chest_closed.json"` | `"default"` | Đổi clip khi mở |
 | **Checkpoint** (uncaptured) | `"assets/textures/objects/checkpoint_uncaptured.json"` | `"default"` | Dùng `RegisterAnimated()` với flag_out + captured |
 | **Pet — Skull** | `"assets/textures/pets/skull/idle.json"` | `"idle"` | Thêm move/attack |

@@ -34,119 +34,87 @@ bool GameView::Init() {
     // Preload Character Atlases
     View::CharacterRenderer& cr = View::CharacterRenderer::GetInstance();
     // Player per-class per-state atlases
-    cr.PreloadAtlas("assets/textures/player/fighter/idle.json");
-    cr.PreloadAtlas("assets/textures/player/fighter/walk.json");
-    cr.PreloadAtlas("assets/textures/player/fighter/run.json");
-    cr.PreloadAtlas("assets/textures/player/fighter/jump.json");
-    cr.PreloadAtlas("assets/textures/player/fighter/attack1.json");
-    cr.PreloadAtlas("assets/textures/player/fighter/attack2.json");
-    cr.PreloadAtlas("assets/textures/player/fighter/attack3.json");
-    cr.PreloadAtlas("assets/textures/player/fighter/hurt.json");
-    cr.PreloadAtlas("assets/textures/player/fighter/dead.json");
-    cr.PreloadAtlas("assets/textures/player/fighter/parry.json");
-    cr.PreloadAtlas("assets/textures/player/fighter/ultimate_skill.json");
-    cr.PreloadAtlas("assets/textures/player/fighter/ultimate_projectile.json");
-    cr.PreloadAtlas("assets/textures/player/knight/idle.json");
-    cr.PreloadAtlas("assets/textures/player/knight/walk.json");
-    cr.PreloadAtlas("assets/textures/player/knight/run.json");
-    cr.PreloadAtlas("assets/textures/player/knight/jump.json");
-    cr.PreloadAtlas("assets/textures/player/knight/attack1.json");
-    cr.PreloadAtlas("assets/textures/player/knight/attack2.json");
-    cr.PreloadAtlas("assets/textures/player/knight/attack3.json");
-    cr.PreloadAtlas("assets/textures/player/knight/hurt.json");
-    cr.PreloadAtlas("assets/textures/player/knight/dead.json");
-    cr.PreloadAtlas("assets/textures/player/knight/parry.json");
-    cr.PreloadAtlas("assets/textures/player/knight/ultimate_skill.json");
-    cr.PreloadAtlas("assets/textures/player/ninja/idle.json");
-    cr.PreloadAtlas("assets/textures/player/ninja/walk.json");
-    cr.PreloadAtlas("assets/textures/player/ninja/jump.json");
-    cr.PreloadAtlas("assets/textures/player/ninja/attack1.json");
-    cr.PreloadAtlas("assets/textures/player/ninja/attack2.json");
-    cr.PreloadAtlas("assets/textures/player/ninja/hurt.json");
-    cr.PreloadAtlas("assets/textures/player/ninja/dead.json");
-    cr.PreloadAtlas("assets/textures/player/ninja/parry.json");
-    cr.PreloadAtlas("assets/textures/player/ninja/ultimate_skill.json");
-    cr.PreloadAtlas("assets/textures/player/ninja/skill3_teleport_start.json");
-    cr.PreloadAtlas("assets/textures/player/ninja/skill3_teleport_end.json");
-    cr.PreloadAtlas("assets/textures/player/ninja/projectile_attack2.json");
-    cr.PreloadAtlas("assets/textures/player/ninja/projectile_ultimate_attack.json");
-    cr.PreloadAtlas("assets/textures/player/magic_caster/idle.json");
-    cr.PreloadAtlas("assets/textures/player/magic_caster/walk.json");
-    cr.PreloadAtlas("assets/textures/player/magic_caster/run.json");
-    cr.PreloadAtlas("assets/textures/player/magic_caster/jump.json");
-    cr.PreloadAtlas("assets/textures/player/magic_caster/attack1.json");
-    cr.PreloadAtlas("assets/textures/player/magic_caster/attack2.json");
-    cr.PreloadAtlas("assets/textures/player/magic_caster/attack3.json");
-    cr.PreloadAtlas("assets/textures/player/magic_caster/hurt.json");
-    cr.PreloadAtlas("assets/textures/player/magic_caster/dead.json");
-    cr.PreloadAtlas("assets/textures/player/magic_caster/parry.json");
-    cr.PreloadAtlas("assets/textures/player/magic_caster/projectile_attack1.json");
-    cr.PreloadAtlas("assets/textures/player/magic_caster/projectile_attack2.json");
-    cr.PreloadAtlas("assets/textures/player/magic_caster/projectile_attack3.json");
-    cr.PreloadAtlas("assets/textures/player/magic_caster/ultimate_skill.json");
-    cr.PreloadAtlas("assets/textures/player/magic_caster/ultimate_skill_projectile.json");
-    // Boss 1 — Knight (2 phases)
-    cr.PreloadAtlas("assets/textures/boss/boss1/phase1/idle.json");
-    cr.PreloadAtlas("assets/textures/boss/boss1/phase1/walk.json");
-    cr.PreloadAtlas("assets/textures/boss/boss1/phase1/attack_1.json");
-    cr.PreloadAtlas("assets/textures/boss/boss1/phase1/hurt.json");
-    cr.PreloadAtlas("assets/textures/boss/boss1/phase2/idle.json");
-    cr.PreloadAtlas("assets/textures/boss/boss1/phase2/walk.json");
-    cr.PreloadAtlas("assets/textures/boss/boss1/phase2/attack_1.json");
-    cr.PreloadAtlas("assets/textures/boss/boss1/phase2/hurt.json");
-    cr.PreloadAtlas("assets/textures/boss/boss1/phase2/dead.json");
-    cr.PreloadAtlas("assets/textures/boss/boss1/transition/transition.json");
-    // Boss 2 — Witch (3+ phases)
-    cr.PreloadAtlas("assets/textures/boss/boss2/phase1/idle.json");
-    cr.PreloadAtlas("assets/textures/boss/boss2/phase1/walk.json");
-    cr.PreloadAtlas("assets/textures/boss/boss2/phase1/attack_1.json");
-    cr.PreloadAtlas("assets/textures/boss/boss2/phase1/projectile_attack1.json");
-    cr.PreloadAtlas("assets/textures/boss/boss2/phase2/idle.json");
-    cr.PreloadAtlas("assets/textures/boss/boss2/phase2/walk.json");
-    cr.PreloadAtlas("assets/textures/boss/boss2/phase2/attack_1.json");
-    cr.PreloadAtlas("assets/textures/boss/boss2/phase2/projectile_attack1.json");
-    cr.PreloadAtlas("assets/textures/boss/boss2/phase2/healing.json");
-    cr.PreloadAtlas("assets/textures/boss/boss2/transition/transition.json");
-    cr.PreloadAtlas("assets/textures/boss/boss2/transition_2_to_3/transition_2_to_3.json");
-    cr.PreloadAtlas("assets/textures/boss/boss2/phase3/idle.json");
-    cr.PreloadAtlas("assets/textures/boss/boss2/phase3/walk.json");
-    cr.PreloadAtlas("assets/textures/boss/boss2/phase3/attack_1.json");
-    cr.PreloadAtlas("assets/textures/boss/boss2/phase3/attack_2.json");
-    cr.PreloadAtlas("assets/textures/boss/boss2/phase3/projectile_attack1.json");
-    cr.PreloadAtlas("assets/textures/boss/boss2/phase3/projectile_attack2.json");
-    cr.PreloadAtlas("assets/textures/boss/boss2/phase3/hurt.json");
-    cr.PreloadAtlas("assets/textures/boss/boss2/phase3/dead.json");
-    // Boss 3 — existing 4-phase boss
-    cr.PreloadAtlas("assets/textures/boss/boss3/phase1/idle.json");
-    cr.PreloadAtlas("assets/textures/boss/boss3/phase1/walk.json");
-    cr.PreloadAtlas("assets/textures/boss/boss3/phase1/attack_1.json");
-    cr.PreloadAtlas("assets/textures/boss/boss3/phase1/hurt.json");
-    cr.PreloadAtlas("assets/textures/boss/boss3/phase1/transition.json");
-    cr.PreloadAtlas("assets/textures/boss/boss3/phase1/transition1.json");
-    cr.PreloadAtlas("assets/textures/boss/boss3/phase2/idle.json");
-    cr.PreloadAtlas("assets/textures/boss/boss3/phase2/walk.json");
-    cr.PreloadAtlas("assets/textures/boss/boss3/phase2/attack_1.json");
-    cr.PreloadAtlas("assets/textures/boss/boss3/phase2/hurt.json");
-    cr.PreloadAtlas("assets/textures/boss/boss3/phase2/transition.json");
-    cr.PreloadAtlas("assets/textures/boss/boss3/phase2/transition2.json");
-    cr.PreloadAtlas("assets/textures/boss/boss3/phase3/idle.json");
-    cr.PreloadAtlas("assets/textures/boss/boss3/phase3/walk.json");
-    cr.PreloadAtlas("assets/textures/boss/boss3/phase3/attack_1.json");
-    cr.PreloadAtlas("assets/textures/boss/boss3/phase3/attack_2.json");
-    cr.PreloadAtlas("assets/textures/boss/boss3/phase3/hurt.json");
-    cr.PreloadAtlas("assets/textures/boss/boss3/phase3/transition.json");
-    cr.PreloadAtlas("assets/textures/boss/boss3/phase3/transition3.json");
-    cr.PreloadAtlas("assets/textures/boss/boss3/phase4/idle.json");
-    cr.PreloadAtlas("assets/textures/boss/boss3/phase4/walk.json");
-    cr.PreloadAtlas("assets/textures/boss/boss3/phase4/attack_1.json");
-    cr.PreloadAtlas("assets/textures/boss/boss3/phase4/attack_2.json");
-    cr.PreloadAtlas("assets/textures/boss/boss3/phase4/attack_3.json");
-    cr.PreloadAtlas("assets/textures/boss/boss3/phase4/hurt.json");
-    cr.PreloadAtlas("assets/textures/boss/boss3/phase4/dead.json");
-    cr.PreloadAtlas("assets/textures/boss/boss3/projectiles/energy_sphere.json");
-    cr.PreloadAtlas("assets/textures/boss/boss3/projectiles/energy_blast.json");
-    cr.PreloadAtlas("assets/textures/boss/boss3/projectiles/energy_beam.json");
-    cr.PreloadAtlas("assets/textures/boss/boss3/ground_animate/default.json");
+    cr.PreloadAtlas("assets/textures/player/fighter_v2/idle_v2.json");
+    cr.PreloadAtlas("assets/textures/player/fighter_v2/walk_v2.json");
+    cr.PreloadAtlas("assets/textures/player/fighter_v2/run_v2.json");
+    cr.PreloadAtlas("assets/textures/player/fighter_v2/jump_v2.json");
+    cr.PreloadAtlas("assets/textures/player/fighter_v2/attack1_v2.json");
+    cr.PreloadAtlas("assets/textures/player/fighter_v2/attack2_v2.json");
+    cr.PreloadAtlas("assets/textures/player/fighter_v2/attack3_v2.json");
+    cr.PreloadAtlas("assets/textures/player/fighter_v2/hurt_v2.json");
+    cr.PreloadAtlas("assets/textures/player/fighter_v2/dead_v2.json");
+    cr.PreloadAtlas("assets/textures/player/fighter_v2/parry_v2.json");
+    cr.PreloadAtlas("assets/textures/player/fighter_v2/ultimate_skill_v2.json");
+    cr.PreloadAtlas("assets/textures/player/fighter_v2/ultimate_projectile_v2.json");
+    cr.PreloadAtlas("assets/textures/player/knight_v2/idle_v2.json");
+    cr.PreloadAtlas("assets/textures/player/knight_v2/walk_v2.json");
+    cr.PreloadAtlas("assets/textures/player/knight_v2/run_v2.json");
+    cr.PreloadAtlas("assets/textures/player/knight_v2/jump_v2.json");
+    cr.PreloadAtlas("assets/textures/player/knight_v2/attack1_v2.json");
+    cr.PreloadAtlas("assets/textures/player/knight_v2/attack2_v2.json");
+    cr.PreloadAtlas("assets/textures/player/knight_v2/attack3_v2.json");
+    cr.PreloadAtlas("assets/textures/player/knight_v2/hurt_v2.json");
+    cr.PreloadAtlas("assets/textures/player/knight_v2/dead_v2.json");
+    cr.PreloadAtlas("assets/textures/player/knight_v2/parry_v2.json");
+    cr.PreloadAtlas("assets/textures/player/knight_v2/ultimate_skill_v2.json");
+    cr.PreloadAtlas("assets/textures/player/ninja_v2/idle_v2.json");
+    cr.PreloadAtlas("assets/textures/player/ninja_v2/walk_v2.json");
+    cr.PreloadAtlas("assets/textures/player/ninja_v2/run_v2.json");
+    cr.PreloadAtlas("assets/textures/player/ninja_v2/jump_v2.json");
+    cr.PreloadAtlas("assets/textures/player/ninja_v2/attack1_v2.json");
+    cr.PreloadAtlas("assets/textures/player/ninja_v2/attack2_v2.json");
+    cr.PreloadAtlas("assets/textures/player/ninja_v2/hurt_v2.json");
+    cr.PreloadAtlas("assets/textures/player/ninja_v2/dead_v2.json");
+    cr.PreloadAtlas("assets/textures/player/ninja_v2/parry_v2.json");
+    cr.PreloadAtlas("assets/textures/player/ninja_v2/ultimate_skill_v2.json");
+    cr.PreloadAtlas("assets/textures/player/ninja_v2/skill3_teleport_start_v2.json");
+    cr.PreloadAtlas("assets/textures/player/ninja_v2/skill3_teleport_end_v2.json");
+    cr.PreloadAtlas("assets/textures/player/ninja_v2/projectile_attack2_v2.json");
+    cr.PreloadAtlas("assets/textures/player/ninja_v2/projectile_ultimate_attack_v2.json");
+    cr.PreloadAtlas("assets/textures/player/magic_caster_v2/idle_v2.json");
+    cr.PreloadAtlas("assets/textures/player/magic_caster_v2/walk_v2.json");
+    cr.PreloadAtlas("assets/textures/player/magic_caster_v2/run_v2.json");
+    cr.PreloadAtlas("assets/textures/player/magic_caster_v2/jump_v2.json");
+    cr.PreloadAtlas("assets/textures/player/magic_caster_v2/attack1_v2.json");
+    cr.PreloadAtlas("assets/textures/player/magic_caster_v2/attack2_v2.json");
+    cr.PreloadAtlas("assets/textures/player/magic_caster_v2/attack3_v2.json");
+    cr.PreloadAtlas("assets/textures/player/magic_caster_v2/hurt_v2.json");
+    cr.PreloadAtlas("assets/textures/player/magic_caster_v2/dead_v2.json");
+    cr.PreloadAtlas("assets/textures/player/magic_caster_v2/parry_v2.json");
+    cr.PreloadAtlas("assets/textures/player/magic_caster_v2/projectile_attack1_v2.json");
+    cr.PreloadAtlas("assets/textures/player/magic_caster_v2/projectile_attack2_v2.json");
+    cr.PreloadAtlas("assets/textures/player/magic_caster_v2/projectile_attack3_v2.json");
+    cr.PreloadAtlas("assets/textures/player/magic_caster_v2/ultimate_skill_v2.json");
+    cr.PreloadAtlas("assets/textures/player/magic_caster_v2/ultimate_skill_projectile_v2.json");
+    // Boss V2 atlases. Phase transitions live in the destination phase so
+    // SwitchPhase can load the transformation immediately after SetPhase.
+    static const char* bossAtlases[] = {
+        "boss1/phase1/idle", "boss1/phase1/walk", "boss1/phase1/attack_1",
+        "boss1/phase1/attack_2", "boss1/phase1/hurt",
+        "boss1/phase2/idle", "boss1/phase2/walk", "boss1/phase2/attack_1",
+        "boss1/phase2/attack_2", "boss1/phase2/hurt", "boss1/phase2/dead",
+        "boss1/phase2/transition",
+        "boss2/phase1/idle", "boss2/phase1/walk", "boss2/phase1/attack_1",
+        "boss2/phase1/hurt", "boss2/phase1/ultimate_skill",
+        "boss2/phase2/idle", "boss2/phase2/walk", "boss2/phase2/attack_1",
+        "boss2/phase2/healing", "boss2/phase2/hurt", "boss2/phase2/transition",
+        "boss2/phase2/ultimate_skill",
+        "boss2/phase3/idle", "boss2/phase3/walk", "boss2/phase3/attack_1",
+        "boss2/phase3/attack_2", "boss2/phase3/attack_3", "boss2/phase3/hurt",
+        "boss2/phase3/dead", "boss2/phase3/transition", "boss2/phase3/ultimate_skill",
+        "boss3/phase1/idle", "boss3/phase1/walk", "boss3/phase1/attack_1",
+        "boss3/phase1/hurt",
+        "boss3/phase2/idle", "boss3/phase2/walk", "boss3/phase2/attack_1",
+        "boss3/phase2/hurt", "boss3/phase2/transition",
+        "boss3/phase3/idle", "boss3/phase3/walk", "boss3/phase3/attack_1",
+        "boss3/phase3/attack_2", "boss3/phase3/hurt", "boss3/phase3/transition",
+        "boss3/phase4/idle", "boss3/phase4/walk", "boss3/phase4/attack_1",
+        "boss3/phase4/attack_2", "boss3/phase4/attack_3", "boss3/phase4/hurt",
+        "boss3/phase4/dead", "boss3/phase4/transition"
+    };
+    for (const char* atlas : bossAtlases) {
+        cr.PreloadAtlas(std::string("assets/textures/boss_v2/") + atlas + ".json");
+    }
     // Pets — per-state atlases
     cr.PreloadAtlas("assets/textures/pets/skull/idle.json");
     cr.PreloadAtlas("assets/textures/pets/skull/move.json");

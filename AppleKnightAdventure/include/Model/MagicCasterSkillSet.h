@@ -12,11 +12,16 @@
 // Ranged attacks spawn projectiles; Lightning teleports projectile to target position.
 class MagicCasterSkillSet : public CharacterSkillSet {
 public:
+    // V2 animation lengths. Cooldowns and damage remain gameplay-controlled.
+    static constexpr float ATTACK1_ANIMATION_DURATION  = 0.72f;
+    static constexpr float ATTACK2_ANIMATION_DURATION  = 0.72f;
+    static constexpr float ATTACK3_ANIMATION_DURATION  = 0.72f;
+    static constexpr float ULTIMATE_ANIMATION_DURATION = 1.00f;
+
     // J — Lightning Strike: charge → projectile appears AT nearest enemy (range 500px)
     SkillData attack1 { 45, 1.0f,  0.40f, 0.10f };
     // K — Fireball: charge → projectile flies forward (speed 450px/s)
-    // Seven 0.083s frames: keep K active through the final animation frame.
-    static constexpr float ATTACK2_ANIMATION_DURATION = 7.0f * 0.083f;
+    // Keep K active through the final V2 animation frame.
     static constexpr float ATTACK2_CHARGE_DURATION = 0.35f;
     SkillData attack2 { 35, 0.8f, ATTACK2_CHARGE_DURATION,
                         ATTACK2_ANIMATION_DURATION - ATTACK2_CHARGE_DURATION };

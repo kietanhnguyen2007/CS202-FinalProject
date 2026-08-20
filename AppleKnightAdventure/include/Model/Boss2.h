@@ -8,8 +8,9 @@ public:
     Boss2(Vector2 position, Vector2 size);
     
     void UpdateState(float deltaTime, Vector2 playerPos) override;
-    virtual void TransitionToNextPhase() override;
-    virtual bool IsFinalPhase() const override { return m_currentPhase == BossPhase::Phase3; }
+    void TransitionToNextPhase() override;
+    void ResetToPhase1() override;
+    bool IsFinalPhase() const override { return m_currentPhase == BossPhase::Phase3; }
 
 private:
     void ExecuteProjectileAttack();
@@ -18,7 +19,6 @@ private:
     void CheckAndSpawnTelegraph(Vector2 playerPos);
 
     Vector2 m_aoeTarget;
-    bool m_telegraphSpawned;
 };
 
 #endif

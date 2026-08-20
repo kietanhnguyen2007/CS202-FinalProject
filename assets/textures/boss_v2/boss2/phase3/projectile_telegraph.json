@@ -1,0 +1,46 @@
+{
+    "clips": {
+        "default": {
+            "loop": true,
+            "frames": [
+                "default_0",
+                "default_1",
+                "default_2",
+                "default_3"
+            ],
+            "durations": [
+                0.125,
+                0.125,
+                0.125,
+                0.125
+            ]
+        }
+    },
+    "frames": {
+        "default_0": {
+            "x": 0,
+            "y": 0,
+            "w": 195,
+            "h": 136
+        },
+        "default_1": {
+            "x": 195,
+            "y": 0,
+            "w": 195,
+            "h": 136
+        },
+        "default_2": {
+            "x": 390,
+            "y": 0,
+            "w": 195,
+            "h": 136
+        },
+        "default_3": {
+            "x": 585,
+            "y": 0,
+            "w": 195,
+            "h": 136
+        }
+    },
+    "image": "projectile_telegraph.png"
+}

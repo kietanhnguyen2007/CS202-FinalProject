@@ -9,7 +9,8 @@ public:
     
     void UpdateState(float deltaTime, Vector2 playerPos) override;
     void TransitionToNextPhase() override;
-    virtual bool IsFinalPhase() const override { return m_currentPhase == BossPhase::Phase4; }
+    void ResetToPhase1() override;
+    bool IsFinalPhase() const override { return m_currentPhase == BossPhase::Phase4; }
 
 private:
     void ExecuteMeleeAttack(Vector2 playerPos);
@@ -17,6 +18,7 @@ private:
     void ExecuteGroundSmash(Vector2 playerPos);
     void ExecuteEnergyBlast(Vector2 playerPos);
     void ExecuteEnergyBeam(Vector2 playerPos);
+    void SpawnEnergyBlastTelegraph(Vector2 playerPos);
 
     Vector2 m_aoeTarget;
 };

@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cassert>
 #include <algorithm>
+#include <filesystem>
 
 namespace View {
 
@@ -473,6 +474,7 @@ bool CharacterRenderer::SwitchPhase(uint32_t entityId, BossPhase phase) {
 
     for (const char* name : clipFiles) {
         std::string path = phaseDir + name + ".json";
+        if (!std::filesystem::exists(path)) continue;
         auto cacheIt = m_atlasCache.find(path);
         if (cacheIt == m_atlasCache.end()) {
             if (!PreloadAtlas(path)) continue;

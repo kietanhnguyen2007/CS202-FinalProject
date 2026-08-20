@@ -110,7 +110,7 @@ void HUDView::LoadAvatar(CharacterClass characterClass) {
         case CharacterClass::Ninja: folder = "ninja"; break;
         case CharacterClass::MagicCaster: folder = "magic_caster"; break;
     }
-    const std::string path = std::string("assets/textures/player/") + folder + "/idle.json";
+    const std::string path = std::string("assets/textures/player/") + folder + "_v2/idle_v2.json";
     auto atlas = Animations::TextureAtlas::LoadFromJSON(path);
     if (!atlas || !atlas->LoadTexture() || !atlas->HasClip("idle")) return;
     auto clip = atlas->GetClip("idle");
@@ -129,7 +129,7 @@ void HUDView::LoadSecondAvatar(CharacterClass characterClass) {
         case CharacterClass::Ninja: folder = "ninja"; break;
         case CharacterClass::MagicCaster: folder = "magic_caster"; break;
     }
-    const std::string path = std::string("assets/textures/player/") + folder + "/idle.json";
+    const std::string path = std::string("assets/textures/player/") + folder + "_v2/idle_v2.json";
     auto atlas = Animations::TextureAtlas::LoadFromJSON(path);
     if (!atlas || !atlas->LoadTexture() || !atlas->HasClip("idle")) return;
     auto clip = atlas->GetClip("idle");

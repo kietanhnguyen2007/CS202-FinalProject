@@ -2,6 +2,17 @@
 #include "Model/GameState.h"
 #include "Model/Projectile.h"
 #include <cmath>
+#include <algorithm>
+
+namespace {
+constexpr float ATTACK_DURATION = 0.8f;
+constexpr float ATTACK_IMPACT_TIME = 0.55f;
+constexpr float TRANSITION_DURATION = 1.5f;
+constexpr float BLAST_WARNING_DURATION = 0.55f;
+constexpr float BLAST_ACTIVE_DURATION = 0.8f;
+constexpr float BEAM_CAST_TIME = 0.75f;
+constexpr float BEAM_ACTIVE_DURATION = 1.8f;
+}
 
 Boss3::Boss3(Vector2 position, Vector2 size) 
     : Boss(position, size, 3) 
@@ -20,7 +31,7 @@ void Boss3::TransitionToNextPhase() {
         ChangeState(BossState::Transition);
         m_damage = 40;
         m_cooldownTimer = 1.2f;
-        m_activeTimer = 1.5f;
+        m_activeTimer = TRANSITION_DURATION;
         m_health = m_maxHealth;
         m_superArmor = true;
     } else if (m_currentPhase == BossPhase::Phase2) {
@@ -28,7 +39,7 @@ void Boss3::TransitionToNextPhase() {
         ChangeState(BossState::Transition);
         m_damage = 45;
         m_cooldownTimer = 1.2f;
-        m_activeTimer = 1.5f;
+        m_activeTimer = TRANSITION_DURATION;
         m_health = m_maxHealth;
         m_superArmor = true;
     } else if (m_currentPhase == BossPhase::Phase3) {
@@ -36,10 +47,19 @@ void Boss3::TransitionToNextPhase() {
         ChangeState(BossState::Transition);
         m_damage = 50;
         m_cooldownTimer = 1.0f;
-        m_activeTimer = 1.5f;
+        m_activeTimer = TRANSITION_DURATION;
         m_health = m_maxHealth;
         m_superArmor = true;
     }
+}
+
+void Boss3::ResetToPhase1() {
+    Boss::ResetToPhase1();
+    m_damage = 30;
+    m_cooldownTimer = 1.5f;
+    m_attackRange = 70.0f;
+    m_detectionRange = 800.0f;
+    m_aoeTarget = {0.0f, 0.0f};
 }
 
 void Boss3::UpdateState(float deltaTime, Vector2 playerPos) {
@@ -138,44 +158,46 @@ void Boss3::UpdateState(float deltaTime, Vector2 playerPos) {
             if (m_currentPhase == BossPhase::Phase1 || m_currentPhase == BossPhase::Phase2) {
                 // Phase 1 & Phase 2: Melee Only
                 ChangeState(BossState::Skill1);
-                m_chargeTimer = 0.4f;
-                m_activeTimer = m_chargeTimer + 0.3f;
+                m_chargeTimer = ATTACK_IMPACT_TIME;
+                m_activeTimer = ATTACK_DURATION;
             } else if (m_currentPhase == BossPhase::Phase3) {
                 // Phase 3: Attack 1 (Melee) or Attack 2 (Energy Sphere)
                 if (rand() % 2 == 0 && dist > m_attackRange) {
                     ChangeState(BossState::Skill2); // Energy Sphere (attack_2.json)
-                    m_chargeTimer = 0.6f;
-                    m_activeTimer = m_chargeTimer + 0.4f;
+                    m_chargeTimer = ATTACK_IMPACT_TIME;
+                    m_activeTimer = ATTACK_DURATION;
                 } else {
                     ChangeState(BossState::Skill1); // Melee (attack_1.json)
-                    m_chargeTimer = 0.4f;
-                    m_activeTimer = m_chargeTimer + 0.3f;
+                    m_chargeTimer = ATTACK_IMPACT_TIME;
+                    m_activeTimer = ATTACK_DURATION;
                 }
             } else if (m_currentPhase == BossPhase::Phase4) {
                 // Phase 4: Attack 1 (Melee + Ground Animate), Attack 2 (Energy Blast), Attack 3 (Energy Beam)
                 if (dist <= 120.0f) {
                     // Tầm gần (Close range)
                     ChangeState(BossState::Skill1);
-                    m_chargeTimer = 0.4f;
-                    m_activeTimer = m_chargeTimer + 0.3f;
+                    m_chargeTimer = ATTACK_IMPACT_TIME;
+                    m_activeTimer = ATTACK_DURATION;
                 } else if (dist <= 250.0f) {
                     // Tầm trung (Mid range) - Chủ yếu dùng Attack 2
                     ChangeState(BossState::Skill2); // Energy Blast
-                    m_chargeTimer = 0.5f;
-                    m_activeTimer = m_chargeTimer + 0.6f;
+                    m_chargeTimer = BLAST_WARNING_DURATION;
+                    m_activeTimer = BLAST_WARNING_DURATION + BLAST_ACTIVE_DURATION;
                     m_aoeTarget = playerPos;
+                    SpawnEnergyBlastTelegraph(m_aoeTarget);
                 } else {
                     // Tầm xa (Long range) - Tỉ lệ giữa Attack 2 và Attack 3 (Attack 3 mạnh nên ra ít hơn)
                     int choice = rand() % 3; // 66% chance cho Attack 2, 33% cho Attack 3
                     if (choice < 2) {
                         ChangeState(BossState::Skill2);
-                        m_chargeTimer = 0.5f;
-                        m_activeTimer = m_chargeTimer + 0.6f;
+                        m_chargeTimer = BLAST_WARNING_DURATION;
+                        m_activeTimer = BLAST_WARNING_DURATION + BLAST_ACTIVE_DURATION;
                         m_aoeTarget = playerPos;
+                        SpawnEnergyBlastTelegraph(m_aoeTarget);
                     } else {
                         ChangeState(BossState::Skill3); // Energy Beam
-                        m_chargeTimer = 0.5f;
-                        m_activeTimer = m_chargeTimer + 2.0f; // Match beam duration + small buffer
+                        m_chargeTimer = BEAM_CAST_TIME;
+                        m_activeTimer = BEAM_CAST_TIME + BEAM_ACTIVE_DURATION;
                     }
                 }
             }
@@ -258,7 +280,7 @@ void Boss3::ExecuteMeleeAttack(Vector2 playerPos) {
         
         auto proj = std::make_unique<Projectile>(spawnPos, gSize, ProjectileType::BossAttack, Direction::None, m_damage, m_id);
         proj->SetVelocity({0.0f, 0.0f});
-        proj->SetLifetime(0.6f);
+        proj->SetLifetime(BLAST_ACTIVE_DURATION);
         proj->SetSubType(4); // Ground Animate
         m_gameState->AddEntity(std::move(proj));
     }
@@ -295,40 +317,53 @@ void Boss3::ExecuteEnergyBlast(Vector2 playerPos) {
     
     auto proj = std::make_unique<Projectile>(spawnPos, pSize, ProjectileType::BossAttack, Direction::None, m_damage + 10, m_id);
     proj->SetVelocity({0.0f, 0.0f});
-    proj->SetLifetime(0.6f);
+    proj->SetLifetime(BLAST_ACTIVE_DURATION);
     proj->SetSubType(2); // Blast
     m_gameState->AddEntity(std::move(proj));
 }
 
+void Boss3::SpawnEnergyBlastTelegraph(Vector2 playerPos) {
+    if (!m_gameState) return;
+    Vector2 pSize = {128.0f, 128.0f};
+    Vector2 spawnPos = {playerPos.x - pSize.x * 0.5f, playerPos.y - pSize.y * 0.7f};
+    auto warning = std::make_unique<Projectile>(
+        spawnPos, pSize, ProjectileType::BossAttack, Direction::None, 0, m_id);
+    warning->SetVelocity({0.0f, 0.0f});
+    warning->SetLifetime(BLAST_WARNING_DURATION);
+    warning->SetSubType(5);
+    m_gameState->AddEntity(std::move(warning));
+}
+
 void Boss3::ExecuteEnergyBeam(Vector2 playerPos) {
     if (!m_gameState) return;
+    (void)playerPos;
     
     float scaledWidth = m_size.x * m_scale;
+    float scaledHeight = m_size.y * m_scale;
     float startX = m_position.x + (m_direction == Direction::Right ? scaledWidth : 0.0f);
     
-    // Pull the beam up so its large texture doesn't clip into the floor
-    float spawnY = playerPos.y - 60.0f;
-    
-    // Make the beam a fixed massive length (e.g. 1000 pixels) instead of stopping exactly at the player.
-    // This prevents the asset from vanishing when standing close, and ensures it reaches across the screen.
+    // Clip the beam at the first solid tile so it never damages through walls.
+    const float beamDirection = (m_direction == Direction::Right) ? 1.0f : -1.0f;
+    const float beamCenterY = m_position.y + scaledHeight * 0.45f;
     float beamLength = 1000.0f;
-    float scaleX = beamLength / 220.0f;
-    Vector2 pSize = {beamLength, 32.0f};
-    
-    // Align Y coordinate with player center
-    Player* player = m_gameState->GetLocalPlayer();
+    for (float distance = 16.0f; distance <= beamLength; distance += 16.0f) {
+        if (IsPointSolid({startX + beamDirection * distance, beamCenterY})) {
+            beamLength = std::max(32.0f, distance - 16.0f);
+            break;
+        }
+    }
+    Vector2 pSize = {beamLength, 64.0f};
     
     Vector2 spawnPos;
     if (m_direction == Direction::Left) {
-        spawnPos = { startX - beamLength, m_position.y - 30.0f };
+        spawnPos = {startX - beamLength, beamCenterY - pSize.y * 0.5f};
     } else {
-        spawnPos = { startX, m_position.y - 30.0f };
+        spawnPos = {startX, beamCenterY - pSize.y * 0.5f};
     }
     
     auto proj = std::make_unique<Projectile>(spawnPos, pSize, ProjectileType::BossAttack, m_direction, m_damage + 15, m_id);
     proj->SetVelocity({0.0f, 0.0f}); // Stationary beam
-    proj->SetScale2D({scaleX, 1.0f}); // Stretch horizontally
-    proj->SetLifetime(1.8f); // 9 frames * 0.2s = 1.8s duration
+    proj->SetLifetime(BEAM_ACTIVE_DURATION);
     proj->SetSubType(3); // Beam
     m_gameState->AddEntity(std::move(proj));
 }
