@@ -74,6 +74,7 @@ bool SaveManager::Load(const std::string& path) {
         leaderboards.clear();
         achievements.clear();
         lifetimeStats = {};
+        exploredMinimapCells.clear();
         selectedChar = "knight";
         selectedPet.clear();
         musicVolume = 70;
@@ -170,6 +171,20 @@ bool SaveManager::Load(const std::string& path) {
             lifetimeStats.completedLevels.end());
     }
 
+    if (root.contains("minimapExploration") && root["minimapExploration"].is_object()) {
+        for (auto it = root["minimapExploration"].begin(); it != root["minimapExploration"].end(); ++it) {
+            int level = 0;
+            try { level = std::stoi(it.key()); } catch (...) { continue; }
+            if (level < 1 || level > 6 || !it.value().is_array()) continue;
+            auto& cells = exploredMinimapCells[level];
+            for (const auto& value : it.value()) {
+                if (!value.is_number_integer()) continue;
+                const int encoded = value.get<int>();
+                if (encoded >= 0) cells.insert(encoded);
+            }
+        }
+    }
+
     return true;
 }
 
@@ -222,6 +237,10 @@ void SaveManager::Save(const std::string& path) {
         {"shopPurchases", lifetimeStats.shopPurchases},
         {"completedLevels", lifetimeStats.completedLevels}
     };
+    root["minimapExploration"] = json::object();
+    for (const auto& [level, cells] : exploredMinimapCells)
+        root["minimapExploration"][std::to_string(level)] =
+            std::vector<int>(cells.begin(), cells.end());
 
     std::string jsonStr = root.dump(2) + "\n";
     const std::string tempPath = path + ".tmp";
@@ -385,6 +404,17 @@ void SaveManager::MarkLevelCompleted(int level) {
         lifetimeStats.completedLevels.push_back(level);
         std::sort(lifetimeStats.completedLevels.begin(), lifetimeStats.completedLevels.end());
     }
+}
+
+void SaveManager::MarkMinimapCellExplored(int level, int encodedCell) {
+    if (level < 1 || level > 6 || encodedCell < 0) return;
+    exploredMinimapCells[level].insert(encodedCell);
+}
+
+const std::set<int>& SaveManager::GetExploredMinimapCells(int level) const {
+    static const std::set<int> empty;
+    const auto it = exploredMinimapCells.find(level);
+    return it == exploredMinimapCells.end() ? empty : it->second;
 }
 
 std::string SaveManager::GetSelectedChar() const { return selectedChar; }

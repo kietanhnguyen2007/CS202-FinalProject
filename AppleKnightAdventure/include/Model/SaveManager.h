@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <set>
 #include <cstdint>
 
 struct LeaderboardEntry {
@@ -76,6 +77,8 @@ public:
     LifetimeStats& GetLifetimeStats();
     const LifetimeStats& GetLifetimeStats() const;
     void MarkLevelCompleted(int level);
+    void MarkMinimapCellExplored(int level, int encodedCell);
+    const std::set<int>& GetExploredMinimapCells(int level) const;
 
     std::string GetSelectedChar() const;
     void SetSelectedChar(const std::string& charId);
@@ -106,6 +109,7 @@ private:
     std::map<int, LevelLeaderboard> leaderboards;
     std::map<std::string, AchievementSaveData> achievements;
     LifetimeStats lifetimeStats;
+    std::map<int, std::set<int>> exploredMinimapCells;
     std::string selectedChar = "knight";
     std::string selectedPet = ""; // empty means no pet
     int musicVolume = 70;

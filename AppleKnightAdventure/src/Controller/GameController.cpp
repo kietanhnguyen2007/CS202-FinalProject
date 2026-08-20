@@ -30,6 +30,7 @@
 #include "View/ParticleRenderer.h"
 #include "View/TutorialRenderer.h"
 #include "View/ResultView.h"
+#include "View/MinimapView.h"
 #include "Systems/SoundManager.h"
 #include "Systems/AchievementManager.h"
 #include "Utils/Constants.h"
@@ -139,6 +140,7 @@ bool GameController::Init() {
     View::SkillBarView::GetInstance().Init();
     View::SkillBarView::GetInstance().LoadResources();
     View::UIStateManager::GetInstance().Init();
+    View::MinimapView::GetInstance().Init();
     View::TutorialRenderer::GetInstance().Init();
     View::ResultView::GetInstance().Init();
 
@@ -463,6 +465,7 @@ void GameController::StartLevel(int levelNumber) {
     }
     m_gameState->SetCurrentLevel(levelNumber);
     m_gameState->ResetTimer();
+    View::MinimapView::GetInstance().BeginLevel(m_gameState.get());
 
     m_scoring = LevelScoring();
     m_scoring.SetTotals(m_gameState->GetTotalItems(), m_gameState->GetTotalEnemies());
@@ -951,38 +954,88 @@ void GameController::UpdateEnemyAI(float dt) {
         if (entity->GetType() != EntityType::Enemy) continue;
         
         auto* enemy = static_cast<Enemy*>(entity.get());
-        enemy->UpdateAI(playerCenter, dt);
+        bool targetVisible = true;
+        if (enemy->GetEnemyType() == EnemyType::Flying) {
+            const Rectangle enemyBounds = enemy->GetBoundingBox();
+            const Vector2 enemyCenter{
+                enemyBounds.x + enemyBounds.width * 0.5f,
+                enemyBounds.y + enemyBounds.height * 0.5f
+            };
+            float nearestVisibleDistance = std::numeric_limits<float>::max();
+            targetVisible = false;
 
-        // Ground-based enemy pit/edge detection
-        if (enemy->GetEnemyType() != EnemyType::Flying) {
-            Vector2 vel = enemy->GetVelocity();
-            if (std::abs(vel.x) > 0.1f) {
-                // Check slightly ahead in the direction of movement
-                float checkX = enemy->GetPosition().x + (vel.x > 0.0f ? enemy->GetSize().x : 0.0f) + (vel.x > 0.0f ? 8.0f : -8.0f);
-                float checkY = enemy->GetPosition().y + enemy->GetSize().y + 8.0f; // slightly below feet
+            auto considerVisibleTarget = [&](const Player* candidate) {
+                if (!candidate || !candidate->IsActive() || !candidate->IsAlive()) return;
+                const Rectangle bounds = candidate->GetBoundingBox();
+                const Vector2 center{
+                    bounds.x + bounds.width * 0.5f,
+                    bounds.y + bounds.height * 0.5f
+                };
+                if (!CheckLineOfSight(enemyCenter, center)) return;
+                const float distance = Distance(enemyCenter, center);
+                if (distance < nearestVisibleDistance) {
+                    nearestVisibleDistance = distance;
+                    playerCenter = center;
+                    targetVisible = true;
+                }
+            };
+
+            considerVisibleTarget(player);
+            considerVisibleTarget(m_gameState->GetSecondLocalPlayer());
+        }
+        enemy->UpdateAI(playerCenter, dt, targetVisible);
+
+        // Ground enemies probe one step ahead and below their feet. The old
+        // code calculated groundAhead but never acted on it, so enemies still
+        // chased players straight into pits.
+        if (enemy->GetEnemyType() != EnemyType::Flying && IsOnGround(enemy)) {
+            const Vector2 velocity = enemy->GetVelocity();
+            if (std::abs(velocity.x) > 0.1f) {
+                const float directionX = velocity.x > 0.0f ? 1.0f : -1.0f;
+                const Rectangle bounds = enemy->GetBoundingBox();
+                const float lookAhead = std::max(8.0f, std::abs(velocity.x) * dt + 4.0f);
+                const float probeX = directionX > 0.0f
+                    ? bounds.x + bounds.width + lookAhead
+                    : bounds.x - lookAhead;
+                const Rectangle supportProbe{
+                    probeX - 2.0f,
+                    bounds.y + bounds.height + 1.0f,
+                    4.0f,
+                    10.0f
+                };
 
                 bool groundAhead = false;
                 for (const auto& tile : m_gameState->GetTiles(MapLayer::Main)) {
                     if (!tile.solid) continue;
-                    float tx = tile.x * TILE_SIZE;
-                    float ty = tile.y * TILE_SIZE;
-                    // Check if there is a tile below checkX
-                    if (checkX >= tx && checkX <= tx + TILE_SIZE &&
-                        checkY >= ty && checkY <= ty + TILE_SIZE) {
+                    const Rectangle tileRect{
+                        tile.x * (float)TILE_SIZE,
+                        tile.y * (float)TILE_SIZE,
+                        (float)TILE_SIZE,
+                        (float)TILE_SIZE
+                    };
+                    if (RectOverlap(supportProbe, tileRect)) {
                         groundAhead = true;
                         break;
                     }
                 }
 
-                float mapWidth = m_gameState->GetMapWidth() * TILE_SIZE;
-                if (checkX < 0.0f || checkX > mapWidth) {
-                    // Out of map bounds! Stop and turn back
-                    enemy->SetStateTimer(enemy->GetStateTimer() + 3.14159f); // Add PI to reverse Patrol sin wave
-                    vel.x = 0.0f;
-                    enemy->SetVelocity(vel);
-                    if (enemy->GetState() == EnemyState::Patrol) {
-                        enemy->SetState(EnemyState::Idle); // Pause patrol state to reverse direction
+                // FakeWall participates in character collision and can also
+                // be a valid platform, so it must count as support here.
+                if (!groundAhead) {
+                    for (const auto& support : m_gameState->GetAllEntities()) {
+                        if (!support->IsActive() || support->GetType() != EntityType::FakeWall)
+                            continue;
+                        if (RectOverlap(supportProbe, support->GetBoundingBox())) {
+                            groundAhead = true;
+                            break;
+                        }
                     }
+                }
+
+                const float mapWidth = m_gameState->GetMapWidth() * (float)TILE_SIZE;
+                const bool outsideMap = probeX < 0.0f || probeX >= mapWidth;
+                if (!groundAhead || outsideMap) {
+                    enemy->TurnAwayFromEdge(directionX);
                 }
             }
         }
@@ -1256,13 +1309,23 @@ void GameController::UpdateCombat(Player* player, float dt, bool updateEnemyCool
             auto* enemy = static_cast<Enemy*>(entity.get());
             if (enemy->GetState() == EnemyState::Attack) {
                 if (enemy->CanAttack()) {
-                    isAttacking = true;
                     attackDamage = enemy->GetDamage();
                     attackRange = enemy->GetAttackRange();
                     attackCenter = {
                         enemy->GetPosition().x + enemy->GetSize().x * 0.5f,
                         enemy->GetPosition().y + enemy->GetSize().y * 0.5f
                     };
+
+                    // Flying enemies use direct contact damage rather than a
+                    // projectile. Validate both range and LOS before consuming
+                    // their cooldown so P2 can still be hit when P1 is hidden.
+                    if (enemy->GetEnemyType() == EnemyType::Flying &&
+                        (Distance(playerCenter, attackCenter) > attackRange ||
+                         !CheckLineOfSight(attackCenter, playerCenter))) {
+                        continue;
+                    }
+
+                    isAttacking = true;
                     enemy->Attack();
                     SoundManager::GetInstance().PlaySound("enemy_attack");
                     
@@ -1809,6 +1872,14 @@ void GameController::Update(float dt) {
         : cmd;
     InputCommand playerTwoCmd = InputController::GetInstance().PollPlayerTwo();
 
+    if (!m_paused && IsKeyPressed(KEY_M)) {
+        View::MinimapView::GetInstance().ToggleVisible();
+        SoundManager::GetInstance().PlaySound("ui_confirm");
+    }
+    View::MinimapView::GetInstance().Update(
+        dt, m_gameState.get(), m_gameState->GetLocalPlayer(),
+        m_localCoop ? m_gameState->GetSecondLocalPlayer() : nullptr);
+
     if (m_levelComplete) {
         View::ResultView& result = View::ResultView::GetInstance();
         result.Update(dt);
@@ -2080,6 +2151,13 @@ void GameController::Render() {
         };
         drawPlayerMarker(m_gameState->GetLocalPlayer(), "P1", Color{104, 210, 255, 255}, -48.0f);
         drawPlayerMarker(m_gameState->GetSecondLocalPlayer(), "P2", Color{220, 168, 255, 255}, 48.0f);
+    }
+
+    // Keep the map above world-space labels, but below modal overlays.
+    if (!m_paused && !m_levelComplete && !View::OptionsView::GetInstance().IsVisible()) {
+        View::MinimapView::GetInstance().Render(
+            m_gameState.get(), m_gameState->GetLocalPlayer(),
+            m_localCoop ? m_gameState->GetSecondLocalPlayer() : nullptr);
     }
 
     if (View::OptionsView::GetInstance().IsVisible()) {

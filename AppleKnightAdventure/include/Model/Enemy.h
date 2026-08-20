@@ -15,6 +15,8 @@ protected:
     float m_patrolRange;
     Vector2 m_spawnPosition;
     float m_stateTimer;
+    float m_edgeTurnTimer;
+    float m_edgeTurnDirection;
 
 public:
     Enemy();
@@ -39,8 +41,9 @@ public:
     void SetPatrolRange(float range);
 
     Vector2 GetSpawnPosition() const;
+    void TurnAwayFromEdge(float attemptedDirectionX);
 
-    virtual void UpdateAI(Vector2 playerPosition, float deltaTime);
+    virtual void UpdateAI(Vector2 playerPosition, float deltaTime, bool targetVisible = true);
     void Patrol(float deltaTime);
     void Chase(Vector2 playerPosition, float deltaTime);
     void Attack() override;

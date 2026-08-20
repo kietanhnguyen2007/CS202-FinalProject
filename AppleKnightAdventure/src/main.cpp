@@ -14,6 +14,7 @@
 #include "View/MapBuilderView.h"
 #include "View/InventoryView.h"
 #include "View/InteractPrompt.h"
+#include "View/MinimapView.h"
 #include "View/UIStateManager.h"
 #include "Utils/Constants.h"
 #include "Systems/WindowManager.h"
@@ -389,6 +390,7 @@ int main() {
     View::HUDView::GetInstance().Shutdown();
     View::MapBuilderView::GetInstance().Shutdown();
     View::GameView::GetInstance().Shutdown();
+    View::MinimapView::GetInstance().Shutdown();
     menu.Shutdown();
     AchievementManager::GetInstance().Shutdown();
 
