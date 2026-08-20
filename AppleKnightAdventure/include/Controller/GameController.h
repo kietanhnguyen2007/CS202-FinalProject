@@ -37,6 +37,7 @@ struct PlayerSaveState {
     int   coins       = 0;
     int   apples      = 0;
     int   keys        = 0;
+    bool  tookDamage  = false;
 };
 
 class GameController {
@@ -131,6 +132,7 @@ private:
     bool m_levelComplete  = false;
     bool m_playerOnGround = false;
     bool m_localCoop      = false;
+    bool m_runTookDamage  = false;
     CharacterClass m_secondPlayerClass = CharacterClass::Knight;
     int  m_defeatedEnemies = 0;
     int  m_collectedItems  = 0;

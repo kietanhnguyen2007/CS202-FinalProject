@@ -16,6 +16,8 @@ enum class MenuMode {
     Shop,
     LevelSelect,
     CustomMaps,
+    Leaderboard,
+    Achievements,
     Options
 };
 
@@ -67,6 +69,11 @@ public:
     void ShowLevelSelect(int totalLevels, int currentUnlocked);
     void ShowCustomMaps(const std::vector<std::string>& mapNames,
                         const std::string& deleteConfirmation = "");
+    void ShowLeaderboard(int level = 1, bool fastestTime = false);
+    void ShowAchievements(int selectedAchievement = 0);
+    void SetLeaderboardSelection(int level, bool fastestTime);
+    void SetAchievementSelection(int index);
+    int GetLeaderboardModeHovered(Vector2 mousePos) const;
     int GetCustomMapActionHovered(Vector2 mousePos) const;
     void SetLevelStars(const std::vector<int>& bestStars);
     void ShowOptions();
@@ -87,6 +94,9 @@ private:
     void RenderShop();
     void RenderLevelSelect();
     void RenderCustomMaps();
+    void RenderLeaderboard();
+    void RenderAchievements();
+    void DrawAchievementIcon(int icon, Rectangle destination, Color tint) const;
 
     // ── Parallax background ───────────────────────────────────────────────
     void LoadParallaxLayers();
@@ -129,13 +139,13 @@ private:
     float m_scrollTime = 0.0f;
 
     // ── Main menu buttons (animated) ──────────────────────────────────────
-    static constexpr int kMaxMainButtons = 6;
+    static constexpr int kMaxMainButtons = 8;
     std::array<AnimatedButton, kMaxMainButtons> m_mainButtons{};
 
     // Label lists
     std::vector<std::string> m_mainItems    = {
         "PLAY ADVENTURE", "PLAY CUSTOM MAP", "MAP BUILDER",
-        "SHOP", "OPTIONS", "QUIT"
+        "SHOP", "LEADERBOARD", "ACHIEVEMENTS", "OPTIONS", "QUIT"
     };
     std::string m_mainNotice;
     float m_mainNoticeTimer = 0.0f;
@@ -153,6 +163,12 @@ private:
     int m_unlockedLevels   = 1;
     std::vector<int> m_levelBestStars;
     Texture2D m_levelStarIcon{};
+
+    int m_leaderboardLevel = 1;
+    bool m_leaderboardFastest = false;
+    int m_achievementSelected = 0;
+    std::array<Texture2D, 7> m_achievementIcons{};
+    std::array<Rectangle, 7> m_achievementIconSources{};
 
     // Custom-map library shown from PLAY CUSTOM MAP on the main menu.
     std::vector<std::string> m_customMapNames;

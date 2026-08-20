@@ -53,6 +53,8 @@ private:
     void HandleShopInput(float dt);
     void HandlePauseInput(float dt);
     void HandleCustomMapsInput(float dt);
+    void HandleLeaderboardInput(float dt);
+    void HandleAchievementsInput(float dt);
     void RefreshCustomMapLibrary();
 
     // ── Helper: sync save data to View header every N frames ─────────────
@@ -72,6 +74,7 @@ private:
     bool m_inShop        = false;
     bool m_inLevelSelect = false;
     bool m_inCustomMaps  = false;
+    bool m_leaderboardFastest = false;
 
     std::vector<std::string> m_customMapFiles;
     std::vector<std::string> m_customMapNames;

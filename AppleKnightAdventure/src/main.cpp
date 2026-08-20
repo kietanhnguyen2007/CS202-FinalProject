@@ -18,6 +18,7 @@
 #include "Utils/Constants.h"
 #include "Systems/WindowManager.h"
 #include "Systems/SoundManager.h"
+#include "Systems/AchievementManager.h"
 #include "raylib.h"
 #include <filesystem>
 #include <vector>
@@ -219,6 +220,7 @@ int main() {
     auto& shop  = ShopController::GetInstance();
     auto& opts  = View::OptionsView::GetInstance();
     menu.Init();
+    AchievementManager::GetInstance().Init();
     game.Init();
     shop.Init();
     opts.Init();
@@ -233,6 +235,7 @@ int main() {
         WindowManager::GetInstance().Update();
         float dt = GetFrameTime();
         SoundManager::GetInstance().Update(dt);
+        AchievementManager::GetInstance().Update(dt);
 
         if (!inGame && !inMapBuilder && !inShop && !inOptions && !inPrepare) {
             menu.Update(dt);
@@ -262,6 +265,7 @@ int main() {
             View::Renderer::GetInstance().BeginFrame();
             View::MenuView::GetInstance().Update(dt, menu.GetSelected());
             View::MenuView::GetInstance().Render();
+            AchievementManager::GetInstance().RenderPopup();
             View::Renderer::GetInstance().EndFrameAndFlush();
             EndDrawing();
         } else if (inPrepare) {
@@ -282,11 +286,13 @@ int main() {
             BeginDrawing();
             ClearBackground(BLACK);
             View::PrepareView::GetInstance().Render();
+            AchievementManager::GetInstance().RenderPopup();
             EndDrawing();
         } else if (inShop) {
             BeginDrawing();
             ClearBackground(BLACK);
             shop.Update(dt);
+            AchievementManager::GetInstance().RenderPopup();
             if (shop.ShouldReturnToMenu()) {
                 inShop = false;
                 menu.ShowMainMenu();
@@ -302,6 +308,7 @@ int main() {
             View::MenuView::GetInstance().Render();
             View::Renderer::GetInstance().EndFrameAndFlush();
             opts.Render();
+            AchievementManager::GetInstance().RenderPopup();
             EndDrawing();
             if (opts.WantsBack()) {
                 opts.ClearWantsBack();
@@ -356,6 +363,7 @@ int main() {
             BeginDrawing();
             ClearBackground(BLACK);
             game.Render();
+            AchievementManager::GetInstance().RenderPopup();
             EndDrawing();
         }
     }
@@ -382,6 +390,7 @@ int main() {
     View::MapBuilderView::GetInstance().Shutdown();
     View::GameView::GetInstance().Shutdown();
     menu.Shutdown();
+    AchievementManager::GetInstance().Shutdown();
 
     // Asset atlases and audio devices must be gone before the renderer/window.
     assetManager.Shutdown();

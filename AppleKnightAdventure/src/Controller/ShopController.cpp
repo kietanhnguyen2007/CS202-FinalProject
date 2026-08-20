@@ -6,6 +6,7 @@
 #include "View/ShopView.h"
 #include "Model/SaveManager.h"
 #include "Systems/SoundManager.h"
+#include "Systems/AchievementManager.h"
 #include "raylib.h"
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -235,6 +236,7 @@ void ShopController::HandleBuyAttempt() {
         save.SpendCoins(price);
         save.UnlockChar(unlockKey);
         equip();
+        AchievementManager::GetInstance().OnShopPurchase();
         save.Save();
         BuildItemLists();
         shop.SetCurrentCoins(save.GetCoins());

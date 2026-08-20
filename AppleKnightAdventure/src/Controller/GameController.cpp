@@ -31,6 +31,7 @@
 #include "View/TutorialRenderer.h"
 #include "View/ResultView.h"
 #include "Systems/SoundManager.h"
+#include "Systems/AchievementManager.h"
 #include "Utils/Constants.h"
 #include <nlohmann/json.hpp>
 #include <cmath>
@@ -102,6 +103,16 @@ float LoadVictoryParTime(int levelNumber) {
         return std::max(1.0f, root["levels"].value(key, defaultTime));
     } catch (...) {
         return fallback;
+    }
+}
+
+std::string CharacterClassId(CharacterClass value) {
+    switch (value) {
+        case CharacterClass::Fighter: return "fighter";
+        case CharacterClass::MagicCaster: return "magic_caster";
+        case CharacterClass::Ninja: return "ninja";
+        case CharacterClass::Knight:
+        default: return "knight";
     }
 }
 } // namespace
@@ -459,6 +470,7 @@ void GameController::StartLevel(int levelNumber) {
     m_defeatedEnemies = 0;
     m_collectedItems = 0;
     m_levelComplete = false;
+    m_runTookDamage = false;
     m_paused = false;
     m_returnToMenu = false;
     m_running = true;
@@ -1312,7 +1324,9 @@ void GameController::UpdateCombat(Player* player, float dt, bool updateEnemyCool
             if (proj->GetDamage() > 0 && !proj->HasHitEntity(player->GetId())
                 && RectOverlap(proj->GetBoundingBox(), player->GetBoundingBox())) {
                 if (!player->IsInvincible()) {
+                    const int healthBeforeHit = player->GetHealth();
                     player->TakeDamage(proj->GetDamage());
+                    if (player->GetHealth() < healthBeforeHit) m_runTookDamage = true;
                     SoundManager::GetInstance().PlaySound(player->IsAlive() ? "player_hurt" : "player_die");
                     View::FloatingTextManager::GetInstance().Emit(
                         player->GetPosition(), "-" + std::to_string(proj->GetDamage()), RED, 1.0f);
@@ -1334,7 +1348,9 @@ void GameController::UpdateCombat(Player* player, float dt, bool updateEnemyCool
         
         // Invincibility from dash blocks all damage
         if (!player->IsInvincible()) {
+            const int healthBeforeHit = player->GetHealth();
             player->TakeDamage(attackDamage);
+            if (player->GetHealth() < healthBeforeHit) m_runTookDamage = true;
             SoundManager::GetInstance().PlaySound(player->IsAlive() ? "player_hurt" : "player_die");
             View::FloatingTextManager::GetInstance().Emit(
                 player->GetPosition(), "-" + std::to_string(attackDamage), RED, 1.0f);
@@ -1372,6 +1388,7 @@ void GameController::UpdateItems(Player* player, float dt) {
                     m_gameState->GetLocalPlayer()->GetInventory().AddCoins(item->GetAmount());
                 }
                 SaveManager::GetInstance().AddCoins(item->GetAmount());
+                AchievementManager::GetInstance().OnCoinCollected(item->GetAmount());
                 persistentCoinsChanged = true;
                 player->AddScore(item->GetAmount() * 10);
                 m_scoring.AddScore(item->GetAmount() * 10);
@@ -1385,6 +1402,7 @@ void GameController::UpdateItems(Player* player, float dt) {
             case ItemType::Potion:
                 pickupSound = "potion_pickup";
                 player->Heal(50);
+                AchievementManager::GetInstance().OnPotionUsed();
                 break;
             default:
                 player->GetInventory().AddItem(
@@ -1571,6 +1589,7 @@ void GameController::OnEntityRemoved(Entity* entity) {
             SoundManager::GetInstance().PlaySound("enemy_death");
             View::ParticleRenderer::GetInstance().EmitBurst(entity->GetPosition(), 20, RED);
             View::GameView::GetInstance().Shake(5.0f, 0.3f);
+            AchievementManager::GetInstance().OnEnemyDefeated(entity->GetType() == EntityType::Boss);
         }
     }
     UnregisterEntityVisuals(entity->GetId());
@@ -1691,6 +1710,23 @@ void GameController::CheckLevelComplete() {
             save.SetLevelHighScore(level, score);
             save.SetLevelBestStars(level, snapshot.stars);
             save.SetLevelBestTime(level, snapshot.clearTime);
+            if (level >= 1 && level <= 6) {
+                LeaderboardEntry entry;
+                entry.playerName = save.GetPlayerName();
+                entry.characterIds.push_back(CharacterClassId(snapshot.characterClass));
+                if (m_localCoop && m_gameState->GetSecondLocalPlayer()) {
+                    entry.characterIds.push_back(CharacterClassId(
+                        m_gameState->GetSecondLocalPlayer()->GetCharacterClass()));
+                }
+                entry.score = score;
+                entry.timeMs = std::max(1, static_cast<int>(snapshot.clearTime * 1000.0f + 0.5f));
+                entry.stars = snapshot.stars;
+                entry.localCoop = m_localCoop;
+                save.RecordLevelResult(level, entry);
+                AchievementManager::GetInstance().OnLevelCompleted(
+                    level, snapshot.stars, snapshot.clearTime, snapshot.parTime,
+                    !m_runTookDamage, m_localCoop);
+            }
             save.Save();
         }
 
@@ -1738,6 +1774,7 @@ void GameController::SavePlayerState(Player* player) {
     m_savedPlayerState.coins       = player->GetInventory().GetCoins();
     m_savedPlayerState.apples      = player->GetInventory().GetApples();
     m_savedPlayerState.keys        = player->GetInventory().GetKeys();
+    m_savedPlayerState.tookDamage  = m_runTookDamage;
     m_hasSavedState = true;
 }
 
@@ -1749,6 +1786,7 @@ void GameController::RestorePlayerState(Player* player) {
     player->GetInventory().AddCoins(m_savedPlayerState.coins);
     player->GetInventory().AddApples(m_savedPlayerState.apples);
     player->GetInventory().AddKeys(m_savedPlayerState.keys);
+    m_runTookDamage = m_savedPlayerState.tookDamage;
 }
 
 void GameController::Update(float dt) {
@@ -1949,6 +1987,7 @@ void GameController::Update(float dt) {
     if (player && player->IsAlive()) {
         const float mapHeight = std::max(1, m_gameState->GetMapHeight()) * TILE_SIZE;
         if (player->GetPosition().y > mapHeight + TILE_SIZE * 2) {
+            m_runTookDamage = true;
             player->TakeDamage(player->GetMaxHealth()); // Technically dies
             SoundManager::GetInstance().PlaySound("player_die");
             RespawnPlayer(player, !m_localCoop);
@@ -1958,6 +1997,7 @@ void GameController::Update(float dt) {
     if (secondPlayer && secondPlayer->IsAlive()) {
         const float mapHeight = std::max(1, m_gameState->GetMapHeight()) * TILE_SIZE;
         if (secondPlayer->GetPosition().y > mapHeight + TILE_SIZE * 2) {
+            m_runTookDamage = true;
             secondPlayer->TakeDamage(secondPlayer->GetMaxHealth());
             SoundManager::GetInstance().PlaySound("player_die");
             RespawnPlayer(secondPlayer, false);
@@ -2379,6 +2419,7 @@ void GameController::UpdatePets(float dt, const InputCommand& cmd) {
                         pickupSound = "coin_pickup";
                         player->GetInventory().AddCoins(item->GetAmount());
                         SaveManager::GetInstance().AddCoins(item->GetAmount());
+                        AchievementManager::GetInstance().OnCoinCollected(item->GetAmount());
                         persistentCoinsChanged = true;
                         player->AddScore(item->GetAmount() * 10);
                         m_scoring.AddScore(item->GetAmount() * 10);
@@ -2392,6 +2433,7 @@ void GameController::UpdatePets(float dt, const InputCommand& cmd) {
                     case ItemType::Potion:
                         pickupSound = "potion_pickup";
                         player->Heal(50);
+                        AchievementManager::GetInstance().OnPotionUsed();
                         break;
                     default:
                         player->GetInventory().AddItem(

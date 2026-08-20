@@ -5,6 +5,8 @@
 #include <cstdio>
 #include <iostream>
 #include <filesystem>
+#include <ctime>
+#include <nlohmann/json.hpp>
 #include "raylib.h"
 
 namespace {
@@ -14,6 +16,33 @@ std::string NormalizeUnlockId(std::string id) {
     if (id == "Magic Caster" || id == "MagicCaster") return "magic_caster";
     if (id == "Ninja") return "ninja";
     return id;
+}
+
+using json = nlohmann::json;
+
+LeaderboardEntry ReadLeaderboardEntry(const json& value) {
+    LeaderboardEntry entry;
+    if (!value.is_object()) return entry;
+    entry.playerName = value.value("playerName", "Player");
+    entry.characterIds = value.value("characters", std::vector<std::string>{"knight"});
+    entry.score = std::max(0, value.value("score", 0));
+    entry.timeMs = std::max(0, value.value("timeMs", 0));
+    entry.stars = std::clamp(value.value("stars", 0), 0, 3);
+    entry.localCoop = value.value("localCoop", false);
+    entry.completedAt = value.value("completedAt", static_cast<std::int64_t>(0));
+    return entry;
+}
+
+json WriteLeaderboardEntry(const LeaderboardEntry& entry) {
+    return json{
+        {"playerName", entry.playerName},
+        {"characters", entry.characterIds},
+        {"score", entry.score},
+        {"timeMs", entry.timeMs},
+        {"stars", entry.stars},
+        {"localCoop", entry.localCoop},
+        {"completedAt", entry.completedAt}
+    };
 }
 }
 
@@ -34,11 +63,7 @@ SaveManager::SaveManager()
 }
 
 bool SaveManager::Load(const std::string& path) {
-    char* data = LoadFileText(path.c_str());
-    const std::string backupPath = path + ".bak";
-    if (!data) data = LoadFileText(backupPath.c_str());
-    if (!data) {
-        // Use defaults
+    auto resetDefaults = [&]() {
         playerName = "Player";
         coins = 0;
         isFirstTimePlaying = true;
@@ -46,195 +71,159 @@ bool SaveManager::Load(const std::string& path) {
         levelHighScores.clear();
         levelBestStars.clear();
         levelBestTimesMs.clear();
+        leaderboards.clear();
+        achievements.clear();
+        lifetimeStats = {};
+        selectedChar = "knight";
+        selectedPet.clear();
         musicVolume = 70;
         sfxVolume = 80;
         fullscreenEnabled = false;
-        return false;
-    }
-
-    std::string jsonStr(data);
-    UnloadFileText(data);
-
-    // Simple manual parsing. Very basic and assumes a certain structure.
-    auto extractString = [&](const std::string& key) -> std::string {
-        size_t pos = jsonStr.find("\"" + key + "\"");
-        if (pos == std::string::npos) return "";
-        pos = jsonStr.find("\"", pos + key.length() + 2);
-        if (pos == std::string::npos) return "";
-        size_t endPos = jsonStr.find("\"", pos + 1);
-        if (endPos == std::string::npos) return "";
-        return jsonStr.substr(pos + 1, endPos - pos - 1);
     };
 
-    auto extractInt = [&](const std::string& key, int defaultVal) -> int {
-        size_t pos = jsonStr.find("\"" + key + "\"");
-        if (pos == std::string::npos) return defaultVal;
-        pos = jsonStr.find(":", pos + key.length() + 2);
-        if (pos == std::string::npos) return defaultVal;
-        pos++;
-        while (pos < jsonStr.length() && (jsonStr[pos] == ' ' || jsonStr[pos] == '\t')) pos++;
-        size_t endPos = pos;
-        while (endPos < jsonStr.length() && (isdigit(jsonStr[endPos]) || jsonStr[endPos] == '-')) endPos++;
-        if (endPos == pos) return defaultVal;
-        return std::stoi(jsonStr.substr(pos, endPos - pos));
-    };
-
-    auto extractBool = [&](const std::string& key, bool defaultVal) -> bool {
-        size_t pos = jsonStr.find("\"" + key + "\"");
-        if (pos == std::string::npos) return defaultVal;
-        pos = jsonStr.find(":", pos + key.length() + 2);
-        if (pos == std::string::npos) return defaultVal;
-        pos++;
-        while (pos < jsonStr.length() && (jsonStr[pos] == ' ' || jsonStr[pos] == '\t')) pos++;
-        if (jsonStr.substr(pos, 4) == "true") return true;
-        if (jsonStr.substr(pos, 5) == "false") return false;
-        return defaultVal;
-    };
-
-    auto extractStringArray = [&](const std::string& key) -> std::vector<std::string> {
-        std::vector<std::string> result;
-        size_t pos = jsonStr.find("\"" + key + "\"");
-        if (pos == std::string::npos) return result;
-        pos = jsonStr.find("[", pos);
-        if (pos == std::string::npos) return result;
-        size_t endPos = jsonStr.find("]", pos);
-        if (endPos == std::string::npos) return result;
-
-        std::string arrayStr = jsonStr.substr(pos + 1, endPos - pos - 1);
-        size_t strPos = 0;
-        while ((strPos = arrayStr.find("\"", strPos)) != std::string::npos) {
-            size_t strEndPos = arrayStr.find("\"", strPos + 1);
-            if (strEndPos != std::string::npos) {
-                result.push_back(arrayStr.substr(strPos + 1, strEndPos - strPos - 1));
-                strPos = strEndPos + 1;
-            } else {
-                break;
-            }
+    resetDefaults();
+    json root;
+    bool loaded = false;
+    for (const std::string candidate : {path, path + ".bak"}) {
+        char* data = LoadFileText(candidate.c_str());
+        if (!data) continue;
+        try {
+            root = json::parse(data);
+            loaded = root.is_object();
+        } catch (const std::exception& ex) {
+            TraceLog(LOG_WARNING, "SAVE: Invalid JSON in %s: %s", candidate.c_str(), ex.what());
         }
-        return result;
-    };
-
-    auto extractMap = [&](const std::string& key) -> std::map<int, int> {
-        std::map<int, int> result;
-        size_t pos = jsonStr.find("\"" + key + "\"");
-        if (pos == std::string::npos) return result;
-        pos = jsonStr.find("{", pos);
-        if (pos == std::string::npos) return result;
-        size_t endPos = jsonStr.find("}", pos);
-        if (endPos == std::string::npos) return result;
-        
-        std::string objStr = jsonStr.substr(pos + 1, endPos - pos - 1);
-        size_t curPos = 0;
-        while ((curPos = objStr.find("\"", curPos)) != std::string::npos) {
-            size_t keyEnd = objStr.find("\"", curPos + 1);
-            if (keyEnd == std::string::npos) break;
-            std::string kStr = objStr.substr(curPos + 1, keyEnd - curPos - 1);
-            int k = std::stoi(kStr);
-            
-            size_t colonPos = objStr.find(":", keyEnd + 1);
-            if (colonPos == std::string::npos) break;
-            colonPos++;
-            while (colonPos < objStr.length() && (objStr[colonPos] == ' ' || objStr[colonPos] == '\t')) colonPos++;
-            size_t valEnd = colonPos;
-            while (valEnd < objStr.length() && (isdigit(objStr[valEnd]) || objStr[valEnd] == '-')) valEnd++;
-            if (valEnd > colonPos) {
-                int v = std::stoi(objStr.substr(colonPos, valEnd - colonPos));
-                result[k] = v;
-            }
-            curPos = valEnd;
-        }
-        return result;
-    };
-
-    std::string name = extractString("playerName");
-    if (!name.empty()) playerName = name;
-    
-    coins = extractInt("coins", 0);
-    isFirstTimePlaying = extractBool("isFirstTimePlaying", true);
-    musicVolume = std::clamp(extractInt("musicVolume", 70), 0, 100);
-    sfxVolume = std::clamp(extractInt("sfxVolume", 80), 0, 100);
-    fullscreenEnabled = extractBool("fullscreenEnabled", false);
-    
-    std::vector<std::string> chars = extractStringArray("unlockedCharacters");
-    if (!chars.empty()) {
-        unlockedCharacters = chars;
-    } else {
-        unlockedCharacters = {"knight"};
+        UnloadFileText(data);
+        if (loaded) break;
     }
+    if (!loaded) return false;
+
+    playerName = root.value("playerName", "Player");
+    coins = std::max(0, root.value("coins", 0));
+    isFirstTimePlaying = root.value("isFirstTimePlaying", true);
+    musicVolume = std::clamp(root.value("musicVolume", 70), 0, 100);
+    sfxVolume = std::clamp(root.value("sfxVolume", 80), 0, 100);
+    fullscreenEnabled = root.value("fullscreenEnabled", false);
+    unlockedCharacters = root.value("unlockedCharacters", std::vector<std::string>{"knight"});
+    if (unlockedCharacters.empty()) unlockedCharacters = {"knight"};
     for (std::string& id : unlockedCharacters) id = NormalizeUnlockId(id);
     if (std::find(unlockedCharacters.begin(), unlockedCharacters.end(), "knight") == unlockedCharacters.end())
         unlockedCharacters.push_back("knight");
     std::sort(unlockedCharacters.begin(), unlockedCharacters.end());
     unlockedCharacters.erase(std::unique(unlockedCharacters.begin(), unlockedCharacters.end()), unlockedCharacters.end());
-    levelHighScores = extractMap("levelHighScores");
-    levelBestStars = extractMap("levelBestStars");
-    levelBestTimesMs = extractMap("levelBestTimesMs");
-    
-    std::string sChar = extractString("selectedChar");
-    if (!sChar.empty()) selectedChar = NormalizeUnlockId(sChar);
-    
-    std::string sPet = extractString("selectedPet");
-    // allowed to be empty
-    size_t petPos = jsonStr.find("\"selectedPet\"");
-    if (petPos != std::string::npos) selectedPet = sPet;
+
+    auto readIntMap = [&](const char* key, std::map<int, int>& out) {
+        if (!root.contains(key) || !root[key].is_object()) return;
+        for (auto it = root[key].begin(); it != root[key].end(); ++it) {
+            try { out[std::stoi(it.key())] = it.value().get<int>(); }
+            catch (...) { /* Ignore a malformed legacy entry, not the whole save. */ }
+        }
+    };
+    readIntMap("levelHighScores", levelHighScores);
+    readIntMap("levelBestStars", levelBestStars);
+    readIntMap("levelBestTimesMs", levelBestTimesMs);
+
+    selectedChar = NormalizeUnlockId(root.value("selectedChar", "knight"));
+    selectedPet = root.value("selectedPet", "");
+
+    if (root.contains("leaderboards") && root["leaderboards"].is_object()) {
+        for (auto it = root["leaderboards"].begin(); it != root["leaderboards"].end(); ++it) {
+            int level = 0;
+            try { level = std::stoi(it.key()); } catch (...) { continue; }
+            if (level < 1 || level > 6 || !it.value().is_object()) continue;
+            LevelLeaderboard board;
+            for (const auto& value : it.value().value("topScores", json::array()))
+                board.topScores.push_back(ReadLeaderboardEntry(value));
+            for (const auto& value : it.value().value("topTimes", json::array()))
+                board.topTimes.push_back(ReadLeaderboardEntry(value));
+            if (board.topScores.size() > 5) board.topScores.resize(5);
+            if (board.topTimes.size() > 5) board.topTimes.resize(5);
+            leaderboards[level] = std::move(board);
+        }
+    }
+
+    if (root.contains("achievements") && root["achievements"].is_object()) {
+        for (auto it = root["achievements"].begin(); it != root["achievements"].end(); ++it) {
+            if (!it.value().is_object()) continue;
+            AchievementSaveData state;
+            state.unlocked = it.value().value("unlocked", false);
+            state.progress = std::max(0, it.value().value("progress", 0));
+            state.unlockedAt = it.value().value("unlockedAt", static_cast<std::int64_t>(0));
+            achievements[it.key()] = state;
+        }
+    }
+
+    if (root.contains("lifetimeStats") && root["lifetimeStats"].is_object()) {
+        const auto& stats = root["lifetimeStats"];
+        lifetimeStats.enemiesDefeated = std::max(0, stats.value("enemiesDefeated", 0));
+        lifetimeStats.bossesDefeated = std::max(0, stats.value("bossesDefeated", 0));
+        lifetimeStats.coinsCollected = std::max(0, stats.value("coinsCollected", 0));
+        lifetimeStats.shopPurchases = std::max(0, stats.value("shopPurchases", 0));
+        lifetimeStats.completedLevels = stats.value("completedLevels", std::vector<int>{});
+        lifetimeStats.completedLevels.erase(
+            std::remove_if(lifetimeStats.completedLevels.begin(), lifetimeStats.completedLevels.end(),
+                [](int level) { return level < 1 || level > 6; }),
+            lifetimeStats.completedLevels.end());
+        std::sort(lifetimeStats.completedLevels.begin(), lifetimeStats.completedLevels.end());
+        lifetimeStats.completedLevels.erase(
+            std::unique(lifetimeStats.completedLevels.begin(), lifetimeStats.completedLevels.end()),
+            lifetimeStats.completedLevels.end());
+    }
 
     return true;
 }
 
 void SaveManager::Save(const std::string& path) {
-    std::stringstream ss;
-    ss << "{\n";
-    ss << "  \"playerName\": \"" << playerName << "\",\n";
-    ss << "  \"coins\": " << coins << ",\n";
-    ss << "  \"isFirstTimePlaying\": " << (isFirstTimePlaying ? "true" : "false") << ",\n";
-    ss << "  \"musicVolume\": " << musicVolume << ",\n";
-    ss << "  \"sfxVolume\": " << sfxVolume << ",\n";
-    ss << "  \"fullscreenEnabled\": " << (fullscreenEnabled ? "true" : "false") << ",\n";
-    
-    ss << "  \"unlockedCharacters\": [";
-    for (size_t i = 0; i < unlockedCharacters.size(); ++i) {
-        ss << "\"" << unlockedCharacters[i] << "\"";
-        if (i < unlockedCharacters.size() - 1) ss << ", ";
-    }
-    ss << "],\n";
+    json root;
+    root["saveVersion"] = 2;
+    root["playerName"] = playerName;
+    root["coins"] = coins;
+    root["isFirstTimePlaying"] = isFirstTimePlaying;
+    root["musicVolume"] = musicVolume;
+    root["sfxVolume"] = sfxVolume;
+    root["fullscreenEnabled"] = fullscreenEnabled;
+    root["unlockedCharacters"] = unlockedCharacters;
+    root["selectedChar"] = selectedChar;
+    root["selectedPet"] = selectedPet;
 
-    ss << "  \"levelHighScores\": {";
-    auto it1 = levelHighScores.begin();
-    while (it1 != levelHighScores.end()) {
-        ss << "\"" << it1->first << "\": " << it1->second;
-        auto next = it1;
-        ++next;
-        if (next != levelHighScores.end()) ss << ", ";
-        it1 = next;
-    }
-    ss << "},\n";
+    root["levelHighScores"] = json::object();
+    for (const auto& [level, value] : levelHighScores)
+        root["levelHighScores"][std::to_string(level)] = value;
+    root["levelBestStars"] = json::object();
+    for (const auto& [level, value] : levelBestStars)
+        root["levelBestStars"][std::to_string(level)] = value;
+    root["levelBestTimesMs"] = json::object();
+    for (const auto& [level, value] : levelBestTimesMs)
+        root["levelBestTimesMs"][std::to_string(level)] = value;
 
-    ss << "  \"levelBestStars\": {";
-    auto it2 = levelBestStars.begin();
-    while (it2 != levelBestStars.end()) {
-        ss << "\"" << it2->first << "\": " << it2->second;
-        auto next = it2;
-        ++next;
-        if (next != levelBestStars.end()) ss << ", ";
-        it2 = next;
+    root["leaderboards"] = json::object();
+    for (const auto& [level, board] : leaderboards) {
+        json scores = json::array();
+        json times = json::array();
+        for (const auto& entry : board.topScores) scores.push_back(WriteLeaderboardEntry(entry));
+        for (const auto& entry : board.topTimes) times.push_back(WriteLeaderboardEntry(entry));
+        root["leaderboards"][std::to_string(level)] = {
+            {"topScores", std::move(scores)}, {"topTimes", std::move(times)}
+        };
     }
-    ss << "},\n";
 
-    ss << "  \"levelBestTimesMs\": {";
-    auto it3 = levelBestTimesMs.begin();
-    while (it3 != levelBestTimesMs.end()) {
-        ss << "\"" << it3->first << "\": " << it3->second;
-        auto next = it3;
-        ++next;
-        if (next != levelBestTimesMs.end()) ss << ", ";
-        it3 = next;
+    root["achievements"] = json::object();
+    for (const auto& [id, state] : achievements) {
+        root["achievements"][id] = {
+            {"unlocked", state.unlocked},
+            {"progress", state.progress},
+            {"unlockedAt", state.unlockedAt}
+        };
     }
-    ss << "},\n";
-    ss << "  \"selectedChar\": \"" << selectedChar << "\",\n";
-    ss << "  \"selectedPet\": \"" << selectedPet << "\"\n";
-    ss << "}\n";
+    root["lifetimeStats"] = {
+        {"enemiesDefeated", lifetimeStats.enemiesDefeated},
+        {"bossesDefeated", lifetimeStats.bossesDefeated},
+        {"coinsCollected", lifetimeStats.coinsCollected},
+        {"shopPurchases", lifetimeStats.shopPurchases},
+        {"completedLevels", lifetimeStats.completedLevels}
+    };
 
-    std::string jsonStr = ss.str();
+    std::string jsonStr = root.dump(2) + "\n";
     const std::string tempPath = path + ".tmp";
     const std::string backupPath = path + ".bak";
     if (!SaveFileText(tempPath.c_str(), const_cast<char*>(jsonStr.c_str()))) {
@@ -320,6 +309,81 @@ void SaveManager::SetLevelBestTime(int level, float seconds) {
     auto it = levelBestTimesMs.find(level);
     if (it == levelBestTimesMs.end() || milliseconds < it->second) {
         levelBestTimesMs[level] = milliseconds;
+    }
+}
+
+void SaveManager::RecordLevelResult(int level, const LeaderboardEntry& source) {
+    if (level < 1 || level > 6 || source.timeMs <= 0) return;
+    LeaderboardEntry entry = source;
+    entry.score = std::max(0, entry.score);
+    entry.stars = std::clamp(entry.stars, 0, 3);
+    if (entry.playerName.empty()) entry.playerName = "Player";
+    if (entry.characterIds.empty()) entry.characterIds.push_back("knight");
+    if (entry.completedAt <= 0) entry.completedAt = static_cast<std::int64_t>(std::time(nullptr));
+
+    auto& board = leaderboards[level];
+    board.topScores.push_back(entry);
+    std::stable_sort(board.topScores.begin(), board.topScores.end(),
+        [](const LeaderboardEntry& a, const LeaderboardEntry& b) {
+            if (a.score != b.score) return a.score > b.score;
+            if (a.timeMs != b.timeMs) return a.timeMs < b.timeMs;
+            return a.completedAt < b.completedAt;
+        });
+    if (board.topScores.size() > 5) board.topScores.resize(5);
+
+    board.topTimes.push_back(entry);
+    std::stable_sort(board.topTimes.begin(), board.topTimes.end(),
+        [](const LeaderboardEntry& a, const LeaderboardEntry& b) {
+            if (a.timeMs != b.timeMs) return a.timeMs < b.timeMs;
+            if (a.score != b.score) return a.score > b.score;
+            return a.completedAt < b.completedAt;
+        });
+    if (board.topTimes.size() > 5) board.topTimes.resize(5);
+}
+
+const std::vector<LeaderboardEntry>& SaveManager::GetTopScores(int level) const {
+    static const std::vector<LeaderboardEntry> empty;
+    const auto it = leaderboards.find(level);
+    return it == leaderboards.end() ? empty : it->second.topScores;
+}
+
+const std::vector<LeaderboardEntry>& SaveManager::GetTopTimes(int level) const {
+    static const std::vector<LeaderboardEntry> empty;
+    const auto it = leaderboards.find(level);
+    return it == leaderboards.end() ? empty : it->second.topTimes;
+}
+
+AchievementSaveData SaveManager::GetAchievement(const std::string& id) const {
+    const auto it = achievements.find(id);
+    return it == achievements.end() ? AchievementSaveData{} : it->second;
+}
+
+void SaveManager::SetAchievementProgress(const std::string& id, int progress) {
+    auto& state = achievements[id];
+    state.progress = std::max(state.progress, std::max(0, progress));
+}
+
+bool SaveManager::UnlockAchievement(const std::string& id, std::int64_t unlockedAt) {
+    auto& state = achievements[id];
+    if (state.unlocked) return false;
+    state.unlocked = true;
+    state.unlockedAt = unlockedAt > 0 ? unlockedAt : static_cast<std::int64_t>(std::time(nullptr));
+    return true;
+}
+
+const std::map<std::string, AchievementSaveData>& SaveManager::GetAchievements() const {
+    return achievements;
+}
+
+LifetimeStats& SaveManager::GetLifetimeStats() { return lifetimeStats; }
+const LifetimeStats& SaveManager::GetLifetimeStats() const { return lifetimeStats; }
+
+void SaveManager::MarkLevelCompleted(int level) {
+    if (level < 1 || level > 6) return;
+    if (std::find(lifetimeStats.completedLevels.begin(), lifetimeStats.completedLevels.end(), level)
+        == lifetimeStats.completedLevels.end()) {
+        lifetimeStats.completedLevels.push_back(level);
+        std::sort(lifetimeStats.completedLevels.begin(), lifetimeStats.completedLevels.end());
     }
 }
 
