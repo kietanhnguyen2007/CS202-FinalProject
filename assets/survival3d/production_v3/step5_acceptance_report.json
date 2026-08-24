@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "milestone": "Step 5 - Rigging, Skinning, Animation and C++ Runtime Integration",
+  "status": "complete",
+  "completedOn": "2026-08-22",
+  "runtimeLanguage": "C++",
+  "offlineAuthoringTools": [
+    "Blender 4.5 LTS",
+    "Blender Python asset pipeline"
+  ],
+  "survivalRuntimePythonFiles": 0,
+  "contracts": {
+    "sampleRate": 60,
+    "totalFrames": 655,
+    "durationSeconds": 10.9,
+    "clipCount": 9,
+    "animatedModelCount": 10,
+    "editableBlendCount": 10,
+    "modularWeaponCount": 3,
+    "weaponSocket": "weapon_socket.R"
+  },
+  "animatedModels": [
+    "models/heroes/knight_body_animated.glb",
+    "models/heroes/magic_caster_body_animated.glb",
+    "models/enemies/riftling_animated.glb",
+    "models/enemies/hex_archer_animated.glb",
+    "models/enemies/obsidian_brute_animated.glb",
+    "models/bosses/brood_warden_animated.glb",
+    "models/bosses/hexeye_artillerist_animated.glb",
+    "models/bosses/ironroot_colossus_animated.glb",
+    "models/bosses/eclipse_chimera_animated.glb",
+    "models/bosses/void_sovereign_animated.glb"
+  ],
+  "modularWeapons": [
+    "models/weapons/knight_greatsword.glb",
+    "models/weapons/magic_caster_staff.glb",
+    "models/enemies/hex_archer_bow.glb"
+  ],
+  "hexArcher": {
+    "rebuiltFromScratch": true,
+    "bodyAndBowSeparated": true,
+    "bodyVertices": 610,
+    "bodyTriangles": 1036,
+    "bodyJointCount": 16,
+    "bodyWeaponSocketWeights": 0,
+    "bowVertices": 200,
+    "bowTriangles": 332,
+    "bowLengthMeters": 1.32,
+    "bowSkinCount": 0,
+    "bowAnimationCount": 0,
+    "qaPoseCount": 13,
+    "maximumSampledEdgeStretch": 1.00001,
+    "groundPenetrationVertices": 0
+  },
+  "quality": {
+    "qaRenderCount": 103,
+    "maximumVertexInfluences": 4,
+    "normalizedWeightsRequired": true,
+    "semanticSkeletonValidation": true,
+    "glbBinaryContractValidation": true,
+    "lineOfSightAndCollisionRuntimeAudit": true,
+    "proceduralFallbacksRetained": true
+  },
+  "verification": {
+    "build": "pass",
+    "ctest": "2/2 pass",
+    "tests": [
+      "AegisRiftServerTests",
+      "Survival3DConfigTests"
+    ]
+  },
+  "supportingReports": [
+    "production_v3/modular_hero_rig_report.json",
+    "production_v3/step5_nonhero_rig_report.json",
+    "production_v3/hex_archer_modular_report.json"
+  ]
+}

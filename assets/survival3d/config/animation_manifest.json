@@ -1,0 +1,144 @@
+{
+  "schemaVersion": 1,
+  "format": "glb",
+  "sampleRate": 60,
+  "weaponSocketBone": "weapon_socket.R",
+  "missingAssetFallback": "procedural",
+  "totalFrames": 655,
+  "crossFadeSeconds": 0.14,
+  "clips": {
+    "idle": [0, 94],
+    "run": [96, 158],
+    "basic": [160, 222],
+    "skillOne": [224, 302],
+    "skillTwo": [304, 382],
+    "ultimatePhase": [384, 478],
+    "dashSpecial": [480, 526],
+    "hurt": [528, 558],
+    "death": [560, 654]
+  },
+  "semanticSkeletonContracts": {
+    "hero_humanoid": {
+      "jointCount": 16,
+      "rootJoint": "root",
+      "socketJoint": "weapon_socket.R",
+      "joints": [
+        "root", "hips", "spine", "chest", "head",
+        "upper_arm.L", "forearm.L", "hand.L",
+        "upper_arm.R", "forearm.R", "hand.R",
+        "thigh.L", "shin.L", "thigh.R", "shin.R",
+        "weapon_socket.R"
+      ]
+    },
+    "humanoid": {
+      "jointCount": 15,
+      "rootJoint": "root",
+      "joints": [
+        "root", "hips", "spine", "chest", "head",
+        "upper_arm.L", "forearm.L", "hand.L",
+        "upper_arm.R", "forearm.R", "hand.R",
+        "thigh.L", "shin.L", "thigh.R", "shin.R"
+      ]
+    },
+    "quadruped": {
+      "jointCount": 21,
+      "rootJoint": "root",
+      "joints": [
+        "root", "pelvis", "spine.01", "spine.02", "neck", "head", "jaw",
+        "front_upper.L", "front_lower.L", "front_paw.L",
+        "front_upper.R", "front_lower.R", "front_paw.R",
+        "rear_upper.L", "rear_lower.L", "rear_paw.L",
+        "rear_upper.R", "rear_lower.R", "rear_paw.R",
+        "tail.01", "tail.02"
+      ]
+    },
+    "floating_artillerist": {
+      "jointCount": 10,
+      "rootJoint": "root",
+      "joints": [
+        "root", "body", "eye", "cannon.L", "cannon.R", "shard.bottom",
+        "orbit_shard.00", "orbit_shard.01", "orbit_shard.02", "orbit_shard.03"
+      ]
+    },
+    "chimera": {
+      "jointCount": 22,
+      "rootJoint": "root",
+      "joints": [
+        "root", "pelvis", "spine.01", "spine.02",
+        "neck.L", "head.L", "neck.R", "head.R",
+        "front_upper.L", "front_lower.L", "front_paw.L",
+        "front_upper.R", "front_lower.R", "front_paw.R",
+        "rear_upper.L", "rear_lower.L", "rear_paw.L",
+        "rear_upper.R", "rear_lower.R", "rear_paw.R",
+        "tail.01", "tail.02"
+      ]
+    }
+  },
+  "models": [
+    {
+      "id": "knight",
+      "model": "models/heroes/knight_body_animated.glb",
+      "skeletonContract": "hero_humanoid"
+    },
+    {
+      "id": "magic_caster",
+      "model": "models/heroes/magic_caster_body_animated.glb",
+      "skeletonContract": "hero_humanoid"
+    },
+    {
+      "id": "riftling",
+      "model": "models/enemies/riftling_animated.glb",
+      "skeletonContract": "quadruped"
+    },
+    {
+      "id": "hex_archer",
+      "model": "models/enemies/hex_archer_animated.glb",
+      "skeletonContract": "hero_humanoid"
+    },
+    {
+      "id": "obsidian_brute",
+      "model": "models/enemies/obsidian_brute_animated.glb",
+      "skeletonContract": "humanoid"
+    },
+    {
+      "id": "brood_warden",
+      "model": "models/bosses/brood_warden_animated.glb",
+      "skeletonContract": "quadruped"
+    },
+    {
+      "id": "hexeye_artillerist",
+      "model": "models/bosses/hexeye_artillerist_animated.glb",
+      "skeletonContract": "floating_artillerist"
+    },
+    {
+      "id": "ironroot_colossus",
+      "model": "models/bosses/ironroot_colossus_animated.glb",
+      "skeletonContract": "humanoid"
+    },
+    {
+      "id": "eclipse_chimera",
+      "model": "models/bosses/eclipse_chimera_animated.glb",
+      "skeletonContract": "chimera"
+    },
+    {
+      "id": "void_sovereign",
+      "model": "models/bosses/void_sovereign_animated.glb",
+      "skeletonContract": "humanoid"
+    }
+  ],
+  "weapons": [
+    {
+      "id": "knight_greatsword",
+      "model": "models/weapons/knight_greatsword.glb"
+    },
+    {
+      "id": "magic_caster_staff",
+      "model": "models/weapons/magic_caster_staff.glb"
+    },
+    {
+      "id": "hex_archer_bow",
+      "model": "models/enemies/hex_archer_bow.glb",
+      "required": true
+    }
+  ]
+}

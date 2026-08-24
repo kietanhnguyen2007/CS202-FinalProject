@@ -1,0 +1,288 @@
+{
+  "schemaVersion": 1,
+  "milestone": "Phase 2",
+  "status": "complete",
+  "unitSystem": "METRIC",
+  "unitMeters": 1.0,
+  "sourceAxis": {
+    "up": "+Z",
+    "forward": "-Y"
+  },
+  "runtimeAxis": {
+    "up": "+Y",
+    "format": "glb"
+  },
+  "originContract": "body_center_ground_Z0",
+  "actors": [
+    {
+      "id": "knight",
+      "category": "heroes",
+      "blend": "production/phase2/heroes/knight/knight_phase2.blend",
+      "glb": "production/phase2/heroes/knight/knight_phase2.glb",
+      "location": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rotationDegrees": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "groundMinZ": 0.0,
+      "boundsMeters": [
+        2.43628,
+        1.36,
+        2.3747
+      ]
+    },
+    {
+      "id": "magic_caster",
+      "category": "heroes",
+      "blend": "production/phase2/heroes/magic_caster/magic_caster_phase2.blend",
+      "glb": "production/phase2/heroes/magic_caster/magic_caster_phase2.glb",
+      "location": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rotationDegrees": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "groundMinZ": 0.0,
+      "boundsMeters": [
+        2.35128,
+        1.01978,
+        2.265
+      ]
+    },
+    {
+      "id": "riftling",
+      "category": "enemies",
+      "blend": "production/phase2/enemies/riftling/riftling_phase2.blend",
+      "glb": "production/phase2/enemies/riftling/riftling_phase2.glb",
+      "location": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rotationDegrees": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "groundMinZ": 0.0,
+      "boundsMeters": [
+        1.49951,
+        1.9988,
+        1.41862
+      ]
+    },
+    {
+      "id": "hex_archer",
+      "category": "enemies",
+      "blend": "production/phase2/enemies/hex_archer/hex_archer_phase2.blend",
+      "glb": "production/phase2/enemies/hex_archer/hex_archer_phase2.glb",
+      "location": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rotationDegrees": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "groundMinZ": 0.0,
+      "boundsMeters": [
+        2.20322,
+        0.85004,
+        2.42359
+      ]
+    },
+    {
+      "id": "obsidian_brute",
+      "category": "enemies",
+      "blend": "production/phase2/enemies/obsidian_brute/obsidian_brute_phase2.blend",
+      "glb": "production/phase2/enemies/obsidian_brute/obsidian_brute_phase2.glb",
+      "location": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rotationDegrees": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "groundMinZ": 0.0,
+      "boundsMeters": [
+        3.02276,
+        0.99746,
+        2.2796
+      ]
+    },
+    {
+      "id": "brood_warden",
+      "category": "bosses",
+      "blend": "production/phase2/bosses/brood_warden/brood_warden_phase2.blend",
+      "glb": "production/phase2/bosses/brood_warden/brood_warden_phase2.glb",
+      "location": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rotationDegrees": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "groundMinZ": 0.0,
+      "boundsMeters": [
+        2.92322,
+        3.35,
+        2.5842
+      ]
+    },
+    {
+      "id": "hexeye_artillerist",
+      "category": "bosses",
+      "blend": "production/phase2/bosses/hexeye_artillerist/hexeye_artillerist_phase2.blend",
+      "glb": "production/phase2/bosses/hexeye_artillerist/hexeye_artillerist_phase2.glb",
+      "location": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rotationDegrees": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "groundMinZ": 0.0,
+      "boundsMeters": [
+        3.18985,
+        2.15,
+        3.421
+      ]
+    },
+    {
+      "id": "ironroot_colossus",
+      "category": "bosses",
+      "blend": "production/phase2/bosses/ironroot_colossus/ironroot_colossus_phase2.blend",
+      "glb": "production/phase2/bosses/ironroot_colossus/ironroot_colossus_phase2.glb",
+      "location": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rotationDegrees": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "groundMinZ": 0.0,
+      "boundsMeters": [
+        3.83901,
+        1.6287,
+        3.11955
+      ]
+    },
+    {
+      "id": "eclipse_chimera",
+      "category": "bosses",
+      "blend": "production/phase2/bosses/eclipse_chimera/eclipse_chimera_phase2.blend",
+      "glb": "production/phase2/bosses/eclipse_chimera/eclipse_chimera_phase2.glb",
+      "location": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rotationDegrees": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "groundMinZ": 0.0,
+      "boundsMeters": [
+        3.52842,
+        4.346,
+        2.809
+      ]
+    },
+    {
+      "id": "void_sovereign",
+      "category": "bosses",
+      "blend": "production/phase2/bosses/void_sovereign/void_sovereign_phase2.blend",
+      "glb": "production/phase2/bosses/void_sovereign/void_sovereign_phase2.glb",
+      "location": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rotationDegrees": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "groundMinZ": 0.0,
+      "boundsMeters": [
+        4.7595,
+        1.716,
+        4.94875
+      ]
+    }
+  ]
+}

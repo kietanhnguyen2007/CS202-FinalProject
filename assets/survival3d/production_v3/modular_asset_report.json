@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "milestone": "Step 2 - Modular Hero Appearance",
+  "status": "complete",
+  "runtimePromoted": false,
+  "rigged": false,
+  "textureSize": [2048, 2048],
+  "coordinateSystem": {
+    "up": "+Z",
+    "forward": "-Y",
+    "unit": "meter"
+  },
+  "assets": [
+    {
+      "id": "knight_body",
+      "blend": "heroes/knight/knight_body_production_v3.blend",
+      "glb": "heroes/knight/knight_body_production_v3.glb",
+      "baseColor": "heroes/knight/knight_body_basecolor.png",
+      "vertices": 18613,
+      "triangles": 37234,
+      "boundsMeters": [1.021821, 0.852960, 2.0],
+      "groundZ": 0.0,
+      "qa": "qa/clean/knight_body_{front,side,back,three_quarter}.png"
+    },
+    {
+      "id": "knight_greatsword",
+      "blend": "heroes/knight/knight_greatsword_production_v3.blend",
+      "glb": "heroes/knight/knight_greatsword_production_v3.glb",
+      "baseColor": "heroes/knight/knight_greatsword_basecolor.png",
+      "vertices": 2907,
+      "triangles": 5810,
+      "boundsMeters": [0.408861, 0.158598, 1.55],
+      "gripPivotErrorMeters": 0.00000001,
+      "qa": "qa/clean/knight_greatsword_{front,side,back,three_quarter}.png"
+    },
+    {
+      "id": "magic_caster_body",
+      "blend": "heroes/magic_caster/magic_caster_body_production_v3.blend",
+      "glb": "heroes/magic_caster/magic_caster_body_production_v3.glb",
+      "baseColor": "heroes/magic_caster/magic_caster_body_basecolor.png",
+      "vertices": 18602,
+      "triangles": 37236,
+      "boundsMeters": [1.092568, 0.713739, 2.0],
+      "groundZ": 0.0,
+      "headDepthScale": 0.88,
+      "geometryQa": {
+        "newBvhOverlaps": 0,
+        "flippedTriangles": 0,
+        "boundaryEdges": 0,
+        "nonManifoldEdges": 0
+      },
+      "qa": "qa/clean/magic_caster_body_{front,side,back,three_quarter}.png"
+    },
+    {
+      "id": "magic_caster_staff",
+      "blend": "heroes/magic_caster/magic_caster_staff_production_v3.blend",
+      "glb": "heroes/magic_caster/magic_caster_staff_production_v3.glb",
+      "baseColor": "heroes/magic_caster/magic_caster_staff_basecolor.png",
+      "vertices": 2414,
+      "triangles": 4824,
+      "boundsMeters": [0.262637, 0.125339, 1.65],
+      "gripPivotErrorMeters": 0.00000002,
+      "qa": "qa/clean/magic_caster_staff_{front,side,back,three_quarter}.png"
+    }
+  ],
+  "nextMilestone": "Rigging, skinning and animation; requires user approval after visual review"
+}

@@ -44,6 +44,38 @@ json WriteLeaderboardEntry(const LeaderboardEntry& entry) {
         {"completedAt", entry.completedAt}
     };
 }
+
+SurvivalRunRecord ReadSurvivalRun(const json& value) {
+    SurvivalRunRecord run;
+    if (!value.is_object()) return run;
+    run.runId = value.value("runId", std::string{});
+    run.playerName = value.value("playerName", std::string("Player"));
+    run.characterId = value.value("characterId", std::string("knight"));
+    run.configVersion = value.value("configVersion", std::string{});
+    run.highestWave = std::clamp(value.value("highestWave", 1), 1, 50);
+    run.score = std::max(0, value.value("score", 0));
+    run.survivalMs = std::max(0, value.value("survivalMs", 0));
+    run.kills = std::max(0, value.value("kills", 0));
+    run.bossesKilled = std::clamp(value.value("bossesKilled", 0), 0, 5);
+    run.damageTaken = std::max(0, value.value("damageTaken", 0));
+    run.coinReward = std::clamp(value.value("coinReward", 0), 0, 30);
+    run.completedAt = value.value("completedAt", static_cast<std::int64_t>(0));
+    run.victory = value.value("victory", false);
+    run.ranked = value.value("ranked", false);
+    run.validationStatus = value.value("validationStatus", std::string("local_validated"));
+    return run;
+}
+
+json WriteSurvivalRun(const SurvivalRunRecord& run) {
+    return json{{"runId", run.runId}, {"playerName", run.playerName},
+        {"characterId", run.characterId}, {"configVersion", run.configVersion},
+        {"highestWave", run.highestWave}, {"score", run.score},
+        {"survivalMs", run.survivalMs}, {"kills", run.kills},
+        {"bossesKilled", run.bossesKilled}, {"damageTaken", run.damageTaken},
+        {"coinReward", run.coinReward}, {"completedAt", run.completedAt},
+        {"victory", run.victory}, {"ranked", run.ranked},
+        {"validationStatus", run.validationStatus}};
+}
 }
 
 SaveManager& SaveManager::GetInstance() {
@@ -80,6 +112,13 @@ bool SaveManager::Load(const std::string& path) {
         musicVolume = 70;
         sfxVolume = 80;
         fullscreenEnabled = false;
+        survivalRuns.clear();
+        pendingSurvivalSubmissions.clear();
+        claimedSurvivalRunIds.clear();
+        survivalServicePlayerId.clear();
+        survivalHighContrast = false;
+        survivalReducedMotion = false;
+        survivalUiScale = 1.0f;
     };
 
     resetDefaults();
@@ -185,6 +224,34 @@ bool SaveManager::Load(const std::string& path) {
         }
     }
 
+    if (root.contains("survival3d") && root["survival3d"].is_object()) {
+        const auto& survival = root["survival3d"];
+        for (const auto& value : survival.value("runs", json::array())) {
+            SurvivalRunRecord run = ReadSurvivalRun(value);
+            if (!run.runId.empty()) survivalRuns.push_back(std::move(run));
+        }
+        if (survivalRuns.size() > 20) survivalRuns.resize(20);
+        for (const auto& value : survival.value("pendingSubmissions", json::array())) {
+            if (!value.is_object()) continue;
+            PendingSurvivalSubmission submission;
+            submission.idempotencyKey = value.value("idempotencyKey", std::string{});
+            submission.runId = value.value("runId", std::string{});
+            submission.payload = value.value("payload", std::string{});
+            submission.retryCount = std::clamp(value.value("retryCount", 0), 0, 20);
+            submission.nextAttemptUnixMs = value.value("nextAttemptUnixMs", static_cast<std::int64_t>(0));
+            if (!submission.runId.empty() && !submission.idempotencyKey.empty())
+                pendingSurvivalSubmissions.push_back(std::move(submission));
+        }
+        if (pendingSurvivalSubmissions.size() > 50) pendingSurvivalSubmissions.resize(50);
+        claimedSurvivalRunIds = survival.value("claimedRewardRunIds", std::vector<std::string>{});
+        if (claimedSurvivalRunIds.size() > 100) claimedSurvivalRunIds.resize(100);
+        survivalServicePlayerId = survival.value("servicePlayerId", std::string{});
+        const auto& accessibility = survival.value("accessibility", json::object());
+        survivalHighContrast = accessibility.value("highContrast", false);
+        survivalReducedMotion = accessibility.value("reducedMotion", false);
+        survivalUiScale = std::clamp(accessibility.value("uiScale", 1.0f), 0.85f, 1.20f);
+    }
+
     return true;
 }
 
@@ -241,6 +308,30 @@ void SaveManager::Save(const std::string& path) {
     for (const auto& [level, cells] : exploredMinimapCells)
         root["minimapExploration"][std::to_string(level)] =
             std::vector<int>(cells.begin(), cells.end());
+
+    root["survival3d"] = {
+        {"schemaVersion", 1},
+        {"runs", json::array()},
+        {"pendingSubmissions", json::array()},
+        {"claimedRewardRunIds", claimedSurvivalRunIds},
+        {"servicePlayerId", survivalServicePlayerId},
+        {"accessibility", {
+            {"highContrast", survivalHighContrast},
+            {"reducedMotion", survivalReducedMotion},
+            {"uiScale", survivalUiScale}
+        }}
+    };
+    for (const SurvivalRunRecord& run : survivalRuns)
+        root["survival3d"]["runs"].push_back(WriteSurvivalRun(run));
+    for (const PendingSurvivalSubmission& submission : pendingSurvivalSubmissions) {
+        root["survival3d"]["pendingSubmissions"].push_back({
+            {"idempotencyKey", submission.idempotencyKey},
+            {"runId", submission.runId},
+            {"payload", submission.payload},
+            {"retryCount", submission.retryCount},
+            {"nextAttemptUnixMs", submission.nextAttemptUnixMs}
+        });
+    }
 
     std::string jsonStr = root.dump(2) + "\n";
     const std::string tempPath = path + ".tmp";
@@ -435,3 +526,97 @@ void SaveManager::SetSFXVolume(int percent) {
 
 bool SaveManager::IsFullscreenEnabled() const { return fullscreenEnabled; }
 void SaveManager::SetFullscreenEnabled(bool enabled) { fullscreenEnabled = enabled; }
+
+bool SaveManager::RecordSurvivalRun(const SurvivalRunRecord& source) {
+    if (source.runId.empty()) return false;
+    const auto duplicate = std::find_if(survivalRuns.begin(), survivalRuns.end(),
+        [&](const SurvivalRunRecord& run) { return run.runId == source.runId; });
+    if (duplicate != survivalRuns.end()) return false;
+    SurvivalRunRecord run = source;
+    run.highestWave = std::clamp(run.highestWave, 1, 50);
+    run.score = std::max(0, run.score);
+    run.survivalMs = std::max(0, run.survivalMs);
+    run.kills = std::max(0, run.kills);
+    if (run.playerName.empty()) run.playerName = playerName.empty() ? "Player" : playerName;
+    if (run.completedAt <= 0) run.completedAt = static_cast<std::int64_t>(std::time(nullptr));
+    survivalRuns.insert(survivalRuns.begin(), std::move(run));
+    if (survivalRuns.size() > 20) survivalRuns.resize(20);
+    return true;
+}
+
+const std::vector<SurvivalRunRecord>& SaveManager::GetSurvivalRuns() const {
+    return survivalRuns;
+}
+
+int SaveManager::GetSurvivalHighestWave(const std::string& characterId) const {
+    int best = 0;
+    for (const auto& run : survivalRuns)
+        if (run.characterId == characterId) best = std::max(best, run.highestWave);
+    return best;
+}
+
+int SaveManager::GetSurvivalBestScore(const std::string& characterId) const {
+    int best = 0;
+    for (const auto& run : survivalRuns)
+        if (run.characterId == characterId) best = std::max(best, run.score);
+    return best;
+}
+
+bool SaveManager::HasClaimedSurvivalReward(const std::string& runId) const {
+    return std::find(claimedSurvivalRunIds.begin(), claimedSurvivalRunIds.end(), runId)
+        != claimedSurvivalRunIds.end();
+}
+
+void SaveManager::MarkSurvivalRewardClaimed(const std::string& runId) {
+    if (runId.empty() || HasClaimedSurvivalReward(runId)) return;
+    claimedSurvivalRunIds.insert(claimedSurvivalRunIds.begin(), runId);
+    if (claimedSurvivalRunIds.size() > 100) claimedSurvivalRunIds.resize(100);
+}
+
+void SaveManager::EnqueueSurvivalSubmission(const PendingSurvivalSubmission& submission) {
+    if (submission.runId.empty() || submission.idempotencyKey.empty()) return;
+    const auto duplicate = std::find_if(pendingSurvivalSubmissions.begin(), pendingSurvivalSubmissions.end(),
+        [&](const PendingSurvivalSubmission& pending) {
+            return pending.idempotencyKey == submission.idempotencyKey;
+        });
+    if (duplicate != pendingSurvivalSubmissions.end()) return;
+    pendingSurvivalSubmissions.push_back(submission);
+    if (pendingSurvivalSubmissions.size() > 50)
+        pendingSurvivalSubmissions.erase(pendingSurvivalSubmissions.begin());
+}
+
+std::vector<PendingSurvivalSubmission>& SaveManager::GetPendingSurvivalSubmissions() {
+    return pendingSurvivalSubmissions;
+}
+
+const std::vector<PendingSurvivalSubmission>& SaveManager::GetPendingSurvivalSubmissions() const {
+    return pendingSurvivalSubmissions;
+}
+
+const std::string& SaveManager::GetSurvivalServicePlayerId() const {
+    return survivalServicePlayerId;
+}
+
+void SaveManager::SetSurvivalServicePlayerId(const std::string& playerId) {
+    survivalServicePlayerId = playerId.substr(0, 64);
+}
+
+bool SaveManager::GetSurvivalHighContrast() const { return survivalHighContrast; }
+void SaveManager::SetSurvivalHighContrast(bool enabled) { survivalHighContrast = enabled; }
+bool SaveManager::GetSurvivalReducedMotion() const { return survivalReducedMotion; }
+void SaveManager::SetSurvivalReducedMotion(bool enabled) { survivalReducedMotion = enabled; }
+float SaveManager::GetSurvivalUiScale() const { return survivalUiScale; }
+void SaveManager::SetSurvivalUiScale(float scale) {
+    survivalUiScale = std::clamp(scale, 0.85f, 1.20f);
+}
+
+void SaveManager::SetSurvivalRunValidationStatus(const std::string& runId,
+                                                 const std::string& status,
+                                                 bool ranked) {
+    for (SurvivalRunRecord& run : survivalRuns) {
+        if (run.runId != runId) continue;
+        run.validationStatus = status;
+        run.ranked = ranked;
+        return;
+    }
+}

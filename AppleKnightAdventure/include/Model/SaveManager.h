@@ -36,6 +36,32 @@ struct LifetimeStats {
     std::vector<int> completedLevels;
 };
 
+struct SurvivalRunRecord {
+    std::string runId;
+    std::string playerName = "Player";
+    std::string characterId = "knight";
+    std::string configVersion;
+    int highestWave = 1;
+    int score = 0;
+    int survivalMs = 0;
+    int kills = 0;
+    int bossesKilled = 0;
+    int damageTaken = 0;
+    int coinReward = 0;
+    std::int64_t completedAt = 0;
+    bool victory = false;
+    bool ranked = false;
+    std::string validationStatus = "local_validated";
+};
+
+struct PendingSurvivalSubmission {
+    std::string idempotencyKey;
+    std::string runId;
+    std::string payload;
+    int retryCount = 0;
+    std::int64_t nextAttemptUnixMs = 0;
+};
+
 class SaveManager {
 public:
     static SaveManager& GetInstance();
@@ -93,6 +119,26 @@ public:
     bool IsFullscreenEnabled() const;
     void SetFullscreenEnabled(bool enabled);
 
+    bool RecordSurvivalRun(const SurvivalRunRecord& run);
+    const std::vector<SurvivalRunRecord>& GetSurvivalRuns() const;
+    int GetSurvivalHighestWave(const std::string& characterId) const;
+    int GetSurvivalBestScore(const std::string& characterId) const;
+    bool HasClaimedSurvivalReward(const std::string& runId) const;
+    void MarkSurvivalRewardClaimed(const std::string& runId);
+    void EnqueueSurvivalSubmission(const PendingSurvivalSubmission& submission);
+    std::vector<PendingSurvivalSubmission>& GetPendingSurvivalSubmissions();
+    const std::vector<PendingSurvivalSubmission>& GetPendingSurvivalSubmissions() const;
+    const std::string& GetSurvivalServicePlayerId() const;
+    void SetSurvivalServicePlayerId(const std::string& playerId);
+    bool GetSurvivalHighContrast() const;
+    void SetSurvivalHighContrast(bool enabled);
+    bool GetSurvivalReducedMotion() const;
+    void SetSurvivalReducedMotion(bool enabled);
+    float GetSurvivalUiScale() const;
+    void SetSurvivalUiScale(float scale);
+    void SetSurvivalRunValidationStatus(const std::string& runId, const std::string& status,
+                                        bool ranked);
+
 private:
     SaveManager();
     ~SaveManager() = default;
@@ -115,6 +161,13 @@ private:
     int musicVolume = 70;
     int sfxVolume = 80;
     bool fullscreenEnabled = false;
+    std::vector<SurvivalRunRecord> survivalRuns;
+    std::vector<PendingSurvivalSubmission> pendingSurvivalSubmissions;
+    std::vector<std::string> claimedSurvivalRunIds;
+    std::string survivalServicePlayerId;
+    bool survivalHighContrast = false;
+    bool survivalReducedMotion = false;
+    float survivalUiScale = 1.0f;
 };
 
 #endif // SAVEMANAGER_H

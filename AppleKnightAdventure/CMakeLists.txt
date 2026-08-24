@@ -43,6 +43,7 @@ target_link_libraries(AppleKnightAdventure PRIVATE
     winmm
     ws2_32
     comdlg32
+    winhttp
 )
 
 # Fix for MinGW 14.2.0 / UCRT stat64i32 linking error with older raylib binary
@@ -68,3 +69,75 @@ add_custom_command(
 )
 add_custom_target(SyncAssets ALL DEPENDS "${ASSET_SYNC_STAMP}")
 add_dependencies(AppleKnightAdventure SyncAssets)
+
+# 10. Pure C++17 local service for the Survival3D M6 REST contract.
+if(WIN32)
+    add_executable(AegisRiftServer
+        backend/survival3d/main.cpp
+        backend/survival3d/SurvivalServerCore.cpp
+    )
+    target_include_directories(AegisRiftServer PRIVATE backend/survival3d)
+    target_link_libraries(AegisRiftServer PRIVATE
+        nlohmann_json::nlohmann_json
+        ws2_32
+    )
+
+    add_executable(AegisRiftServerTests
+        backend/survival3d/tests/SurvivalServerTests.cpp
+        backend/survival3d/SurvivalServerCore.cpp
+    )
+    target_include_directories(AegisRiftServerTests PRIVATE backend/survival3d)
+    target_link_libraries(AegisRiftServerTests PRIVATE nlohmann_json::nlohmann_json)
+
+    enable_testing()
+    add_test(NAME AegisRiftServerTests COMMAND AegisRiftServerTests)
+
+    add_executable(Survival3DConfigTests tests/Survival3DConfigTests.cpp)
+    target_link_libraries(Survival3DConfigTests PRIVATE nlohmann_json::nlohmann_json)
+    add_test(NAME Survival3DConfigTests
+        COMMAND Survival3DConfigTests "${CMAKE_CURRENT_SOURCE_DIR}/../assets/survival3d")
+
+    add_executable(AnimationGraphTests
+        tests/AnimationGraphTests.cpp
+        src/Survival3D/Animation/AnimationGraph.cpp
+    )
+    target_include_directories(AnimationGraphTests PRIVATE include)
+    add_test(NAME AnimationGraphTests COMMAND AnimationGraphTests)
+
+    add_executable(AnimationEventsIKTests
+        tests/AnimationEventsIKTests.cpp
+        src/Survival3D/Animation/AnimationEvents.cpp
+        src/Survival3D/Systems/RuntimeIK.cpp
+    )
+    target_include_directories(AnimationEventsIKTests PRIVATE include)
+    add_test(NAME AnimationEventsIKTests COMMAND AnimationEventsIKTests)
+
+    add_executable(Step10ProductionTests
+        tests/Step10ProductionTests.cpp
+        src/Survival3D/Animation/AnimationGraph.cpp
+        src/Survival3D/Animation/AnimationEvents.cpp
+        src/Survival3D/Systems/RuntimeIK.cpp
+    )
+    target_include_directories(Step10ProductionTests PRIVATE include)
+    add_test(NAME Step10ProductionTests
+        COMMAND Step10ProductionTests "${CMAKE_CURRENT_SOURCE_DIR}/..")
+
+    add_executable(VfxRuntimeTests
+        tests/VfxRuntimeTests.cpp
+        src/Survival3D/Vfx/VfxRuntime.cpp
+        src/Survival3D/Vfx/SkillVfxPackages.cpp
+    )
+    target_include_directories(VfxRuntimeTests PRIVATE include)
+    add_test(NAME VfxRuntimeTests COMMAND VfxRuntimeTests)
+
+    foreach(SURVIVAL_TEST_TARGET
+            AnimationGraphTests AnimationEventsIKTests Step10ProductionTests
+            VfxRuntimeTests)
+        if(MSVC)
+            target_compile_options(${SURVIVAL_TEST_TARGET} PRIVATE /W4)
+        else()
+            target_compile_options(${SURVIVAL_TEST_TARGET} PRIVATE
+                -Wall -Wextra -Wpedantic -Werror)
+        endif()
+    endforeach()
+endif()

@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "milestone": "Step 7 - Named Animation Clips and Non-VFX 3D Skill Assets",
+  "status": "asset_scope_complete",
+  "runtimeLanguage": "C++17",
+  "offlineAuthoring": "Blender 4.5.11 LTS",
+  "survivalRuntimePythonFilesAdded": 0,
+  "pipelineScript": "tools/build_step7_animation_skill_assets.py",
+  "conceptAppearancePreserved": true,
+  "legacyRuntimeModelsOverwritten": false,
+  "actorCount": 10,
+  "skillModelCount": 10,
+  "allTenActorsExposeNamedActions": true,
+  "exactRuntimeActionContractValidated": true,
+  "bothHeroesHaveExpandedLocomotionAndThreeHitBasicVariants": true,
+  "everyHeroCombatSlotHasCharacterActionAnd3DModel": true,
+  "allSkillAssetsAreReal3DGeometry": true,
+  "qaRenderCount": 10,
+  "structuralValidation": "pass",
+  "runtimeIntegration": "pending C++ opt-in; this report covers the requested asset side only",
+  "manifests": [
+    "config/animation_clips_step7.json",
+    "config/skill_asset_manifest.json",
+    "production_v3/step7/step7_asset_manifest.json"
+  ],
+  "models": [
+    {
+      "id": "knight_violet_edge",
+      "path": "models/skills/knight_violet_edge.glb",
+      "sha256": "A715C9DD7E20E2DB5A4BA91FE98BC95302A34FABF0216B90BC71F0C8ED298400"
+    },
+    {
+      "id": "knight_aegis_counter",
+      "path": "models/skills/knight_aegis_counter.glb",
+      "sha256": "2681E8B2E7A1DFAC04DCCC6E3E9B246A20F352FFC9F4F005FA9D6AAE40617778"
+    },
+    {
+      "id": "knight_shield_rush",
+      "path": "models/skills/knight_shield_rush.glb",
+      "sha256": "A398BD51CC446A450D737763099A97FF1DDDA64B5AF95126C27CD73C856777A4"
+    },
+    {
+      "id": "knight_bastion_breaker",
+      "path": "models/skills/knight_bastion_breaker.glb",
+      "sha256": "CE230F089ED8611C647789A1D69BDC33AAD3728D4019903CCBA6A446DFB95F20"
+    },
+    {
+      "id": "knight_steel_step",
+      "path": "models/skills/knight_steel_step.glb",
+      "sha256": "56DF9C97FBEB18B46AAAAF1FFED7278CD9E7B3D78075582C8A2744F8B9113728"
+    },
+    {
+      "id": "mage_arc_bolt",
+      "path": "models/skills/mage_arc_bolt.glb",
+      "sha256": "45E3CBCFBE56EC053CA4225CCCBBFB7D359C47B9103B3A8B507267345D7FF8D9"
+    },
+    {
+      "id": "mage_frost_ring",
+      "path": "models/skills/mage_frost_ring.glb",
+      "sha256": "E20DCF3830E824CE722D256C6032F8755934EB2B23E8892FE897B0969B25D0D2"
+    },
+    {
+      "id": "mage_gravity_well",
+      "path": "models/skills/mage_gravity_well.glb",
+      "sha256": "996CF5DC508139BF82761EA167CBE0748A6BE153297B99C3E4B94725FA03860A"
+    },
+    {
+      "id": "mage_astral_tempest",
+      "path": "models/skills/mage_astral_tempest.glb",
+      "sha256": "AD0A8ADE5F93678875C3C1C636693229B29D59689301E98360DC2CF1F6A7996E"
+    },
+    {
+      "id": "mage_phase_blink",
+      "path": "models/skills/mage_phase_blink.glb",
+      "sha256": "A76B228FCCC74B6B622234B0D35E6380CEA1E45A8535B66C480EE61826BB0B23"
+    }
+  ]
+}

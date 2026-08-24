@@ -1,0 +1,26 @@
+{
+  "mesh_object_count": 62,
+  "blade_instance_count": 6,
+  "vertices_evaluated_per_instance": 2712,
+  "triangles_evaluated_per_instance": 5184,
+  "non_manifold_edges": 0,
+  "non_watertight_objects": [],
+  "asset": "knight_bastion_breaker_v2",
+  "triangle_budget": 5200,
+  "within_triangle_budget": true,
+  "coordinate_contract": "+Z up, -Y forward, meters",
+  "runtime_blade_instances": 6,
+  "triposr_raw_extents": [
+    0.3775256276130676,
+    0.9909248352050781,
+    0.4518352150917053
+  ],
+  "triposr_raw_exported": false,
+  "five_layer_scope": {
+    "character_animation": "external ultimate / KnightUltimate",
+    "weapon_projectile": "this GLB: bastion_crystal_matrix",
+    "vfx": "external bastion_charge_runes and bastion_ground_impact",
+    "gameplay_timing": "external KnightBladeStorm frames 60-74; impact frame 64",
+    "sound_camera": "external sfx.skill.knight.bastion_breaker.* and bastion_breaker_shake"
+  }
+}

@@ -1,0 +1,534 @@
+{
+  "schemaVersion": 1,
+  "pipeline": "aegis_rift_step7_named_actions_and_skill_meshes_v1",
+  "format": "glb",
+  "sampleRate": 60,
+  "legacyRuntimeMasterTimelinePreserved": true,
+  "namedActionRuntimeCandidates": [
+    {
+      "id": "knight",
+      "category": "heroes",
+      "skeletonContract": "hero_humanoid",
+      "sourceMaster": "source/blender/heroes/knight_rigged.blend",
+      "editableBlend": "source/blender/step7/actors/knight_named_actions.blend",
+      "model": "models/step7/actors/knight_named_actions.glb",
+      "constraintBakeApplied": false,
+      "namedActions": [
+        "idle",
+        "walk_forward",
+        "walk_backward",
+        "run_forward",
+        "run_backward",
+        "strafe_left",
+        "strafe_right",
+        "basic_01",
+        "basic_02",
+        "basic_03",
+        "skill_one",
+        "skill_two",
+        "ultimate",
+        "dash",
+        "hurt",
+        "death"
+      ],
+      "actionCount": 16,
+      "locomotionExpanded": true,
+      "comboExpanded": true,
+      "glbAudit": {
+        "animationNames": [
+          "basic_01",
+          "basic_02",
+          "basic_03",
+          "dash",
+          "death",
+          "hurt",
+          "idle",
+          "run_backward",
+          "run_forward",
+          "skill_one",
+          "skill_two",
+          "strafe_left",
+          "strafe_right",
+          "ultimate",
+          "walk_backward",
+          "walk_forward"
+        ],
+        "animationCount": 16,
+        "meshCount": 1,
+        "skinCount": 1,
+        "sha256": "159450859264C1EB440BCC8C5E9DD7F2AE7C55F6CCB458260A5EEA231828E1A8"
+      },
+      "blendSha256": "F6A2874F09C67ADAB7CFA5468107A9568E6B68D022EAC785AE22ED18F05E8E27"
+    },
+    {
+      "id": "magic_caster",
+      "category": "heroes",
+      "skeletonContract": "hero_humanoid",
+      "sourceMaster": "source/blender/heroes/magic_caster_rigged.blend",
+      "editableBlend": "source/blender/step7/actors/magic_caster_named_actions.blend",
+      "model": "models/step7/actors/magic_caster_named_actions.glb",
+      "constraintBakeApplied": false,
+      "namedActions": [
+        "idle",
+        "walk_forward",
+        "walk_backward",
+        "run_forward",
+        "run_backward",
+        "strafe_left",
+        "strafe_right",
+        "basic_01",
+        "basic_02",
+        "basic_03",
+        "skill_one",
+        "skill_two",
+        "ultimate",
+        "dash",
+        "hurt",
+        "death"
+      ],
+      "actionCount": 16,
+      "locomotionExpanded": true,
+      "comboExpanded": true,
+      "glbAudit": {
+        "animationNames": [
+          "basic_01",
+          "basic_02",
+          "basic_03",
+          "dash",
+          "death",
+          "hurt",
+          "idle",
+          "run_backward",
+          "run_forward",
+          "skill_one",
+          "skill_two",
+          "strafe_left",
+          "strafe_right",
+          "ultimate",
+          "walk_backward",
+          "walk_forward"
+        ],
+        "animationCount": 16,
+        "meshCount": 1,
+        "skinCount": 1,
+        "sha256": "B87DF00E169BE7A8219D5720C716B99DF099162842431DA2B0E77A73F818D14C"
+      },
+      "blendSha256": "1947C3F72FD87BE0DD46F4E07E073D3C58488A02888AA7293C4281AF660E0706"
+    },
+    {
+      "id": "riftling",
+      "category": "enemies",
+      "skeletonContract": "quadruped",
+      "sourceMaster": "source/blender/enemies/riftling_rigged.blend",
+      "editableBlend": "source/blender/step7/actors/riftling_named_actions.blend",
+      "model": "models/step7/actors/riftling_named_actions.glb",
+      "constraintBakeApplied": false,
+      "namedActions": [
+        "idle",
+        "run_forward",
+        "basic_01",
+        "skill_one",
+        "skill_two",
+        "ultimate",
+        "special",
+        "hurt",
+        "death"
+      ],
+      "actionCount": 9,
+      "locomotionExpanded": false,
+      "comboExpanded": false,
+      "glbAudit": {
+        "animationNames": [
+          "basic_01",
+          "death",
+          "hurt",
+          "idle",
+          "run_forward",
+          "skill_one",
+          "skill_two",
+          "special",
+          "ultimate"
+        ],
+        "animationCount": 9,
+        "meshCount": 1,
+        "skinCount": 1,
+        "sha256": "E7E4FB9DD62912783E2BBA8C368C3013BCAA72B53B72575A4FE493AEDB33C391"
+      },
+      "blendSha256": "4E5B2B1A227406E0EAFA59EE7290F66AC67668EF44A2DA1F690F336E9A934103"
+    },
+    {
+      "id": "hex_archer",
+      "category": "enemies",
+      "skeletonContract": "hero_humanoid",
+      "sourceMaster": "source/blender/enemies/hex_archer_rigged.blend",
+      "editableBlend": "source/blender/step7/actors/hex_archer_named_actions.blend",
+      "model": "models/step7/actors/hex_archer_named_actions.glb",
+      "constraintBakeApplied": true,
+      "namedActions": [
+        "idle",
+        "run_forward",
+        "basic_01",
+        "skill_one",
+        "skill_two",
+        "ultimate",
+        "special",
+        "hurt",
+        "death"
+      ],
+      "actionCount": 9,
+      "locomotionExpanded": false,
+      "comboExpanded": false,
+      "glbAudit": {
+        "animationNames": [
+          "basic_01",
+          "death",
+          "hurt",
+          "idle",
+          "run_forward",
+          "skill_one",
+          "skill_two",
+          "special",
+          "ultimate"
+        ],
+        "animationCount": 9,
+        "meshCount": 1,
+        "skinCount": 1,
+        "sha256": "96ADB3ED9A06CB920652E9805BFAAA0C843391C456BA085531D2B6B2DCCE92DD"
+      },
+      "blendSha256": "6AF81256ED75EF57C09C045B3510996F34DDE22679EC1B788ACE3078D41A0894"
+    },
+    {
+      "id": "obsidian_brute",
+      "category": "enemies",
+      "skeletonContract": "humanoid",
+      "sourceMaster": "source/blender/enemies/obsidian_brute_rigged.blend",
+      "editableBlend": "source/blender/step7/actors/obsidian_brute_named_actions.blend",
+      "model": "models/step7/actors/obsidian_brute_named_actions.glb",
+      "constraintBakeApplied": false,
+      "namedActions": [
+        "idle",
+        "run_forward",
+        "basic_01",
+        "skill_one",
+        "skill_two",
+        "ultimate",
+        "special",
+        "hurt",
+        "death"
+      ],
+      "actionCount": 9,
+      "locomotionExpanded": false,
+      "comboExpanded": false,
+      "glbAudit": {
+        "animationNames": [
+          "basic_01",
+          "death",
+          "hurt",
+          "idle",
+          "run_forward",
+          "skill_one",
+          "skill_two",
+          "special",
+          "ultimate"
+        ],
+        "animationCount": 9,
+        "meshCount": 1,
+        "skinCount": 1,
+        "sha256": "F06CA18FCE12E646F1D1344A458BFEB27E6DE991B2EEB9221C0301CE9C30EAEB"
+      },
+      "blendSha256": "53922939116FA10641F552CA6071D0A6C3F04DBA35E1B215D06A7B809E4D8A5A"
+    },
+    {
+      "id": "brood_warden",
+      "category": "bosses",
+      "skeletonContract": "quadruped",
+      "sourceMaster": "source/blender/bosses/brood_warden_rigged.blend",
+      "editableBlend": "source/blender/step7/actors/brood_warden_named_actions.blend",
+      "model": "models/step7/actors/brood_warden_named_actions.glb",
+      "constraintBakeApplied": false,
+      "namedActions": [
+        "idle",
+        "run_forward",
+        "basic_01",
+        "skill_one",
+        "skill_two",
+        "ultimate",
+        "special",
+        "hurt",
+        "death"
+      ],
+      "actionCount": 9,
+      "locomotionExpanded": false,
+      "comboExpanded": false,
+      "glbAudit": {
+        "animationNames": [
+          "basic_01",
+          "death",
+          "hurt",
+          "idle",
+          "run_forward",
+          "skill_one",
+          "skill_two",
+          "special",
+          "ultimate"
+        ],
+        "animationCount": 9,
+        "meshCount": 1,
+        "skinCount": 1,
+        "sha256": "580A2025D2C91C0E29069480FE16E43BE0A43A31342014EE2C25A60A5089E527"
+      },
+      "blendSha256": "26CBF41F58B5407F7A5893298F5E2638D4171EC896E60E7AFE30A398D9F3E561"
+    },
+    {
+      "id": "hexeye_artillerist",
+      "category": "bosses",
+      "skeletonContract": "floating_artillerist",
+      "sourceMaster": "source/blender/bosses/hexeye_artillerist_rigged.blend",
+      "editableBlend": "source/blender/step7/actors/hexeye_artillerist_named_actions.blend",
+      "model": "models/step7/actors/hexeye_artillerist_named_actions.glb",
+      "constraintBakeApplied": false,
+      "namedActions": [
+        "idle",
+        "run_forward",
+        "basic_01",
+        "skill_one",
+        "skill_two",
+        "ultimate",
+        "special",
+        "hurt",
+        "death"
+      ],
+      "actionCount": 9,
+      "locomotionExpanded": false,
+      "comboExpanded": false,
+      "glbAudit": {
+        "animationNames": [
+          "basic_01",
+          "death",
+          "hurt",
+          "idle",
+          "run_forward",
+          "skill_one",
+          "skill_two",
+          "special",
+          "ultimate"
+        ],
+        "animationCount": 9,
+        "meshCount": 1,
+        "skinCount": 1,
+        "sha256": "B3FE3638464BAB30206BEF7DEDDF446B32698551246DD55929DDD4B90755DF66"
+      },
+      "blendSha256": "0F89FE479BD838F0EC2492937DBB41E01FB0FC6C4B1AC2037AC8F5AE1E37A706"
+    },
+    {
+      "id": "ironroot_colossus",
+      "category": "bosses",
+      "skeletonContract": "humanoid",
+      "sourceMaster": "source/blender/bosses/ironroot_colossus_rigged.blend",
+      "editableBlend": "source/blender/step7/actors/ironroot_colossus_named_actions.blend",
+      "model": "models/step7/actors/ironroot_colossus_named_actions.glb",
+      "constraintBakeApplied": false,
+      "namedActions": [
+        "idle",
+        "run_forward",
+        "basic_01",
+        "skill_one",
+        "skill_two",
+        "ultimate",
+        "special",
+        "hurt",
+        "death"
+      ],
+      "actionCount": 9,
+      "locomotionExpanded": false,
+      "comboExpanded": false,
+      "glbAudit": {
+        "animationNames": [
+          "basic_01",
+          "death",
+          "hurt",
+          "idle",
+          "run_forward",
+          "skill_one",
+          "skill_two",
+          "special",
+          "ultimate"
+        ],
+        "animationCount": 9,
+        "meshCount": 1,
+        "skinCount": 1,
+        "sha256": "B67903C53D1297196C2A0C3241AE859B15E5A75981DC089664B6BD2AEAF99B87"
+      },
+      "blendSha256": "B4A8F06190BCAD5E6561AA6FD380C378BAF12E776AF0F71C1A5070FD4B56F22F"
+    },
+    {
+      "id": "eclipse_chimera",
+      "category": "bosses",
+      "skeletonContract": "chimera",
+      "sourceMaster": "source/blender/bosses/eclipse_chimera_rigged.blend",
+      "editableBlend": "source/blender/step7/actors/eclipse_chimera_named_actions.blend",
+      "model": "models/step7/actors/eclipse_chimera_named_actions.glb",
+      "constraintBakeApplied": false,
+      "namedActions": [
+        "idle",
+        "run_forward",
+        "basic_01",
+        "skill_one",
+        "skill_two",
+        "ultimate",
+        "special",
+        "hurt",
+        "death"
+      ],
+      "actionCount": 9,
+      "locomotionExpanded": false,
+      "comboExpanded": false,
+      "glbAudit": {
+        "animationNames": [
+          "basic_01",
+          "death",
+          "hurt",
+          "idle",
+          "run_forward",
+          "skill_one",
+          "skill_two",
+          "special",
+          "ultimate"
+        ],
+        "animationCount": 9,
+        "meshCount": 1,
+        "skinCount": 1,
+        "sha256": "AF329359D460ABCD0C6451FD9259B3E1F66E9C787CEBE670AB2B291440171806"
+      },
+      "blendSha256": "AFF73C699B57D389DD0B7626272E9F42084B72EAD9505C3877964B0895003AFC"
+    },
+    {
+      "id": "void_sovereign",
+      "category": "bosses",
+      "skeletonContract": "humanoid",
+      "sourceMaster": "source/blender/bosses/void_sovereign_rigged.blend",
+      "editableBlend": "source/blender/step7/actors/void_sovereign_named_actions.blend",
+      "model": "models/step7/actors/void_sovereign_named_actions.glb",
+      "constraintBakeApplied": false,
+      "namedActions": [
+        "idle",
+        "run_forward",
+        "basic_01",
+        "skill_one",
+        "skill_two",
+        "ultimate",
+        "special",
+        "hurt",
+        "death"
+      ],
+      "actionCount": 9,
+      "locomotionExpanded": false,
+      "comboExpanded": false,
+      "glbAudit": {
+        "animationNames": [
+          "basic_01",
+          "death",
+          "hurt",
+          "idle",
+          "run_forward",
+          "skill_one",
+          "skill_two",
+          "special",
+          "ultimate"
+        ],
+        "animationCount": 9,
+        "meshCount": 1,
+        "skinCount": 1,
+        "sha256": "864E10E947F92E99F508A9D2C5C42EC8F987B5AA2F0F1C6F85BFBD21686186E5"
+      },
+      "blendSha256": "F5177FF6F0E88FEE3C13510643B33C974491A9E79C3426DDCE45221C0D46CA6F"
+    }
+  ],
+  "heroContracts": {
+    "knight": {
+      "requiredRuntimeActions": [
+        "idle",
+        "walk_forward",
+        "walk_backward",
+        "run_forward",
+        "strafe_left",
+        "strafe_right",
+        "basic_01",
+        "basic_02",
+        "basic_03",
+        "skill_one",
+        "skill_two",
+        "ultimate",
+        "dash",
+        "hurt",
+        "death"
+      ],
+      "directionalAliases": [
+        "run_backward"
+      ],
+      "locomotion": [
+        "idle",
+        "walk_forward",
+        "walk_backward",
+        "run_forward",
+        "run_backward",
+        "strafe_left",
+        "strafe_right"
+      ],
+      "basicCombo": [
+        "basic_01",
+        "basic_02",
+        "basic_03"
+      ]
+    },
+    "magic_caster": {
+      "requiredRuntimeActions": [
+        "idle",
+        "walk_forward",
+        "walk_backward",
+        "run_forward",
+        "strafe_left",
+        "strafe_right",
+        "basic_01",
+        "basic_02",
+        "basic_03",
+        "skill_one",
+        "skill_two",
+        "ultimate",
+        "dash",
+        "hurt",
+        "death"
+      ],
+      "directionalAliases": [
+        "run_backward"
+      ],
+      "locomotion": [
+        "idle",
+        "walk_forward",
+        "walk_backward",
+        "run_forward",
+        "run_backward",
+        "strafe_left",
+        "strafe_right"
+      ],
+      "basicCombo": [
+        "basic_01",
+        "basic_02",
+        "basic_03"
+      ]
+    }
+  },
+  "nonHeroContract": {
+    "requiredRuntimeActions": [
+      "idle",
+      "run_forward",
+      "basic_01",
+      "skill_one",
+      "skill_two",
+      "ultimate",
+      "special",
+      "hurt",
+      "death"
+    ]
+  }
+}

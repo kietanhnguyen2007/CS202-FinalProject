@@ -1,0 +1,462 @@
+{
+  "schemaVersion": 1,
+  "pipeline": "hex_archer_modular_body_bow_v1",
+  "status": "complete",
+  "sampleRate": 60,
+  "totalFrames": 655,
+  "durationSeconds": 10.9,
+  "jointContract": {
+    "id": "modular_archer_16_v1",
+    "count": 16,
+    "names": [
+      "root",
+      "hips",
+      "spine",
+      "chest",
+      "head",
+      "upper_arm.L",
+      "forearm.L",
+      "hand.L",
+      "upper_arm.R",
+      "forearm.R",
+      "hand.R",
+      "thigh.L",
+      "shin.L",
+      "thigh.R",
+      "shin.R",
+      "weapon_socket.R"
+    ],
+    "weaponSocket": "weapon_socket.R",
+    "weaponSocketParent": "hand.R",
+    "bodySocketWeights": 0
+  },
+  "weaponContract": {
+    "separateGlb": true,
+    "rigid": true,
+    "skinCount": 0,
+    "animationCount": 0,
+    "pivot": "grip_at_local_origin",
+    "runtimeGripOffset": "identity"
+  },
+  "clips": [
+    {
+      "id": "idle",
+      "start": 0,
+      "end": 94
+    },
+    {
+      "id": "run",
+      "start": 96,
+      "end": 158
+    },
+    {
+      "id": "basic",
+      "start": 160,
+      "end": 222
+    },
+    {
+      "id": "skillOne",
+      "start": 224,
+      "end": 302
+    },
+    {
+      "id": "skillTwo",
+      "start": 304,
+      "end": 382
+    },
+    {
+      "id": "ultimatePhase",
+      "start": 384,
+      "end": 478
+    },
+    {
+      "id": "dashSpecial",
+      "start": 480,
+      "end": 526
+    },
+    {
+      "id": "hurt",
+      "start": 528,
+      "end": 558
+    },
+    {
+      "id": "death",
+      "start": 560,
+      "end": 654
+    }
+  ],
+  "combatEvents": [
+    {
+      "clip": "basic",
+      "frame": 202,
+      "event": "ReleaseArrow"
+    },
+    {
+      "clip": "skillOne",
+      "frame": 260,
+      "event": "ReleaseArrowLeft"
+    },
+    {
+      "clip": "skillOne",
+      "frame": 274,
+      "event": "ReleaseArrowCenter"
+    },
+    {
+      "clip": "skillOne",
+      "frame": 286,
+      "event": "ReleaseArrowRight"
+    },
+    {
+      "clip": "skillTwo",
+      "frame": 344,
+      "event": "ReleasePiercingArrow"
+    },
+    {
+      "clip": "ultimatePhase",
+      "frame": 448,
+      "event": "ReleaseHexVolley"
+    }
+  ],
+  "body": {
+    "status": "complete",
+    "concept": "assets/survival3d/concepts/characters/modular/hex_archer/hex_archer_body_turnaround_v1.png",
+    "proceduralRebuild": true,
+    "output": "assets/survival3d/production_v3/step5_staging/models/enemies/hex_archer_animated.glb",
+    "blend": "assets/survival3d/production_v3/step5_staging/work/hex_archer_modular_rig.blend",
+    "object": "HexArcherBody",
+    "bodyOnly": true,
+    "embeddedWeaponGeometry": false,
+    "vertices": 610,
+    "triangles": 1036,
+    "boundsMeters": [
+      1.05815,
+      0.53861,
+      2.05
+    ],
+    "bodyGeometry": {
+      "componentCount": 46,
+      "majorComponentCount": 1,
+      "majorComponentVertices": [
+        42
+      ],
+      "proceduralLayeredIslandsAllowed": true,
+      "largestComponentVertices": 42,
+      "widthToHeight": 0.51617,
+      "depthToHeight": 0.26274,
+      "weaponEnvelopeRejectedAbove": {
+        "widthToHeight": 0.76,
+        "depthToHeight": 0.62
+      }
+    },
+    "joints": 16,
+    "jointNames": [
+      "root",
+      "hips",
+      "spine",
+      "chest",
+      "head",
+      "upper_arm.L",
+      "forearm.L",
+      "hand.L",
+      "upper_arm.R",
+      "forearm.R",
+      "hand.R",
+      "weapon_socket.R",
+      "thigh.L",
+      "shin.L",
+      "thigh.R",
+      "shin.R"
+    ],
+    "socket": {
+      "name": "weapon_socket.R",
+      "parent": "hand.R"
+    },
+    "weaponSocketWeights": 0,
+    "weaponPivotContract": "grip_at_local_origin",
+    "frames": [
+      0,
+      654
+    ],
+    "durationSeconds": 10.9,
+    "clips": [
+      {
+        "id": "idle",
+        "start": 0,
+        "end": 94
+      },
+      {
+        "id": "run",
+        "start": 96,
+        "end": 158
+      },
+      {
+        "id": "basic",
+        "start": 160,
+        "end": 222
+      },
+      {
+        "id": "skillOne",
+        "start": 224,
+        "end": 302
+      },
+      {
+        "id": "skillTwo",
+        "start": 304,
+        "end": 382
+      },
+      {
+        "id": "ultimatePhase",
+        "start": 384,
+        "end": 478
+      },
+      {
+        "id": "dashSpecial",
+        "start": 480,
+        "end": 526
+      },
+      {
+        "id": "hurt",
+        "start": 528,
+        "end": 558
+      },
+      {
+        "id": "death",
+        "start": 560,
+        "end": 654
+      }
+    ],
+    "combatEvents": [
+      {
+        "clip": "basic",
+        "frame": 202,
+        "event": "ReleaseArrow"
+      },
+      {
+        "clip": "skillOne",
+        "frame": 260,
+        "event": "ReleaseArrowLeft"
+      },
+      {
+        "clip": "skillOne",
+        "frame": 274,
+        "event": "ReleaseArrowCenter"
+      },
+      {
+        "clip": "skillOne",
+        "frame": 286,
+        "event": "ReleaseArrowRight"
+      },
+      {
+        "clip": "skillTwo",
+        "frame": 344,
+        "event": "ReleasePiercingArrow"
+      },
+      {
+        "clip": "ultimatePhase",
+        "frame": 448,
+        "event": "ReleaseHexVolley"
+      }
+    ],
+    "weights": {
+      "unweightedVertices": 0,
+      "forbiddenSocketWeightedVertices": 0,
+      "maximumInfluences": 2,
+      "minimumWeightSum": 1.0
+    },
+    "skinning": {
+      "method": "procedural_component_semantic_weights",
+      "boneHeatUsed": false,
+      "componentSeamsIntentional": true
+    },
+    "grounding": {
+      "minimumBefore": -0.04537,
+      "maximumLift": 0.04737
+    },
+    "deformation": {
+      "sampledFrameCount": 178,
+      "minimumZ": 0.002,
+      "maximumBelowGroundVertices": 0,
+      "maximumEdgeStretch": 1.00001,
+      "maximumEdgeStretchFrame": 208,
+      "maximumEdgeVertices": [
+        481,
+        482
+      ],
+      "maximumDeformedEdgeMeters": 0.026,
+      "edgeStretchLimit": 40.0
+    },
+    "bowQa": {
+      "status": "complete",
+      "input": "assets/survival3d/production_v3/step5_staging/models/enemies/hex_archer_bow.glb",
+      "object": "TEMP_QA_EquippedWeapon",
+      "vertices": 720,
+      "boundsMeters": [
+        0.32973,
+        0.08392,
+        1.32
+      ],
+      "pivot": "grip_at_local_origin"
+    },
+    "qa": [
+      {
+        "frame": 0,
+        "path": "assets/survival3d/production_v3/step5_staging/qa/animation/hex_archer_equipped_rest.png",
+        "minimumZ": -0.04631,
+        "belowGroundVertices": 0,
+        "view": "front",
+        "equippedWeapon": true
+      },
+      {
+        "frame": 104,
+        "path": "assets/survival3d/production_v3/step5_staging/qa/animation/hex_archer_equipped_run.png",
+        "minimumZ": 0.002,
+        "belowGroundVertices": 0,
+        "view": "threeQuarter",
+        "equippedWeapon": true
+      },
+      {
+        "frame": 184,
+        "path": "assets/survival3d/production_v3/step5_staging/qa/animation/hex_archer_basic_draw.png",
+        "minimumZ": 0.002,
+        "belowGroundVertices": 0,
+        "view": "threeQuarter",
+        "equippedWeapon": true
+      },
+      {
+        "frame": 202,
+        "path": "assets/survival3d/production_v3/step5_staging/qa/animation/hex_archer_basic_release.png",
+        "minimumZ": 0.002,
+        "belowGroundVertices": 0,
+        "view": "threeQuarter",
+        "equippedWeapon": true
+      },
+      {
+        "frame": 260,
+        "path": "assets/survival3d/production_v3/step5_staging/qa/animation/hex_archer_skill_one_draw.png",
+        "minimumZ": 0.002,
+        "belowGroundVertices": 0,
+        "view": "threeQuarter",
+        "equippedWeapon": true
+      },
+      {
+        "frame": 274,
+        "path": "assets/survival3d/production_v3/step5_staging/qa/animation/hex_archer_skill_one_release.png",
+        "minimumZ": 0.002,
+        "belowGroundVertices": 0,
+        "view": "threeQuarter",
+        "equippedWeapon": true
+      },
+      {
+        "frame": 344,
+        "path": "assets/survival3d/production_v3/step5_staging/qa/animation/hex_archer_skill_two_release.png",
+        "minimumZ": 0.002,
+        "belowGroundVertices": 0,
+        "view": "threeQuarter",
+        "equippedWeapon": true
+      },
+      {
+        "frame": 432,
+        "path": "assets/survival3d/production_v3/step5_staging/qa/animation/hex_archer_ultimate_draw.png",
+        "minimumZ": 0.002,
+        "belowGroundVertices": 0,
+        "view": "threeQuarter",
+        "equippedWeapon": true
+      },
+      {
+        "frame": 448,
+        "path": "assets/survival3d/production_v3/step5_staging/qa/animation/hex_archer_ultimate_release.png",
+        "minimumZ": 0.002,
+        "belowGroundVertices": 0,
+        "view": "threeQuarter",
+        "equippedWeapon": true
+      },
+      {
+        "frame": 505,
+        "path": "assets/survival3d/production_v3/step5_staging/qa/animation/hex_archer_dash.png",
+        "minimumZ": 0.002,
+        "belowGroundVertices": 0,
+        "view": "threeQuarter",
+        "equippedWeapon": true
+      },
+      {
+        "frame": 540,
+        "path": "assets/survival3d/production_v3/step5_staging/qa/animation/hex_archer_hurt.png",
+        "minimumZ": 0.002,
+        "belowGroundVertices": 0,
+        "view": "threeQuarter",
+        "equippedWeapon": true
+      },
+      {
+        "frame": 638,
+        "path": "assets/survival3d/production_v3/step5_staging/qa/animation/hex_archer_death.png",
+        "minimumZ": -0.00082,
+        "belowGroundVertices": 0,
+        "view": "threeQuarter",
+        "equippedWeapon": true
+      },
+      {
+        "frame": 184,
+        "path": "assets/survival3d/production_v3/step5_staging/qa/animation/hex_archer_basic_draw_rear.png",
+        "minimumZ": 0.002,
+        "belowGroundVertices": 0,
+        "view": "rear",
+        "equippedWeapon": true
+      }
+    ],
+    "glbAudit": {
+      "skinJointCount": 16,
+      "skinJoints": [
+        "root",
+        "hips",
+        "spine",
+        "chest",
+        "head",
+        "upper_arm.L",
+        "forearm.L",
+        "hand.L",
+        "upper_arm.R",
+        "forearm.R",
+        "hand.R",
+        "weapon_socket.R",
+        "thigh.L",
+        "shin.L",
+        "thigh.R",
+        "shin.R"
+      ],
+      "socketBindRotationDegrees": 0.0,
+      "animationCount": 1,
+      "meshNodes": [
+        "HexArcherBody"
+      ],
+      "sampleCounts": [
+        2,
+        655
+      ],
+      "frames": 655,
+      "durationSeconds": 10.9
+    }
+  },
+  "bow": {
+    "status": "complete",
+    "concept": "assets/survival3d/concepts/characters/modular/hex_archer/hex_archer_bow_turnaround_v1.png",
+    "proceduralRebuild": true,
+    "output": "assets/survival3d/production_v3/step5_staging/models/enemies/hex_archer_bow.glb",
+    "object": "HexArcherBow",
+    "vertices": 200,
+    "triangles": 332,
+    "boundsMeters": [
+      0.32973,
+      0.08392,
+      1.32
+    ],
+    "pivot": "grip_at_local_origin",
+    "runtimeGripOffset": "identity",
+    "glbAudit": {
+      "meshNodeCount": 1,
+      "primitiveCount": 5,
+      "skinCount": 0,
+      "animationCount": 0,
+      "rigid": true
+    }
+  }
+}

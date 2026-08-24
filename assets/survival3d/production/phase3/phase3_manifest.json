@@ -1,0 +1,1210 @@
+{
+  "schemaVersion": 1,
+  "milestone": "Phase 3",
+  "status": "complete",
+  "rootBone": "root",
+  "skinned": false,
+  "animated": false,
+  "actors": [
+    {
+      "id": "knight",
+      "category": "heroes",
+      "archetype": "humanoid",
+      "blend": "production/phase3/heroes/knight/knight_phase3.blend",
+      "boneCount": 23,
+      "rootBones": [
+        "root"
+      ],
+      "bones": [
+        {
+          "name": "root",
+          "parent": null,
+          "deform": true
+        },
+        {
+          "name": "hips",
+          "parent": "root",
+          "deform": true
+        },
+        {
+          "name": "spine",
+          "parent": "hips",
+          "deform": true
+        },
+        {
+          "name": "chest",
+          "parent": "spine",
+          "deform": true
+        },
+        {
+          "name": "neck",
+          "parent": "chest",
+          "deform": true
+        },
+        {
+          "name": "head",
+          "parent": "neck",
+          "deform": true
+        },
+        {
+          "name": "clavicle.L",
+          "parent": "chest",
+          "deform": true
+        },
+        {
+          "name": "upper_arm.L",
+          "parent": "clavicle.L",
+          "deform": true
+        },
+        {
+          "name": "forearm.L",
+          "parent": "upper_arm.L",
+          "deform": true
+        },
+        {
+          "name": "hand.L",
+          "parent": "forearm.L",
+          "deform": true
+        },
+        {
+          "name": "clavicle.R",
+          "parent": "chest",
+          "deform": true
+        },
+        {
+          "name": "upper_arm.R",
+          "parent": "clavicle.R",
+          "deform": true
+        },
+        {
+          "name": "forearm.R",
+          "parent": "upper_arm.R",
+          "deform": true
+        },
+        {
+          "name": "hand.R",
+          "parent": "forearm.R",
+          "deform": true
+        },
+        {
+          "name": "weapon.R",
+          "parent": "hand.R",
+          "deform": true
+        },
+        {
+          "name": "thigh.L",
+          "parent": "hips",
+          "deform": true
+        },
+        {
+          "name": "shin.L",
+          "parent": "thigh.L",
+          "deform": true
+        },
+        {
+          "name": "foot.L",
+          "parent": "shin.L",
+          "deform": true
+        },
+        {
+          "name": "toe.L",
+          "parent": "foot.L",
+          "deform": true
+        },
+        {
+          "name": "thigh.R",
+          "parent": "hips",
+          "deform": true
+        },
+        {
+          "name": "shin.R",
+          "parent": "thigh.R",
+          "deform": true
+        },
+        {
+          "name": "foot.R",
+          "parent": "shin.R",
+          "deform": true
+        },
+        {
+          "name": "toe.R",
+          "parent": "foot.R",
+          "deform": true
+        }
+      ],
+      "skinned": false,
+      "animated": false
+    },
+    {
+      "id": "magic_caster",
+      "category": "heroes",
+      "archetype": "humanoid",
+      "blend": "production/phase3/heroes/magic_caster/magic_caster_phase3.blend",
+      "boneCount": 23,
+      "rootBones": [
+        "root"
+      ],
+      "bones": [
+        {
+          "name": "root",
+          "parent": null,
+          "deform": true
+        },
+        {
+          "name": "hips",
+          "parent": "root",
+          "deform": true
+        },
+        {
+          "name": "spine",
+          "parent": "hips",
+          "deform": true
+        },
+        {
+          "name": "chest",
+          "parent": "spine",
+          "deform": true
+        },
+        {
+          "name": "neck",
+          "parent": "chest",
+          "deform": true
+        },
+        {
+          "name": "head",
+          "parent": "neck",
+          "deform": true
+        },
+        {
+          "name": "clavicle.L",
+          "parent": "chest",
+          "deform": true
+        },
+        {
+          "name": "upper_arm.L",
+          "parent": "clavicle.L",
+          "deform": true
+        },
+        {
+          "name": "forearm.L",
+          "parent": "upper_arm.L",
+          "deform": true
+        },
+        {
+          "name": "hand.L",
+          "parent": "forearm.L",
+          "deform": true
+        },
+        {
+          "name": "clavicle.R",
+          "parent": "chest",
+          "deform": true
+        },
+        {
+          "name": "upper_arm.R",
+          "parent": "clavicle.R",
+          "deform": true
+        },
+        {
+          "name": "forearm.R",
+          "parent": "upper_arm.R",
+          "deform": true
+        },
+        {
+          "name": "hand.R",
+          "parent": "forearm.R",
+          "deform": true
+        },
+        {
+          "name": "weapon.R",
+          "parent": "hand.R",
+          "deform": true
+        },
+        {
+          "name": "thigh.L",
+          "parent": "hips",
+          "deform": true
+        },
+        {
+          "name": "shin.L",
+          "parent": "thigh.L",
+          "deform": true
+        },
+        {
+          "name": "foot.L",
+          "parent": "shin.L",
+          "deform": true
+        },
+        {
+          "name": "toe.L",
+          "parent": "foot.L",
+          "deform": true
+        },
+        {
+          "name": "thigh.R",
+          "parent": "hips",
+          "deform": true
+        },
+        {
+          "name": "shin.R",
+          "parent": "thigh.R",
+          "deform": true
+        },
+        {
+          "name": "foot.R",
+          "parent": "shin.R",
+          "deform": true
+        },
+        {
+          "name": "toe.R",
+          "parent": "foot.R",
+          "deform": true
+        }
+      ],
+      "skinned": false,
+      "animated": false
+    },
+    {
+      "id": "riftling",
+      "category": "enemies",
+      "archetype": "quadruped",
+      "blend": "production/phase3/enemies/riftling/riftling_phase3.blend",
+      "boneCount": 21,
+      "rootBones": [
+        "root"
+      ],
+      "bones": [
+        {
+          "name": "root",
+          "parent": null,
+          "deform": true
+        },
+        {
+          "name": "pelvis",
+          "parent": "root",
+          "deform": true
+        },
+        {
+          "name": "spine.01",
+          "parent": "pelvis",
+          "deform": true
+        },
+        {
+          "name": "spine.02",
+          "parent": "spine.01",
+          "deform": true
+        },
+        {
+          "name": "neck",
+          "parent": "spine.02",
+          "deform": true
+        },
+        {
+          "name": "head",
+          "parent": "neck",
+          "deform": true
+        },
+        {
+          "name": "jaw",
+          "parent": "head",
+          "deform": true
+        },
+        {
+          "name": "front_upper.L",
+          "parent": "spine.02",
+          "deform": true
+        },
+        {
+          "name": "front_lower.L",
+          "parent": "front_upper.L",
+          "deform": true
+        },
+        {
+          "name": "front_paw.L",
+          "parent": "front_lower.L",
+          "deform": true
+        },
+        {
+          "name": "front_upper.R",
+          "parent": "spine.02",
+          "deform": true
+        },
+        {
+          "name": "front_lower.R",
+          "parent": "front_upper.R",
+          "deform": true
+        },
+        {
+          "name": "front_paw.R",
+          "parent": "front_lower.R",
+          "deform": true
+        },
+        {
+          "name": "rear_upper.L",
+          "parent": "pelvis",
+          "deform": true
+        },
+        {
+          "name": "rear_lower.L",
+          "parent": "rear_upper.L",
+          "deform": true
+        },
+        {
+          "name": "rear_paw.L",
+          "parent": "rear_lower.L",
+          "deform": true
+        },
+        {
+          "name": "rear_upper.R",
+          "parent": "pelvis",
+          "deform": true
+        },
+        {
+          "name": "rear_lower.R",
+          "parent": "rear_upper.R",
+          "deform": true
+        },
+        {
+          "name": "rear_paw.R",
+          "parent": "rear_lower.R",
+          "deform": true
+        },
+        {
+          "name": "tail.01",
+          "parent": "pelvis",
+          "deform": true
+        },
+        {
+          "name": "tail.02",
+          "parent": "tail.01",
+          "deform": true
+        }
+      ],
+      "skinned": false,
+      "animated": false
+    },
+    {
+      "id": "hex_archer",
+      "category": "enemies",
+      "archetype": "humanoid",
+      "blend": "production/phase3/enemies/hex_archer/hex_archer_phase3.blend",
+      "boneCount": 23,
+      "rootBones": [
+        "root"
+      ],
+      "bones": [
+        {
+          "name": "root",
+          "parent": null,
+          "deform": true
+        },
+        {
+          "name": "hips",
+          "parent": "root",
+          "deform": true
+        },
+        {
+          "name": "spine",
+          "parent": "hips",
+          "deform": true
+        },
+        {
+          "name": "chest",
+          "parent": "spine",
+          "deform": true
+        },
+        {
+          "name": "neck",
+          "parent": "chest",
+          "deform": true
+        },
+        {
+          "name": "head",
+          "parent": "neck",
+          "deform": true
+        },
+        {
+          "name": "clavicle.L",
+          "parent": "chest",
+          "deform": true
+        },
+        {
+          "name": "upper_arm.L",
+          "parent": "clavicle.L",
+          "deform": true
+        },
+        {
+          "name": "forearm.L",
+          "parent": "upper_arm.L",
+          "deform": true
+        },
+        {
+          "name": "hand.L",
+          "parent": "forearm.L",
+          "deform": true
+        },
+        {
+          "name": "clavicle.R",
+          "parent": "chest",
+          "deform": true
+        },
+        {
+          "name": "upper_arm.R",
+          "parent": "clavicle.R",
+          "deform": true
+        },
+        {
+          "name": "forearm.R",
+          "parent": "upper_arm.R",
+          "deform": true
+        },
+        {
+          "name": "hand.R",
+          "parent": "forearm.R",
+          "deform": true
+        },
+        {
+          "name": "weapon.R",
+          "parent": "hand.R",
+          "deform": true
+        },
+        {
+          "name": "thigh.L",
+          "parent": "hips",
+          "deform": true
+        },
+        {
+          "name": "shin.L",
+          "parent": "thigh.L",
+          "deform": true
+        },
+        {
+          "name": "foot.L",
+          "parent": "shin.L",
+          "deform": true
+        },
+        {
+          "name": "toe.L",
+          "parent": "foot.L",
+          "deform": true
+        },
+        {
+          "name": "thigh.R",
+          "parent": "hips",
+          "deform": true
+        },
+        {
+          "name": "shin.R",
+          "parent": "thigh.R",
+          "deform": true
+        },
+        {
+          "name": "foot.R",
+          "parent": "shin.R",
+          "deform": true
+        },
+        {
+          "name": "toe.R",
+          "parent": "foot.R",
+          "deform": true
+        }
+      ],
+      "skinned": false,
+      "animated": false
+    },
+    {
+      "id": "obsidian_brute",
+      "category": "enemies",
+      "archetype": "humanoid",
+      "blend": "production/phase3/enemies/obsidian_brute/obsidian_brute_phase3.blend",
+      "boneCount": 23,
+      "rootBones": [
+        "root"
+      ],
+      "bones": [
+        {
+          "name": "root",
+          "parent": null,
+          "deform": true
+        },
+        {
+          "name": "hips",
+          "parent": "root",
+          "deform": true
+        },
+        {
+          "name": "spine",
+          "parent": "hips",
+          "deform": true
+        },
+        {
+          "name": "chest",
+          "parent": "spine",
+          "deform": true
+        },
+        {
+          "name": "neck",
+          "parent": "chest",
+          "deform": true
+        },
+        {
+          "name": "head",
+          "parent": "neck",
+          "deform": true
+        },
+        {
+          "name": "clavicle.L",
+          "parent": "chest",
+          "deform": true
+        },
+        {
+          "name": "upper_arm.L",
+          "parent": "clavicle.L",
+          "deform": true
+        },
+        {
+          "name": "forearm.L",
+          "parent": "upper_arm.L",
+          "deform": true
+        },
+        {
+          "name": "hand.L",
+          "parent": "forearm.L",
+          "deform": true
+        },
+        {
+          "name": "clavicle.R",
+          "parent": "chest",
+          "deform": true
+        },
+        {
+          "name": "upper_arm.R",
+          "parent": "clavicle.R",
+          "deform": true
+        },
+        {
+          "name": "forearm.R",
+          "parent": "upper_arm.R",
+          "deform": true
+        },
+        {
+          "name": "hand.R",
+          "parent": "forearm.R",
+          "deform": true
+        },
+        {
+          "name": "weapon.R",
+          "parent": "hand.R",
+          "deform": true
+        },
+        {
+          "name": "thigh.L",
+          "parent": "hips",
+          "deform": true
+        },
+        {
+          "name": "shin.L",
+          "parent": "thigh.L",
+          "deform": true
+        },
+        {
+          "name": "foot.L",
+          "parent": "shin.L",
+          "deform": true
+        },
+        {
+          "name": "toe.L",
+          "parent": "foot.L",
+          "deform": true
+        },
+        {
+          "name": "thigh.R",
+          "parent": "hips",
+          "deform": true
+        },
+        {
+          "name": "shin.R",
+          "parent": "thigh.R",
+          "deform": true
+        },
+        {
+          "name": "foot.R",
+          "parent": "shin.R",
+          "deform": true
+        },
+        {
+          "name": "toe.R",
+          "parent": "foot.R",
+          "deform": true
+        }
+      ],
+      "skinned": false,
+      "animated": false
+    },
+    {
+      "id": "brood_warden",
+      "category": "bosses",
+      "archetype": "quadruped",
+      "blend": "production/phase3/bosses/brood_warden/brood_warden_phase3.blend",
+      "boneCount": 21,
+      "rootBones": [
+        "root"
+      ],
+      "bones": [
+        {
+          "name": "root",
+          "parent": null,
+          "deform": true
+        },
+        {
+          "name": "pelvis",
+          "parent": "root",
+          "deform": true
+        },
+        {
+          "name": "spine.01",
+          "parent": "pelvis",
+          "deform": true
+        },
+        {
+          "name": "spine.02",
+          "parent": "spine.01",
+          "deform": true
+        },
+        {
+          "name": "neck",
+          "parent": "spine.02",
+          "deform": true
+        },
+        {
+          "name": "head",
+          "parent": "neck",
+          "deform": true
+        },
+        {
+          "name": "jaw",
+          "parent": "head",
+          "deform": true
+        },
+        {
+          "name": "front_upper.L",
+          "parent": "spine.02",
+          "deform": true
+        },
+        {
+          "name": "front_lower.L",
+          "parent": "front_upper.L",
+          "deform": true
+        },
+        {
+          "name": "front_paw.L",
+          "parent": "front_lower.L",
+          "deform": true
+        },
+        {
+          "name": "front_upper.R",
+          "parent": "spine.02",
+          "deform": true
+        },
+        {
+          "name": "front_lower.R",
+          "parent": "front_upper.R",
+          "deform": true
+        },
+        {
+          "name": "front_paw.R",
+          "parent": "front_lower.R",
+          "deform": true
+        },
+        {
+          "name": "rear_upper.L",
+          "parent": "pelvis",
+          "deform": true
+        },
+        {
+          "name": "rear_lower.L",
+          "parent": "rear_upper.L",
+          "deform": true
+        },
+        {
+          "name": "rear_paw.L",
+          "parent": "rear_lower.L",
+          "deform": true
+        },
+        {
+          "name": "rear_upper.R",
+          "parent": "pelvis",
+          "deform": true
+        },
+        {
+          "name": "rear_lower.R",
+          "parent": "rear_upper.R",
+          "deform": true
+        },
+        {
+          "name": "rear_paw.R",
+          "parent": "rear_lower.R",
+          "deform": true
+        },
+        {
+          "name": "tail.01",
+          "parent": "pelvis",
+          "deform": true
+        },
+        {
+          "name": "tail.02",
+          "parent": "tail.01",
+          "deform": true
+        }
+      ],
+      "skinned": false,
+      "animated": false
+    },
+    {
+      "id": "hexeye_artillerist",
+      "category": "bosses",
+      "archetype": "floating",
+      "blend": "production/phase3/bosses/hexeye_artillerist/hexeye_artillerist_phase3.blend",
+      "boneCount": 10,
+      "rootBones": [
+        "root"
+      ],
+      "bones": [
+        {
+          "name": "root",
+          "parent": null,
+          "deform": true
+        },
+        {
+          "name": "body",
+          "parent": "root",
+          "deform": true
+        },
+        {
+          "name": "eye",
+          "parent": "body",
+          "deform": true
+        },
+        {
+          "name": "cannon.L",
+          "parent": "body",
+          "deform": true
+        },
+        {
+          "name": "cannon.R",
+          "parent": "body",
+          "deform": true
+        },
+        {
+          "name": "shard.bottom",
+          "parent": "body",
+          "deform": true
+        },
+        {
+          "name": "orbit_shard.00",
+          "parent": "body",
+          "deform": true
+        },
+        {
+          "name": "orbit_shard.01",
+          "parent": "body",
+          "deform": true
+        },
+        {
+          "name": "orbit_shard.02",
+          "parent": "body",
+          "deform": true
+        },
+        {
+          "name": "orbit_shard.03",
+          "parent": "body",
+          "deform": true
+        }
+      ],
+      "skinned": false,
+      "animated": false
+    },
+    {
+      "id": "ironroot_colossus",
+      "category": "bosses",
+      "archetype": "humanoid",
+      "blend": "production/phase3/bosses/ironroot_colossus/ironroot_colossus_phase3.blend",
+      "boneCount": 23,
+      "rootBones": [
+        "root"
+      ],
+      "bones": [
+        {
+          "name": "root",
+          "parent": null,
+          "deform": true
+        },
+        {
+          "name": "hips",
+          "parent": "root",
+          "deform": true
+        },
+        {
+          "name": "spine",
+          "parent": "hips",
+          "deform": true
+        },
+        {
+          "name": "chest",
+          "parent": "spine",
+          "deform": true
+        },
+        {
+          "name": "neck",
+          "parent": "chest",
+          "deform": true
+        },
+        {
+          "name": "head",
+          "parent": "neck",
+          "deform": true
+        },
+        {
+          "name": "clavicle.L",
+          "parent": "chest",
+          "deform": true
+        },
+        {
+          "name": "upper_arm.L",
+          "parent": "clavicle.L",
+          "deform": true
+        },
+        {
+          "name": "forearm.L",
+          "parent": "upper_arm.L",
+          "deform": true
+        },
+        {
+          "name": "hand.L",
+          "parent": "forearm.L",
+          "deform": true
+        },
+        {
+          "name": "clavicle.R",
+          "parent": "chest",
+          "deform": true
+        },
+        {
+          "name": "upper_arm.R",
+          "parent": "clavicle.R",
+          "deform": true
+        },
+        {
+          "name": "forearm.R",
+          "parent": "upper_arm.R",
+          "deform": true
+        },
+        {
+          "name": "hand.R",
+          "parent": "forearm.R",
+          "deform": true
+        },
+        {
+          "name": "weapon.R",
+          "parent": "hand.R",
+          "deform": true
+        },
+        {
+          "name": "thigh.L",
+          "parent": "hips",
+          "deform": true
+        },
+        {
+          "name": "shin.L",
+          "parent": "thigh.L",
+          "deform": true
+        },
+        {
+          "name": "foot.L",
+          "parent": "shin.L",
+          "deform": true
+        },
+        {
+          "name": "toe.L",
+          "parent": "foot.L",
+          "deform": true
+        },
+        {
+          "name": "thigh.R",
+          "parent": "hips",
+          "deform": true
+        },
+        {
+          "name": "shin.R",
+          "parent": "thigh.R",
+          "deform": true
+        },
+        {
+          "name": "foot.R",
+          "parent": "shin.R",
+          "deform": true
+        },
+        {
+          "name": "toe.R",
+          "parent": "foot.R",
+          "deform": true
+        }
+      ],
+      "skinned": false,
+      "animated": false
+    },
+    {
+      "id": "eclipse_chimera",
+      "category": "bosses",
+      "archetype": "chimera",
+      "blend": "production/phase3/bosses/eclipse_chimera/eclipse_chimera_phase3.blend",
+      "boneCount": 22,
+      "rootBones": [
+        "root"
+      ],
+      "bones": [
+        {
+          "name": "root",
+          "parent": null,
+          "deform": true
+        },
+        {
+          "name": "pelvis",
+          "parent": "root",
+          "deform": true
+        },
+        {
+          "name": "spine.01",
+          "parent": "pelvis",
+          "deform": true
+        },
+        {
+          "name": "spine.02",
+          "parent": "spine.01",
+          "deform": true
+        },
+        {
+          "name": "neck.L",
+          "parent": "spine.02",
+          "deform": true
+        },
+        {
+          "name": "head.L",
+          "parent": "neck.L",
+          "deform": true
+        },
+        {
+          "name": "neck.R",
+          "parent": "spine.02",
+          "deform": true
+        },
+        {
+          "name": "head.R",
+          "parent": "neck.R",
+          "deform": true
+        },
+        {
+          "name": "front_upper.L",
+          "parent": "spine.02",
+          "deform": true
+        },
+        {
+          "name": "front_lower.L",
+          "parent": "front_upper.L",
+          "deform": true
+        },
+        {
+          "name": "front_paw.L",
+          "parent": "front_lower.L",
+          "deform": true
+        },
+        {
+          "name": "front_upper.R",
+          "parent": "spine.02",
+          "deform": true
+        },
+        {
+          "name": "front_lower.R",
+          "parent": "front_upper.R",
+          "deform": true
+        },
+        {
+          "name": "front_paw.R",
+          "parent": "front_lower.R",
+          "deform": true
+        },
+        {
+          "name": "rear_upper.L",
+          "parent": "pelvis",
+          "deform": true
+        },
+        {
+          "name": "rear_lower.L",
+          "parent": "rear_upper.L",
+          "deform": true
+        },
+        {
+          "name": "rear_paw.L",
+          "parent": "rear_lower.L",
+          "deform": true
+        },
+        {
+          "name": "rear_upper.R",
+          "parent": "pelvis",
+          "deform": true
+        },
+        {
+          "name": "rear_lower.R",
+          "parent": "rear_upper.R",
+          "deform": true
+        },
+        {
+          "name": "rear_paw.R",
+          "parent": "rear_lower.R",
+          "deform": true
+        },
+        {
+          "name": "tail.01",
+          "parent": "pelvis",
+          "deform": true
+        },
+        {
+          "name": "tail.02",
+          "parent": "tail.01",
+          "deform": true
+        }
+      ],
+      "skinned": false,
+      "animated": false
+    },
+    {
+      "id": "void_sovereign",
+      "category": "bosses",
+      "archetype": "humanoid",
+      "blend": "production/phase3/bosses/void_sovereign/void_sovereign_phase3.blend",
+      "boneCount": 23,
+      "rootBones": [
+        "root"
+      ],
+      "bones": [
+        {
+          "name": "root",
+          "parent": null,
+          "deform": true
+        },
+        {
+          "name": "hips",
+          "parent": "root",
+          "deform": true
+        },
+        {
+          "name": "spine",
+          "parent": "hips",
+          "deform": true
+        },
+        {
+          "name": "chest",
+          "parent": "spine",
+          "deform": true
+        },
+        {
+          "name": "neck",
+          "parent": "chest",
+          "deform": true
+        },
+        {
+          "name": "head",
+          "parent": "neck",
+          "deform": true
+        },
+        {
+          "name": "clavicle.L",
+          "parent": "chest",
+          "deform": true
+        },
+        {
+          "name": "upper_arm.L",
+          "parent": "clavicle.L",
+          "deform": true
+        },
+        {
+          "name": "forearm.L",
+          "parent": "upper_arm.L",
+          "deform": true
+        },
+        {
+          "name": "hand.L",
+          "parent": "forearm.L",
+          "deform": true
+        },
+        {
+          "name": "clavicle.R",
+          "parent": "chest",
+          "deform": true
+        },
+        {
+          "name": "upper_arm.R",
+          "parent": "clavicle.R",
+          "deform": true
+        },
+        {
+          "name": "forearm.R",
+          "parent": "upper_arm.R",
+          "deform": true
+        },
+        {
+          "name": "hand.R",
+          "parent": "forearm.R",
+          "deform": true
+        },
+        {
+          "name": "weapon.R",
+          "parent": "hand.R",
+          "deform": true
+        },
+        {
+          "name": "thigh.L",
+          "parent": "hips",
+          "deform": true
+        },
+        {
+          "name": "shin.L",
+          "parent": "thigh.L",
+          "deform": true
+        },
+        {
+          "name": "foot.L",
+          "parent": "shin.L",
+          "deform": true
+        },
+        {
+          "name": "toe.L",
+          "parent": "foot.L",
+          "deform": true
+        },
+        {
+          "name": "thigh.R",
+          "parent": "hips",
+          "deform": true
+        },
+        {
+          "name": "shin.R",
+          "parent": "thigh.R",
+          "deform": true
+        },
+        {
+          "name": "foot.R",
+          "parent": "shin.R",
+          "deform": true
+        },
+        {
+          "name": "toe.R",
+          "parent": "foot.R",
+          "deform": true
+        }
+      ],
+      "skinned": false,
+      "animated": false
+    }
+  ]
+}

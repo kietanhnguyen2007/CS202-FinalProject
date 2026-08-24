@@ -3,6 +3,9 @@
 #include "Controller/MapBuilderController.h"
 #include "Controller/ShopController.h"
 #include "Controller/PrepareController.h"
+#include "Survival3D/Controller/SurvivalController.h"
+#include "Survival3D/View/SurvivalView.h"
+#include "Survival3D/Systems/SurvivalRunService.h"
 #include "View/Renderer.h"
 #include "View/MenuView.h"
 #include "View/GameView.h"
@@ -220,25 +223,30 @@ int main() {
     auto& game  = GameController::GetInstance();
     auto& shop  = ShopController::GetInstance();
     auto& opts  = View::OptionsView::GetInstance();
+    auto& survival = Survival3D::SurvivalController::GetInstance();
     menu.Init();
     AchievementManager::GetInstance().Init();
     game.Init();
     shop.Init();
     opts.Init();
+    survival.Init();
+    Survival3D::SurvivalRunService::GetInstance().Init();
 
     bool inGame       = false;
     bool inMapBuilder = false;
     bool inShop       = false;
     bool inOptions    = false;
     bool inPrepare    = false;
+    bool inSurvival   = false;
 
     while (!WindowShouldClose()) {
         WindowManager::GetInstance().Update();
         float dt = GetFrameTime();
         SoundManager::GetInstance().Update(dt);
         AchievementManager::GetInstance().Update(dt);
+        Survival3D::SurvivalRunService::GetInstance().Update(dt);
 
-        if (!inGame && !inMapBuilder && !inShop && !inOptions && !inPrepare) {
+        if (!inGame && !inMapBuilder && !inShop && !inOptions && !inPrepare && !inSurvival) {
             menu.Update(dt);
 
             if (menu.ShouldOpenShop()) {
@@ -249,6 +257,10 @@ int main() {
                 menu.ResetFlags();
                 inOptions = true;
                 opts.SetVisible(true);
+            } else if (menu.ShouldStartSurvival()) {
+                menu.ResetFlags();
+                inSurvival = true;
+                survival.Start();
             } else if (menu.ShouldStartGame()) {
                 menu.ResetFlags();
                 inPrepare = true;
@@ -317,6 +329,20 @@ int main() {
                 inOptions = false;
                 menu.ShowMainMenu();
             }
+        } else if (inSurvival) {
+            survival.Update(dt);
+            if (survival.ShouldReturnToMenu()) {
+                survival.Shutdown();
+                inSurvival = false;
+                menu.ShowMainMenu();
+                continue;
+            }
+
+            BeginDrawing();
+            ClearBackground(BLACK);
+            survival.Render();
+            AchievementManager::GetInstance().RenderPopup();
+            EndDrawing();
         } else if (inMapBuilder) {
             MapBuilderController::GetInstance().Update(dt);
             if (MapBuilderController::GetInstance().ShouldReturnToMenu()) {
@@ -377,6 +403,7 @@ int main() {
     // Release all gameplay/editor references first. GameView preloads character
     // atlases even when no level was opened, so this must run unconditionally.
     game.Shutdown();
+    survival.Shutdown();
     MapBuilderController::GetInstance().ExitEditor();
 
     // Drop view-owned atlases and textures while the OpenGL context is alive.
@@ -391,6 +418,8 @@ int main() {
     View::MapBuilderView::GetInstance().Shutdown();
     View::GameView::GetInstance().Shutdown();
     View::MinimapView::GetInstance().Shutdown();
+    Survival3D::SurvivalView::GetInstance().Shutdown();
+    Survival3D::SurvivalRunService::GetInstance().Shutdown();
     menu.Shutdown();
     AchievementManager::GetInstance().Shutdown();
 

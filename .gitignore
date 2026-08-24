@@ -17,15 +17,43 @@ CMakeUserPresets.json
 
 # Agent config
 .agents/
+.codex-temp/
 skills-lock.json
 
 # OS
 Thumbs.db
 .DS_Store
 
+# Local DCC runtime (downloaded by the art build; never ship the 400 MB toolchain)
+tools/blender/
+tools/blender-*-windows-x64.zip
+tools/Hunyuan3D-2/
+tools/hunyuan3d-venv/
+tools/huggingface-cache/
+tools/rembg-cache/
+assets/survival3d/work/
+*.blend1
+
+# Survival3D art staging/QA experiments (canonical assets live in production_v3/heroes + qa/clean)
+assets/survival3d/production_v3/*_test/
+assets/survival3d/production_v3/rig_audit_staging*/
+tools/__pycache__/
+tools/audit_*.py
+tools/fix_*.py
+tools/inspect_*.py
+tools/preview_*.py
+tools/qa_*.py
+tools/build_semantic_*.py
+tools/build_magic_caster_*.py
+tools/rig_animate_survival3d_final.py
+
 # Local save data
 /save.json
 /save.json.bak
+/telemetry/
+survival3d_data.json
+survival3d_data.json.bak
+survival3d_data.json.tmp
 
 # CMake
 CMakeCache.txt

@@ -1,0 +1,487 @@
+{
+  "schemaVersion": 1,
+  "milestone": "Phase 5-6",
+  "status": "complete",
+  "controlBonesDeform": false,
+  "ikFkProperty": "ik_fk",
+  "animated": false,
+  "qaRender": "production/phase5_6/qa/phase5_6_ik_qa.png",
+  "actors": [
+    {
+      "id": "knight",
+      "category": "heroes",
+      "archetype": "humanoid",
+      "blend": "production/phase5_6/heroes/knight/knight_phase5_6.blend",
+      "controlBones": [
+        "CTRL_master",
+        "foot_IK.L",
+        "knee_pole.L",
+        "hand_IK.L",
+        "elbow_pole.L",
+        "foot_IK.R",
+        "knee_pole.R",
+        "hand_IK.R",
+        "elbow_pole.R"
+      ],
+      "controlBoneCount": 9,
+      "constraints": [
+        {
+          "bone": "forearm.L",
+          "type": "IK",
+          "name": "IKFK_forearm.L"
+        },
+        {
+          "bone": "forearm.R",
+          "type": "IK",
+          "name": "IKFK_forearm.R"
+        },
+        {
+          "bone": "shin.L",
+          "type": "IK",
+          "name": "IKFK_shin.L"
+        },
+        {
+          "bone": "shin.R",
+          "type": "IK",
+          "name": "IKFK_shin.R"
+        }
+      ],
+      "constraintCount": 4,
+      "ikFkSwitches": [
+        "foot_IK.L",
+        "hand_IK.L",
+        "foot_IK.R",
+        "hand_IK.R"
+      ],
+      "ikFkSwitchCount": 4,
+      "animated": false
+    },
+    {
+      "id": "magic_caster",
+      "category": "heroes",
+      "archetype": "humanoid",
+      "blend": "production/phase5_6/heroes/magic_caster/magic_caster_phase5_6.blend",
+      "controlBones": [
+        "CTRL_master",
+        "foot_IK.L",
+        "knee_pole.L",
+        "hand_IK.L",
+        "elbow_pole.L",
+        "foot_IK.R",
+        "knee_pole.R",
+        "hand_IK.R",
+        "elbow_pole.R"
+      ],
+      "controlBoneCount": 9,
+      "constraints": [
+        {
+          "bone": "forearm.L",
+          "type": "IK",
+          "name": "IKFK_forearm.L"
+        },
+        {
+          "bone": "forearm.R",
+          "type": "IK",
+          "name": "IKFK_forearm.R"
+        },
+        {
+          "bone": "shin.L",
+          "type": "IK",
+          "name": "IKFK_shin.L"
+        },
+        {
+          "bone": "shin.R",
+          "type": "IK",
+          "name": "IKFK_shin.R"
+        }
+      ],
+      "constraintCount": 4,
+      "ikFkSwitches": [
+        "foot_IK.L",
+        "hand_IK.L",
+        "foot_IK.R",
+        "hand_IK.R"
+      ],
+      "ikFkSwitchCount": 4,
+      "animated": false
+    },
+    {
+      "id": "riftling",
+      "category": "enemies",
+      "archetype": "quadruped",
+      "blend": "production/phase5_6/enemies/riftling/riftling_phase5_6.blend",
+      "controlBones": [
+        "CTRL_master",
+        "front_foot_IK.L",
+        "front_knee_pole.L",
+        "front_foot_IK.R",
+        "front_knee_pole.R",
+        "rear_foot_IK.L",
+        "rear_knee_pole.L",
+        "rear_foot_IK.R",
+        "rear_knee_pole.R"
+      ],
+      "controlBoneCount": 9,
+      "constraints": [
+        {
+          "bone": "front_lower.L",
+          "type": "IK",
+          "name": "IKFK_front_lower.L"
+        },
+        {
+          "bone": "front_lower.R",
+          "type": "IK",
+          "name": "IKFK_front_lower.R"
+        },
+        {
+          "bone": "rear_lower.L",
+          "type": "IK",
+          "name": "IKFK_rear_lower.L"
+        },
+        {
+          "bone": "rear_lower.R",
+          "type": "IK",
+          "name": "IKFK_rear_lower.R"
+        }
+      ],
+      "constraintCount": 4,
+      "ikFkSwitches": [
+        "front_foot_IK.L",
+        "front_foot_IK.R",
+        "rear_foot_IK.L",
+        "rear_foot_IK.R"
+      ],
+      "ikFkSwitchCount": 4,
+      "animated": false
+    },
+    {
+      "id": "hex_archer",
+      "category": "enemies",
+      "archetype": "humanoid",
+      "blend": "production/phase5_6/enemies/hex_archer/hex_archer_phase5_6.blend",
+      "controlBones": [
+        "CTRL_master",
+        "foot_IK.L",
+        "knee_pole.L",
+        "hand_IK.L",
+        "elbow_pole.L",
+        "foot_IK.R",
+        "knee_pole.R",
+        "hand_IK.R",
+        "elbow_pole.R"
+      ],
+      "controlBoneCount": 9,
+      "constraints": [
+        {
+          "bone": "forearm.L",
+          "type": "IK",
+          "name": "IKFK_forearm.L"
+        },
+        {
+          "bone": "forearm.R",
+          "type": "IK",
+          "name": "IKFK_forearm.R"
+        },
+        {
+          "bone": "shin.L",
+          "type": "IK",
+          "name": "IKFK_shin.L"
+        },
+        {
+          "bone": "shin.R",
+          "type": "IK",
+          "name": "IKFK_shin.R"
+        }
+      ],
+      "constraintCount": 4,
+      "ikFkSwitches": [
+        "foot_IK.L",
+        "hand_IK.L",
+        "foot_IK.R",
+        "hand_IK.R"
+      ],
+      "ikFkSwitchCount": 4,
+      "animated": false
+    },
+    {
+      "id": "obsidian_brute",
+      "category": "enemies",
+      "archetype": "humanoid",
+      "blend": "production/phase5_6/enemies/obsidian_brute/obsidian_brute_phase5_6.blend",
+      "controlBones": [
+        "CTRL_master",
+        "foot_IK.L",
+        "knee_pole.L",
+        "hand_IK.L",
+        "elbow_pole.L",
+        "foot_IK.R",
+        "knee_pole.R",
+        "hand_IK.R",
+        "elbow_pole.R"
+      ],
+      "controlBoneCount": 9,
+      "constraints": [
+        {
+          "bone": "forearm.L",
+          "type": "IK",
+          "name": "IKFK_forearm.L"
+        },
+        {
+          "bone": "forearm.R",
+          "type": "IK",
+          "name": "IKFK_forearm.R"
+        },
+        {
+          "bone": "shin.L",
+          "type": "IK",
+          "name": "IKFK_shin.L"
+        },
+        {
+          "bone": "shin.R",
+          "type": "IK",
+          "name": "IKFK_shin.R"
+        }
+      ],
+      "constraintCount": 4,
+      "ikFkSwitches": [
+        "foot_IK.L",
+        "hand_IK.L",
+        "foot_IK.R",
+        "hand_IK.R"
+      ],
+      "ikFkSwitchCount": 4,
+      "animated": false
+    },
+    {
+      "id": "brood_warden",
+      "category": "bosses",
+      "archetype": "quadruped",
+      "blend": "production/phase5_6/bosses/brood_warden/brood_warden_phase5_6.blend",
+      "controlBones": [
+        "CTRL_master",
+        "front_foot_IK.L",
+        "front_knee_pole.L",
+        "front_foot_IK.R",
+        "front_knee_pole.R",
+        "rear_foot_IK.L",
+        "rear_knee_pole.L",
+        "rear_foot_IK.R",
+        "rear_knee_pole.R"
+      ],
+      "controlBoneCount": 9,
+      "constraints": [
+        {
+          "bone": "front_lower.L",
+          "type": "IK",
+          "name": "IKFK_front_lower.L"
+        },
+        {
+          "bone": "front_lower.R",
+          "type": "IK",
+          "name": "IKFK_front_lower.R"
+        },
+        {
+          "bone": "rear_lower.L",
+          "type": "IK",
+          "name": "IKFK_rear_lower.L"
+        },
+        {
+          "bone": "rear_lower.R",
+          "type": "IK",
+          "name": "IKFK_rear_lower.R"
+        }
+      ],
+      "constraintCount": 4,
+      "ikFkSwitches": [
+        "front_foot_IK.L",
+        "front_foot_IK.R",
+        "rear_foot_IK.L",
+        "rear_foot_IK.R"
+      ],
+      "ikFkSwitchCount": 4,
+      "animated": false
+    },
+    {
+      "id": "hexeye_artillerist",
+      "category": "bosses",
+      "archetype": "floating",
+      "blend": "production/phase5_6/bosses/hexeye_artillerist/hexeye_artillerist_phase5_6.blend",
+      "controlBones": [
+        "CTRL_master",
+        "body_CTRL",
+        "eye_AIM",
+        "cannon_AIM.L",
+        "cannon_AIM.R"
+      ],
+      "controlBoneCount": 5,
+      "constraints": [
+        {
+          "bone": "eye",
+          "type": "DAMPED_TRACK",
+          "name": "AIM_eye"
+        },
+        {
+          "bone": "cannon.L",
+          "type": "DAMPED_TRACK",
+          "name": "AIM_cannon.L"
+        },
+        {
+          "bone": "cannon.R",
+          "type": "DAMPED_TRACK",
+          "name": "AIM_cannon.R"
+        }
+      ],
+      "constraintCount": 3,
+      "ikFkSwitches": [],
+      "ikFkSwitchCount": 0,
+      "animated": false
+    },
+    {
+      "id": "ironroot_colossus",
+      "category": "bosses",
+      "archetype": "humanoid",
+      "blend": "production/phase5_6/bosses/ironroot_colossus/ironroot_colossus_phase5_6.blend",
+      "controlBones": [
+        "CTRL_master",
+        "foot_IK.L",
+        "knee_pole.L",
+        "hand_IK.L",
+        "elbow_pole.L",
+        "foot_IK.R",
+        "knee_pole.R",
+        "hand_IK.R",
+        "elbow_pole.R"
+      ],
+      "controlBoneCount": 9,
+      "constraints": [
+        {
+          "bone": "forearm.L",
+          "type": "IK",
+          "name": "IKFK_forearm.L"
+        },
+        {
+          "bone": "forearm.R",
+          "type": "IK",
+          "name": "IKFK_forearm.R"
+        },
+        {
+          "bone": "shin.L",
+          "type": "IK",
+          "name": "IKFK_shin.L"
+        },
+        {
+          "bone": "shin.R",
+          "type": "IK",
+          "name": "IKFK_shin.R"
+        }
+      ],
+      "constraintCount": 4,
+      "ikFkSwitches": [
+        "foot_IK.L",
+        "hand_IK.L",
+        "foot_IK.R",
+        "hand_IK.R"
+      ],
+      "ikFkSwitchCount": 4,
+      "animated": false
+    },
+    {
+      "id": "eclipse_chimera",
+      "category": "bosses",
+      "archetype": "chimera",
+      "blend": "production/phase5_6/bosses/eclipse_chimera/eclipse_chimera_phase5_6.blend",
+      "controlBones": [
+        "CTRL_master",
+        "front_foot_IK.L",
+        "front_knee_pole.L",
+        "front_foot_IK.R",
+        "front_knee_pole.R",
+        "rear_foot_IK.L",
+        "rear_knee_pole.L",
+        "rear_foot_IK.R",
+        "rear_knee_pole.R"
+      ],
+      "controlBoneCount": 9,
+      "constraints": [
+        {
+          "bone": "front_lower.L",
+          "type": "IK",
+          "name": "IKFK_front_lower.L"
+        },
+        {
+          "bone": "front_lower.R",
+          "type": "IK",
+          "name": "IKFK_front_lower.R"
+        },
+        {
+          "bone": "rear_lower.L",
+          "type": "IK",
+          "name": "IKFK_rear_lower.L"
+        },
+        {
+          "bone": "rear_lower.R",
+          "type": "IK",
+          "name": "IKFK_rear_lower.R"
+        }
+      ],
+      "constraintCount": 4,
+      "ikFkSwitches": [
+        "front_foot_IK.L",
+        "front_foot_IK.R",
+        "rear_foot_IK.L",
+        "rear_foot_IK.R"
+      ],
+      "ikFkSwitchCount": 4,
+      "animated": false
+    },
+    {
+      "id": "void_sovereign",
+      "category": "bosses",
+      "archetype": "humanoid",
+      "blend": "production/phase5_6/bosses/void_sovereign/void_sovereign_phase5_6.blend",
+      "controlBones": [
+        "CTRL_master",
+        "foot_IK.L",
+        "knee_pole.L",
+        "hand_IK.L",
+        "elbow_pole.L",
+        "foot_IK.R",
+        "knee_pole.R",
+        "hand_IK.R",
+        "elbow_pole.R"
+      ],
+      "controlBoneCount": 9,
+      "constraints": [
+        {
+          "bone": "forearm.L",
+          "type": "IK",
+          "name": "IKFK_forearm.L"
+        },
+        {
+          "bone": "forearm.R",
+          "type": "IK",
+          "name": "IKFK_forearm.R"
+        },
+        {
+          "bone": "shin.L",
+          "type": "IK",
+          "name": "IKFK_shin.L"
+        },
+        {
+          "bone": "shin.R",
+          "type": "IK",
+          "name": "IKFK_shin.R"
+        }
+      ],
+      "constraintCount": 4,
+      "ikFkSwitches": [
+        "foot_IK.L",
+        "hand_IK.L",
+        "foot_IK.R",
+        "hand_IK.R"
+      ],
+      "ikFkSwitchCount": 4,
+      "animated": false
+    }
+  ]
+}

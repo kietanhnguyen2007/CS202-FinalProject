@@ -22,6 +22,7 @@ public:
 
     // ── Transitions out of the menu loop ─────────────────────────────────
     bool ShouldStartGame()       const { return m_startGame; }
+    bool ShouldStartSurvival()   const { return m_startSurvival; }
     bool ShouldOpenMapBuilder()  const { return m_openMapBuilder; }
     bool ShouldQuit()            const { return m_quit; }
     bool ShouldOpenShop()        const { return m_openShop; }
@@ -63,6 +64,7 @@ private:
     // ── State ─────────────────────────────────────────────────────────────
     int  m_selected          = 0;
     bool m_startGame         = false;
+    bool m_startSurvival     = false;
     bool m_openMapBuilder    = false;
     bool m_quit              = false;
     bool m_openShop          = false;
