@@ -318,7 +318,7 @@ void GameController::RegisterBossVisuals(Boss* boss) {
     const uint32_t id = static_cast<uint32_t>(boss->GetId());
 
     // Determine boss tier by m_bossType
-    std::string root = "assets/textures/boss_v2/boss" + std::to_string(boss->GetBossType()) + "/";
+    std::string root = "assets/textures/boss/boss" + std::to_string(boss->GetBossType()) + "/";
     cr.SetBossAssetRoot(id, root);
 
     cr.Register(boss, root + "phase1/idle.json", "idle"); // Initialize animator
@@ -364,30 +364,28 @@ void GameController::RegisterEntityVisuals(Entity* entity) {
                         Vector2 sz = proj->GetSize();
                         if (boss->GetBossType() == 2) {
                             if (proj->GetDirection() == Direction::None) {
-                                texPath = proj->GetSubType() == 5
-                                    ? "assets/textures/boss_v2/boss2/phase3/projectile_telegraph.json"
-                                    : "assets/textures/boss_v2/boss2/phase3/projectile_attack2.json";
+                                texPath = "assets/textures/boss/boss2/phase3/projectile_attack2.json";
                             } else {
                                 if (boss->GetPhase() == BossPhase::Phase3) {
-                                    texPath = "assets/textures/boss_v2/boss2/phase3/projectile_attack1.json";
+                                    texPath = "assets/textures/boss/boss2/phase3/projectile_attack1.json";
                                 } else if (boss->GetPhase() == BossPhase::Phase2) {
-                                    texPath = "assets/textures/boss_v2/boss2/phase2/projectile_attack1.json";
+                                    texPath = "assets/textures/boss/boss2/phase2/projectile_attack1.json";
                                 } else {
-                                    texPath = "assets/textures/boss_v2/boss2/phase1/projectile_attack1.json";
+                                    texPath = "assets/textures/boss/boss2/phase1/projectile_attack1.json";
                                 }
                             }
                         } else if (boss->GetBossType() == 3) {
                             int subType = proj->GetSubType();
                             if (subType == 1) {
-                                texPath = "assets/textures/boss_v2/boss3/projectiles/energy_sphere.json";
+                                texPath = "assets/textures/boss/boss3/projectiles/energy_sphere.json";
                             } else if (subType == 2) {
-                                texPath = "assets/textures/boss_v2/boss3/projectiles/energy_blast.json";
+                                texPath = "assets/textures/boss/boss3/projectiles/energy_blast.json";
                             } else if (subType == 3) {
-                                texPath = "assets/textures/boss_v2/boss3/projectiles/energy_beam.json";
+                                texPath = "assets/textures/boss/boss3/projectiles/energy_beam.json";
                             } else if (subType == 4) {
-                                texPath = "assets/textures/boss_v2/boss3/ground_animate/default.json";
+                                texPath = "assets/textures/boss/boss3/ground_animate/default.json";
                             } else if (subType == 5) {
-                                texPath = "assets/textures/boss_v2/boss3/projectiles/energy_telegraph.json";
+                                texPath = "assets/textures/boss/boss3/projectiles/energy_blast.json";
                             }
                         }
                         if (!texPath.empty()) {

@@ -48,6 +48,8 @@ private:
     std::string m_texturePath; // resolved image path, set by LoadFromJSON
     std::unordered_map<std::string, Rectangle> m_frames;
     std::unordered_map<std::string, std::shared_ptr<AnimationClip>> m_clips;
+
+    void ComputeBossGroundAnchors();
 };
 
 } // namespace View::Animations

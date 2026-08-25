@@ -251,20 +251,56 @@ std::shared_ptr<TextureAtlas> TextureAtlas::LoadFromJSON(const std::string& json
 bool TextureAtlas::LoadTexture() {
     if (m_texture.id != 0) return true; // already loaded
     if (m_texturePath.empty()) return false;
-    m_texture = ::LoadTexture(m_texturePath.c_str());
-    if (m_texture.id == 0) {
+    if (!LoadImageAsync() || !UploadTextureFromImage()) {
         std::cerr << "TextureAtlas: failed to load texture: " << m_texturePath << "\n";
         return false;
     }
-    // Update all clips to use this texture
-    for (auto& pair : m_clips) {
-        if (pair.second) {
-            for (auto& frame : pair.second->frames) {
-                frame.texture = &m_texture;
+    return true;
+}
+
+void TextureAtlas::ComputeBossGroundAnchors() {
+    if (!m_isImageLoaded || m_image.data == nullptr || m_image.width <= 0 || m_image.height <= 0) {
+        return;
+    }
+
+    std::string normalizedPath = m_texturePath;
+    std::replace(normalizedPath.begin(), normalizedPath.end(), '\\', '/');
+    if (normalizedPath.find("/boss/") == std::string::npos ||
+        normalizedPath.find("/projectiles/") != std::string::npos ||
+        normalizedPath.find("/ground_animate/") != std::string::npos) {
+        return;
+    }
+
+    Color* pixels = ::LoadImageColors(m_image);
+    if (!pixels) return;
+
+    for (auto& [clipName, clip] : m_clips) {
+        (void)clipName;
+        if (!clip) continue;
+        for (auto& frame : clip->frames) {
+            const int x0 = std::clamp(static_cast<int>(frame.src.x), 0, m_image.width);
+            const int y0 = std::clamp(static_cast<int>(frame.src.y), 0, m_image.height);
+            const int x1 = std::clamp(static_cast<int>(frame.src.x + frame.src.width), 0, m_image.width);
+            const int y1 = std::clamp(static_cast<int>(frame.src.y + frame.src.height), 0, m_image.height);
+
+            int opaqueBottom = -1;
+            for (int y = y1 - 1; y >= y0 && opaqueBottom < 0; --y) {
+                const Color* row = pixels + static_cast<size_t>(y) * static_cast<size_t>(m_image.width);
+                for (int x = x0; x < x1; ++x) {
+                    if (row[x].a > 8) {
+                        opaqueBottom = y + 1;
+                        break;
+                    }
+                }
+            }
+
+            if (opaqueBottom > y0) {
+                frame.groundAnchorY = static_cast<float>(opaqueBottom - y0);
             }
         }
     }
-    return true;
+
+    ::UnloadImageColors(pixels);
 }
 
 bool TextureAtlas::LoadImageAsync() {
@@ -273,6 +309,7 @@ bool TextureAtlas::LoadImageAsync() {
     m_image = ::LoadImage(m_texturePath.c_str());
     if (m_image.data != nullptr) {
         m_isImageLoaded = true;
+        ComputeBossGroundAnchors();
         return true;
     }
     return false;

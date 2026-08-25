@@ -86,34 +86,39 @@ bool GameView::Init() {
     cr.PreloadAtlas("assets/textures/player/magic_caster_v2/projectile_attack3_v2.json");
     cr.PreloadAtlas("assets/textures/player/magic_caster_v2/ultimate_skill_v2.json");
     cr.PreloadAtlas("assets/textures/player/magic_caster_v2/ultimate_skill_projectile_v2.json");
-    // Boss V2 atlases. Phase transitions live in the destination phase so
-    // SwitchPhase can load the transformation immediately after SetPhase.
+    // Boss atlases restored from the clean pre-V2 source set. The V2 sheets
+    // contained baked-in cut seams and missing weapon/body pixels.
     static const char* bossAtlases[] = {
-        "boss1/phase1/idle", "boss1/phase1/walk", "boss1/phase1/attack_1",
-        "boss1/phase1/attack_2", "boss1/phase1/hurt",
-        "boss1/phase2/idle", "boss1/phase2/walk", "boss1/phase2/attack_1",
-        "boss1/phase2/attack_2", "boss1/phase2/hurt", "boss1/phase2/dead",
-        "boss1/phase2/transition",
-        "boss2/phase1/idle", "boss2/phase1/walk", "boss2/phase1/attack_1",
-        "boss2/phase1/hurt", "boss2/phase1/ultimate_skill",
-        "boss2/phase2/idle", "boss2/phase2/walk", "boss2/phase2/attack_1",
-        "boss2/phase2/healing", "boss2/phase2/hurt", "boss2/phase2/transition",
-        "boss2/phase2/ultimate_skill",
-        "boss2/phase3/idle", "boss2/phase3/walk", "boss2/phase3/attack_1",
-        "boss2/phase3/attack_2", "boss2/phase3/attack_3", "boss2/phase3/hurt",
-        "boss2/phase3/dead", "boss2/phase3/transition", "boss2/phase3/ultimate_skill",
-        "boss3/phase1/idle", "boss3/phase1/walk", "boss3/phase1/attack_1",
-        "boss3/phase1/hurt",
-        "boss3/phase2/idle", "boss3/phase2/walk", "boss3/phase2/attack_1",
-        "boss3/phase2/hurt", "boss3/phase2/transition",
-        "boss3/phase3/idle", "boss3/phase3/walk", "boss3/phase3/attack_1",
-        "boss3/phase3/attack_2", "boss3/phase3/hurt", "boss3/phase3/transition",
-        "boss3/phase4/idle", "boss3/phase4/walk", "boss3/phase4/attack_1",
-        "boss3/phase4/attack_2", "boss3/phase4/attack_3", "boss3/phase4/hurt",
-        "boss3/phase4/dead", "boss3/phase4/transition"
+        "boss1/phase1/attack_1", "boss1/phase1/hurt", "boss1/phase1/idle",
+        "boss1/phase1/walk", "boss1/phase2/attack_1", "boss1/phase2/dead",
+        "boss1/phase2/hurt", "boss1/phase2/idle", "boss1/phase2/walk",
+        "boss1/transition/transition",
+        "boss2/phase1/attack_1", "boss2/phase1/hurt", "boss2/phase1/idle",
+        "boss2/phase1/projectile_attack1", "boss2/phase1/walk",
+        "boss2/phase2/attack_1", "boss2/phase2/healing", "boss2/phase2/hurt",
+        "boss2/phase2/idle", "boss2/phase2/projectile_attack1",
+        "boss2/phase2/transition", "boss2/phase2/walk",
+        "boss2/phase3/attack_1", "boss2/phase3/attack_2", "boss2/phase3/dead",
+        "boss2/phase3/hurt", "boss2/phase3/idle",
+        "boss2/phase3/projectile_attack1", "boss2/phase3/projectile_attack2",
+        "boss2/phase3/transition", "boss2/phase3/walk",
+        "boss2/transition/transition",
+        "boss2/transition_2_to_3/transition_2_to_3",
+        "boss3/ground_animate/default",
+        "boss3/phase1/attack_1", "boss3/phase1/hurt", "boss3/phase1/idle",
+        "boss3/phase1/transition", "boss3/phase1/walk",
+        "boss3/phase2/attack_1", "boss3/phase2/hurt", "boss3/phase2/idle",
+        "boss3/phase2/transition", "boss3/phase2/walk",
+        "boss3/phase3/attack_1", "boss3/phase3/attack_2", "boss3/phase3/hurt",
+        "boss3/phase3/idle", "boss3/phase3/transition", "boss3/phase3/walk",
+        "boss3/phase4/attack_1", "boss3/phase4/attack_2",
+        "boss3/phase4/attack_3", "boss3/phase4/dead", "boss3/phase4/hurt",
+        "boss3/phase4/idle", "boss3/phase4/walk",
+        "boss3/projectiles/energy_beam", "boss3/projectiles/energy_blast",
+        "boss3/projectiles/energy_sphere"
     };
     for (const char* atlas : bossAtlases) {
-        cr.PreloadAtlas(std::string("assets/textures/boss_v2/") + atlas + ".json");
+        cr.PreloadAtlas(std::string("assets/textures/boss/") + atlas + ".json");
     }
     // Pets — per-state atlases
     cr.PreloadAtlas("assets/textures/pets/skull/idle.json");

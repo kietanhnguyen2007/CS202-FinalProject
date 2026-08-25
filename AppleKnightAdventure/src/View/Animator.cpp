@@ -210,6 +210,15 @@ Vector2 Animator::GetCurrentOrigin() const {
     return { frame.src.width * 0.5f, frame.src.height * 0.5f };
 }
 
+Vector2 Animator::GetCurrentGroundOrigin() const {
+    if (!m_current || m_current->frames.empty()) return {0,0};
+    const auto& frame = m_current->frames[m_frameIndex];
+    const float groundY = frame.groundAnchorY > 0.0f
+        ? frame.groundAnchorY
+        : frame.src.height;
+    return {frame.src.width * 0.5f, groundY};
+}
+
 float Animator::GetCurrentClipScale() const {
     if (!m_current) return 1.0f;
     return m_current->scale;

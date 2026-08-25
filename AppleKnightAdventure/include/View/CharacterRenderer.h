@@ -65,7 +65,7 @@ public:
     BossPhase GetBossPhase(uint32_t entityId) const;
     void ClearBossPhase(uint32_t entityId);
 
-    // Set the asset root path for a boss entity (e.g. "assets/textures/boss_v2/boss2/")
+    // Set the asset root path for a boss entity (e.g. "assets/textures/boss/boss2/")
     // Used by SwitchPhase to locate phase-specific animation files.
     void SetBossAssetRoot(uint32_t entityId, const std::string& rootPath);
 
@@ -109,7 +109,7 @@ private:
     // Boss phase visual overrides
     std::unordered_map<uint32_t, BossPhase> m_bossPhases;
 
-    // Per-entity boss asset root path (e.g. "assets/textures/boss_v2/boss2/")
+    // Per-entity boss asset root path (e.g. "assets/textures/boss/boss2/")
     std::unordered_map<uint32_t, std::string> m_bossAssetRoot;
 
     // Entity lifecycle callbacks (Controller/Model hooks Unregister into these)

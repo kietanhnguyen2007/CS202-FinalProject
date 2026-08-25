@@ -1,0 +1,54 @@
+{
+    "clips": {
+        "projectile_attack2": {
+            "loop": false,
+            "frames": [
+                "projectile_attack2_0",
+                "projectile_attack2_1",
+                "projectile_attack2_2",
+                "projectile_attack2_3",
+                "projectile_attack2_4"
+            ],
+            "durations": [
+                0.1,
+                0.1,
+                0.1,
+                0.1,
+                0.1
+            ]
+        }
+    },
+    "frames": {
+        "projectile_attack2_0": {
+            "x": 0,
+            "y": 0,
+            "w": 140,
+            "h": 106
+        },
+        "projectile_attack2_1": {
+            "x": 141,
+            "y": 0,
+            "w": 174,
+            "h": 194
+        },
+        "projectile_attack2_2": {
+            "x": 316,
+            "y": 0,
+            "w": 207,
+            "h": 165
+        },
+        "projectile_attack2_3": {
+            "x": 524,
+            "y": 0,
+            "w": 203,
+            "h": 165
+        },
+        "projectile_attack2_4": {
+            "x": 728,
+            "y": 0,
+            "w": 177,
+            "h": 115
+        }
+    },
+    "image": "projectile_attack2.png"
+}

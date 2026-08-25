@@ -320,15 +320,6 @@ void CharacterRenderer::RenderAll() {
         // Apply per-clip scale (e.g. oversized boss hurt frames normalized to idle size)
         visualScale *= animator.GetCurrentClipScale();
 
-        if (entity->GetType() == EntityType::Boss) {
-            // Dynamic scale adjustment for boss based on native sprite height and desired bounding box height
-            float currentHeight = (float)animator.GetCurrentSrcRect().height;
-            if (currentHeight > 0) {
-                // Ensure the boss is always drawn matching its logical m_size.y
-                visualScale = (entity->GetSize().y / currentHeight) * baseScale;
-            }
-        }
-
         // Bounding box bottom center
         Vector2 bottomCenter = { pos.x + size.x * 0.5f * baseScale, pos.y + size.y * baseScale };
         Rectangle srcRect = animator.GetCurrentSrcRect();
@@ -339,7 +330,11 @@ void CharacterRenderer::RenderAll() {
         }
         // Boss uses 1.0f by default, removing the 0.6667f which caused them to sink
         
-        Vector2 customOrigin = { srcRect.width * 0.5f * visualScale, srcRect.height * originYFactor * visualScale };
+        Vector2 originPixels = {srcRect.width * 0.5f, srcRect.height * originYFactor};
+        if (entity->GetType() == EntityType::Boss) {
+            originPixels = animator.GetCurrentGroundOrigin();
+        }
+        Vector2 customOrigin = {originPixels.x * visualScale, originPixels.y * visualScale};
 
         // If aura frame exists in the entity atlas for current element, draw it behind the character
         auto tint = View::ElementalFX::GetInstance().GetTintForEntity(id);
@@ -455,8 +450,7 @@ bool CharacterRenderer::SwitchPhase(uint32_t entityId, BossPhase phase) {
         "attack_1", "attack_2", "attack_3",
         "projectile_attack1", "projectile_attack2",
         "hurt", "dead", "healing", "skill",
-        "fall", "parry", "ultimate_skill", "transition",
-        "transition1", "transition2", "transition3"
+        "fall", "parry", "ultimate_skill"
     };
 
     auto& animator = animIt->second;
@@ -472,12 +466,11 @@ bool CharacterRenderer::SwitchPhase(uint32_t entityId, BossPhase phase) {
         return h;
     };
 
-    for (const char* name : clipFiles) {
-        std::string path = phaseDir + name + ".json";
-        if (!std::filesystem::exists(path)) continue;
+    auto collectAtlas = [&](const std::string& path) {
+        if (!std::filesystem::exists(path)) return;
         auto cacheIt = m_atlasCache.find(path);
         if (cacheIt == m_atlasCache.end()) {
-            if (!PreloadAtlas(path)) continue;
+            if (!PreloadAtlas(path)) return;
             cacheIt = m_atlasCache.find(path);
         }
         for (const auto& rawClip : cacheIt->second->GetClipNames()) {
@@ -487,17 +480,47 @@ bool CharacterRenderer::SwitchPhase(uint32_t entityId, BossPhase phase) {
             // attack_1 -> attack, transition -> skill; others keep their names.
             std::string alias;
             if (rawClip == "attack_1") alias = "attack";
-            else if (rawClip == "transition" || rawClip == "transition1" || rawClip == "transition2" || rawClip == "transition3") alias = "skill";
+            else if (rawClip.rfind("transition", 0) == 0) alias = "skill";
             else if (rawClip == "healing") alias = "attack_2";
             if (!alias.empty()) {
                 auto cloned = std::make_shared<Animations::AnimationClip>(*clip);
                 cloned->name = alias;
+                if (alias == "skill" && !cloned->frames.empty()) {
+                    constexpr float transitionDuration = 1.5f;
+                    const float frameDuration = transitionDuration /
+                        static_cast<float>(cloned->frames.size());
+                    for (auto& frame : cloned->frames) {
+                        frame.duration = frameDuration;
+                    }
+                    cloned->loop = false;
+                    cloned->totalDuration = transitionDuration;
+                }
                 loadedClips.emplace_back(alias, cloned);
             } else {
                 loadedClips.emplace_back(rawClip, clip);
             }
             anyLoaded = true;
         }
+    };
+
+    for (const char* name : clipFiles) {
+        collectAtlas(phaseDir + name + ".json");
+    }
+
+    // Clean Boss 1/2 transformation sheets live in dedicated folders. Boss 3
+    // stores each transformation in the source phase, while this method is
+    // called after the model has already switched to the destination phase.
+    const bool isBoss3 = rootIt->second.find("/boss3/") != std::string::npos;
+    if (phase == BossPhase::Phase2) {
+        collectAtlas(rootIt->second + (isBoss3
+            ? "phase1/transition.json"
+            : "transition/transition.json"));
+    } else if (phase == BossPhase::Phase3) {
+        collectAtlas(rootIt->second + (isBoss3
+            ? "phase2/transition.json"
+            : "transition_2_to_3/transition_2_to_3.json"));
+    } else if ((phase == BossPhase::Phase4 || phase == BossPhase::Enraged) && isBoss3) {
+        collectAtlas(rootIt->second + "phase3/transition.json");
     }
 
     // Normalize oversized clips (e.g. boss2 hurt at 284x259 vs idle 123x226) so they

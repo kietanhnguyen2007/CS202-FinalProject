@@ -23,6 +23,10 @@ struct AnimationFrame {
     bool trimmed = false;          // whether the frame has been trimmed
     Vector2 spriteSourceSize{0,0}; // top-left offset of trimmed content within original sprite
     Vector2 originalSize{0,0};     // full original sprite size (width,height) before trimming
+    // Local Y coordinate immediately below the lowest opaque pixel. Boss
+    // rendering uses this as a stable ground contact instead of the canvas
+    // bottom, because generated frames can contain inconsistent padding.
+    float groundAnchorY = -1.0f;
     // Optional name of the frame from the atlas (if provided). Useful to correlate
     // metadata and for debugging. May be empty for manually-constructed frames.
     std::string name;
@@ -75,6 +79,7 @@ public:
     // Query for rendering
     Rectangle GetCurrentSrcRect() const;
     Vector2 GetCurrentOrigin() const;
+    Vector2 GetCurrentGroundOrigin() const;
     float GetCurrentClipScale() const;
     bool GetFlipX() const;
     void SetFlipX(bool flip);

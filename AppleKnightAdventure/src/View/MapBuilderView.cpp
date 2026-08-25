@@ -1,6 +1,7 @@
 #include "View/MapBuilderView.h"
 #include "View/Renderer.h"
 #include "View/GameView.h"
+#include "View/TextureAtlas.h"
 #include "Utils/Constants.h"
 #include "Model/TriggerZone.h"
 #include "Model/Chest.h"
@@ -90,6 +91,22 @@ int PaletteColumns(const BuilderLayout& l, float cellWidth) {
     return std::max(1, static_cast<int>((l.palette.width - 16.0f) / cellWidth));
 }
 
+Rectangle FirstAnimationFrame(const char* atlasPath, const char* clipName,
+                              const Texture2D& fallbackTexture) {
+    auto atlas = Animations::TextureAtlas::LoadFromJSON(atlasPath);
+    if (atlas) {
+        auto clip = atlas->GetClip(clipName);
+        if (clip && !clip->frames.empty()) {
+            const Rectangle src = clip->frames.front().src;
+            if (src.width > 0.0f && src.height > 0.0f) return src;
+        }
+    }
+
+    return {0.0f, 0.0f,
+            static_cast<float>(fallbackTexture.width),
+            static_cast<float>(fallbackTexture.height)};
+}
+
 } // namespace
 
 MapBuilderView& MapBuilderView::GetInstance() {
@@ -110,9 +127,9 @@ void MapBuilderView::Init() {
     if (!m_resourcesLoaded) {
         m_texPlayer = LoadTexture("assets/textures/player/knight_v2/idle_v2.png");
         m_texEnemy = LoadTexture("assets/textures/player/ninja_v2/idle_v2.png"); // placeholder
-        m_texBoss1 = LoadTexture("assets/textures/boss_v2/boss1/phase1/idle.png");
-        m_texBoss2 = LoadTexture("assets/textures/boss_v2/boss2/phase1/idle.png");
-        m_texBoss3 = LoadTexture("assets/textures/boss_v2/boss3/phase1/idle.png");
+        m_texBoss1 = LoadTexture("assets/textures/boss/boss1/phase1/idle.png");
+        m_texBoss2 = LoadTexture("assets/textures/boss/boss2/phase1/idle.png");
+        m_texBoss3 = LoadTexture("assets/textures/boss/boss3/phase1/idle.png");
         m_texCoin = LoadTexture("assets/textures/items/coin.png");
         m_texKey = LoadTexture("assets/textures/items/key.png");
         m_texPotion = LoadTexture("assets/textures/items/potion_red.png");
@@ -123,6 +140,16 @@ void MapBuilderView::Init() {
         m_texPortalGreen = LoadTexture("assets/textures/objects/portal_green_spritesheet.png");
         m_texPortalPurple = LoadTexture("assets/textures/objects/portal_purple_spritesheet.png");
         m_texPortalRed = LoadTexture("assets/textures/objects/portal_red_spritesheet.png");
+        m_srcPlayer = FirstAnimationFrame(
+            "assets/textures/player/knight_v2/idle_v2.json", "idle", m_texPlayer);
+        m_srcEnemy = FirstAnimationFrame(
+            "assets/textures/player/ninja_v2/idle_v2.json", "idle", m_texEnemy);
+        m_srcBoss1 = FirstAnimationFrame(
+            "assets/textures/boss/boss1/phase1/idle.json", "idle", m_texBoss1);
+        m_srcBoss2 = FirstAnimationFrame(
+            "assets/textures/boss/boss2/phase1/idle.json", "idle", m_texBoss2);
+        m_srcBoss3 = FirstAnimationFrame(
+            "assets/textures/boss/boss3/phase1/idle.json", "idle", m_texBoss3);
         m_uiFont = LoadFont("assets/fonts/game_font.ttf");
         m_resourcesLoaded = true;
     }
@@ -145,6 +172,11 @@ void MapBuilderView::Shutdown() {
         ::UnloadFont(m_uiFont);
         m_uiFont = {};
     }
+    m_srcPlayer = {};
+    m_srcEnemy = {};
+    m_srcBoss1 = {};
+    m_srcBoss2 = {};
+    m_srcBoss3 = {};
 
     m_selectedEntity = nullptr;
     m_resourcesLoaded = false;
@@ -536,6 +568,13 @@ void MapBuilderView::DrawPalette(int sw, int sh) {
         EntityType types[] = {EntityType::Player, EntityType::Enemy, EntityType::Enemy, EntityType::Boss, EntityType::Boss, EntityType::Boss, EntityType::Item, EntityType::Item, EntityType::Item};
         int subTypes[] = {0, 0, 1, 1, 2, 3, 0, 2, 3}; // Removed apple (1)
         Texture2D texs[] = {m_texPlayer, m_texEnemy, m_texEnemy, m_texBoss1, m_texBoss2, m_texBoss3, m_texCoin, m_texKey, m_texPotion};
+        Rectangle sources[] = {
+            m_srcPlayer, m_srcEnemy, m_srcEnemy,
+            m_srcBoss1, m_srcBoss2, m_srcBoss3,
+            {0, 0, static_cast<float>(m_texCoin.width), static_cast<float>(m_texCoin.height)},
+            {0, 0, static_cast<float>(m_texKey.width), static_cast<float>(m_texKey.height)},
+            {0, 0, static_cast<float>(m_texPotion.width), static_cast<float>(m_texPotion.height)}
+        };
         
         const int cols = PaletteColumns(l, 55.0f);
         for (int i = 0; i < 9; ++i) {
@@ -557,9 +596,7 @@ void MapBuilderView::DrawPalette(int sw, int sh) {
                                         isSelected ? 2.0f : 1.0f,
                                         isSelected ? gold : Fade(SKYBLUE, 0.32f));
             if (texs[i].id != 0) {
-                float frameW = (float)texs[i].height;
-                if (types[i] == EntityType::Item) frameW = (float)texs[i].width;
-                Rectangle src = { 0, 0, frameW, (float)texs[i].height };
+                const Rectangle src = sources[i];
                 Rectangle dest = { px + 9.0f, py + 2.0f, 32.0f, 32.0f };
                 DrawTexturePro(texs[i], src, dest, {0,0}, 0.0f, WHITE);
             }

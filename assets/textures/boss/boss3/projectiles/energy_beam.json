@@ -1,0 +1,104 @@
+{
+    "clips": {
+        "energy_beam": {
+            "loop": false,
+            "frames": [
+                "energy_beam_1",
+                "energy_beam_2",
+                "energy_beam_3",
+                "energy_beam_4",
+                "energy_beam_5",
+                "energy_beam_6",
+                "energy_beam_7",
+                "energy_beam_8",
+                "energy_beam_9"
+            ],
+            "durations": [
+                0.2,
+                0.2,
+                0.2,
+                0.2,
+                0.2,
+                0.2,
+                0.2,
+                0.2,
+                0.2
+            ]
+        }
+    },
+    "frames": {
+        "energy_beam_1": {
+            "frame": {
+                "y": 0,
+                "w": 220,
+                "h": 167,
+                "x": 0
+            }
+        },
+        "energy_beam_2": {
+            "frame": {
+                "y": 0,
+                "w": 220,
+                "h": 167,
+                "x": 220
+            }
+        },
+        "energy_beam_3": {
+            "frame": {
+                "y": 0,
+                "w": 220,
+                "h": 167,
+                "x": 440
+            }
+        },
+        "energy_beam_4": {
+            "frame": {
+                "y": 0,
+                "w": 220,
+                "h": 167,
+                "x": 660
+            }
+        },
+        "energy_beam_5": {
+            "frame": {
+                "y": 0,
+                "w": 220,
+                "h": 167,
+                "x": 880
+            }
+        },
+        "energy_beam_6": {
+            "frame": {
+                "y": 0,
+                "w": 220,
+                "h": 167,
+                "x": 1100
+            }
+        },
+        "energy_beam_7": {
+            "frame": {
+                "y": 0,
+                "w": 220,
+                "h": 167,
+                "x": 1320
+            }
+        },
+        "energy_beam_8": {
+            "frame": {
+                "y": 0,
+                "w": 220,
+                "h": 167,
+                "x": 1540
+            }
+        },
+        "energy_beam_9": {
+            "frame": {
+                "y": 0,
+                "w": 220,
+                "h": 167,
+                "x": 1760
+            }
+        }
+    },
+    "image": "energy_beam.png"
+}

@@ -75,6 +75,11 @@ private:
     Texture2D m_texPortalGreen{};
     Texture2D m_texPortalPurple{};
     Texture2D m_texPortalRed{};
+    Rectangle m_srcPlayer{};
+    Rectangle m_srcEnemy{};
+    Rectangle m_srcBoss1{};
+    Rectangle m_srcBoss2{};
+    Rectangle m_srcBoss3{};
     Font m_uiFont{};
     bool m_resourcesLoaded = false;
 
