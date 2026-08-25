@@ -3,6 +3,9 @@
 #include "Controller/MapBuilderController.h"
 #include "Controller/ShopController.h"
 #include "Controller/PrepareController.h"
+#include "Survival3D/Controller/SurvivalController.h"
+#include "Survival3D/View/SurvivalView.h"
+#include "Survival3D/Systems/SurvivalRunService.h"
 #include "View/Renderer.h"
 #include "View/MenuView.h"
 #include "View/GameView.h"
@@ -52,6 +55,8 @@ int main() {
 
     auto& assetManager = View::AssetManager::GetInstance();
     assetManager.StartLoading(jsonFiles);
+    auto& survivalView = Survival3D::SurvivalView::GetInstance();
+    survivalView.BeginStartupAssetLoading();
 
     // Load game_font for loading screen
     Font loadingFont = LoadFont("assets/fonts/game_font.ttf");
@@ -72,6 +77,7 @@ int main() {
 
     float loadingTime = 0.0f;
     float completionHold = 0.0f;
+    float combinedDisplayProgress = 0.0f;
 
     while (!WindowShouldClose()) {
         WindowManager::GetInstance().Update(); // Catch resize events during loading!
@@ -79,24 +85,52 @@ int main() {
         float dt = GetFrameTime();
         loadingTime += dt;
 
+        // Raylib model/texture uploads must stay on the render thread. Process
+        // one Survival3D item per frame after the 2D atlas queue completes so
+        // the loading screen remains responsive and reports each real asset.
+        const bool atlasesComplete = assetManager.IsLoadingComplete();
+        if (atlasesComplete && !survivalView.IsStartupAssetLoadingComplete())
+            survivalView.LoadNextStartupAsset();
+
         // Always use actual screen size (window may be resizable)
         int sw = GetScreenWidth();
         int sh = GetScreenHeight();
 
-        const bool assetsComplete = assetManager.IsLoadingComplete();
-        float displayProg = std::clamp(assetManager.GetDisplayProgress(), 0.0f, 1.0f);
-        float realProg    = std::clamp(assetManager.GetProgress(), 0.0f, 1.0f);
+        const float atlasProgress = std::clamp(assetManager.GetProgress(), 0.0f, 1.0f);
+        const float survivalProgress = std::clamp(
+            survivalView.GetStartupAssetLoadingProgress(), 0.0f, 1.0f);
+        // The final 28% is intentionally reserved for Survival3D. Counting
+        // each GLB as one tiny item beside hundreds of sprite atlases would
+        // hide the expensive 3D phase and make the bar misleading.
+        const float realProg = 0.72f * atlasProgress
+                             + (atlasesComplete ? 0.28f * survivalProgress : 0.0f);
+        const float smoothing = std::clamp(dt * 8.0f, 0.0f, 1.0f);
+        combinedDisplayProgress += (realProg - combinedDisplayProgress) * smoothing;
+        float displayProg = std::clamp(combinedDisplayProgress, 0.0f, 1.0f);
+        const bool assetsComplete = atlasesComplete
+            && survivalView.IsStartupAssetLoadingComplete();
         if (assetsComplete && displayProg >= 0.995f) completionHold += dt;
         else completionHold = 0.0f;
         int percent = std::clamp(static_cast<int>(displayProg * 100.0f + 0.5f), 0, 100);
 
-        std::string assetName = assetManager.GetCurrentAssetName();
+        std::string assetName = atlasesComplete
+            ? survivalView.GetStartupAssetName()
+            : assetManager.GetCurrentAssetName();
         if (assetName.empty()) assetName = "Preparing the adventure";
-        const char* stage = realProg < 0.20f ? "FORGING THE WORLD"
-                          : realProg < 0.52f ? "AWAKENING THE HEROES"
-                          : realProg < 0.82f ? "SUMMONING CREATURES"
-                          : assetsComplete ? "READYING YOUR ADVENTURE"
-                                           : "POLISHING THE REALMS";
+        const char* stage = nullptr;
+        if (!atlasesComplete) {
+            stage = realProg < 0.20f ? "FORGING THE WORLD"
+                  : realProg < 0.52f ? "AWAKENING THE HEROES"
+                                     : "SUMMONING CREATURES";
+        } else if (survivalProgress < 0.40f) {
+            stage = "RAISING THE 3D ARENA";
+        } else if (survivalProgress < 0.74f) {
+            stage = "AWAKENING 3D HEROES";
+        } else if (!assetsComplete) {
+            stage = "CHARGING 3D SKILLS";
+        } else {
+            stage = "READYING YOUR ADVENTURE";
+        }
 
         BeginDrawing();
         ClearBackground(Color{10, 8, 20, 255});
@@ -210,6 +244,7 @@ int main() {
     // initializing the whole game just to tear it down immediately.
     if (WindowShouldClose()) {
         SetTraceLogLevel(LOG_WARNING);
+        survivalView.Shutdown();
         assetManager.Shutdown();
         View::Renderer::GetInstance().Shutdown();
         CloseWindow();
@@ -220,25 +255,30 @@ int main() {
     auto& game  = GameController::GetInstance();
     auto& shop  = ShopController::GetInstance();
     auto& opts  = View::OptionsView::GetInstance();
+    auto& survival = Survival3D::SurvivalController::GetInstance();
     menu.Init();
     AchievementManager::GetInstance().Init();
     game.Init();
     shop.Init();
     opts.Init();
+    survival.Init();
+    Survival3D::SurvivalRunService::GetInstance().Init();
 
     bool inGame       = false;
     bool inMapBuilder = false;
     bool inShop       = false;
     bool inOptions    = false;
     bool inPrepare    = false;
+    bool inSurvival   = false;
 
     while (!WindowShouldClose()) {
         WindowManager::GetInstance().Update();
         float dt = GetFrameTime();
         SoundManager::GetInstance().Update(dt);
         AchievementManager::GetInstance().Update(dt);
+        Survival3D::SurvivalRunService::GetInstance().Update(dt);
 
-        if (!inGame && !inMapBuilder && !inShop && !inOptions && !inPrepare) {
+        if (!inGame && !inMapBuilder && !inShop && !inOptions && !inPrepare && !inSurvival) {
             menu.Update(dt);
 
             if (menu.ShouldOpenShop()) {
@@ -249,6 +289,10 @@ int main() {
                 menu.ResetFlags();
                 inOptions = true;
                 opts.SetVisible(true);
+            } else if (menu.ShouldStartSurvival()) {
+                menu.ResetFlags();
+                inSurvival = true;
+                survival.Start();
             } else if (menu.ShouldStartGame()) {
                 menu.ResetFlags();
                 inPrepare = true;
@@ -317,6 +361,20 @@ int main() {
                 inOptions = false;
                 menu.ShowMainMenu();
             }
+        } else if (inSurvival) {
+            survival.Update(dt);
+            if (survival.ShouldReturnToMenu()) {
+                survival.Shutdown();
+                inSurvival = false;
+                menu.ShowMainMenu();
+                continue;
+            }
+
+            BeginDrawing();
+            ClearBackground(BLACK);
+            survival.Render();
+            AchievementManager::GetInstance().RenderPopup();
+            EndDrawing();
         } else if (inMapBuilder) {
             MapBuilderController::GetInstance().Update(dt);
             if (MapBuilderController::GetInstance().ShouldReturnToMenu()) {
@@ -377,6 +435,7 @@ int main() {
     // Release all gameplay/editor references first. GameView preloads character
     // atlases even when no level was opened, so this must run unconditionally.
     game.Shutdown();
+    survival.Shutdown();
     MapBuilderController::GetInstance().ExitEditor();
 
     // Drop view-owned atlases and textures while the OpenGL context is alive.
@@ -391,6 +450,8 @@ int main() {
     View::MapBuilderView::GetInstance().Shutdown();
     View::GameView::GetInstance().Shutdown();
     View::MinimapView::GetInstance().Shutdown();
+    Survival3D::SurvivalView::GetInstance().Shutdown();
+    Survival3D::SurvivalRunService::GetInstance().Shutdown();
     menu.Shutdown();
     AchievementManager::GetInstance().Shutdown();
 

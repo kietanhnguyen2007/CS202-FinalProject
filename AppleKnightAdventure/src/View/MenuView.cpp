@@ -250,7 +250,12 @@ Rectangle MenuView::GetMainButtonRect(int index, int screenW, int screenH) const
     const float buttonH = screenH * 0.068f;
     const float startX = (screenW-panelW)*0.5f;
     const float startY = screenH*0.47f;
-    return {startX+column*(buttonW+gapX),startY+row*(buttonH+gapY),buttonW,buttonH};
+    // The ninth item (Quit) occupies the final row by itself; centering it
+    // keeps the expanded menu balanced instead of leaving a visual hole.
+    const float x = (index == 8)
+        ? (screenW-buttonW)*0.5f
+        : startX+column*(buttonW+gapX);
+    return {x,startY+row*(buttonH+gapY),buttonW,buttonH};
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

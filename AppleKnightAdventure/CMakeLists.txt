@@ -43,6 +43,7 @@ target_link_libraries(AppleKnightAdventure PRIVATE
     winmm
     ws2_32
     comdlg32
+    winhttp
 )
 
 # Fix for MinGW 14.2.0 / UCRT stat64i32 linking error with older raylib binary
@@ -68,3 +69,16 @@ add_custom_command(
 )
 add_custom_target(SyncAssets ALL DEPENDS "${ASSET_SYNC_STAMP}")
 add_dependencies(AppleKnightAdventure SyncAssets)
+
+# 10. Optional local service used by the game's online mode.
+if(WIN32)
+    add_executable(AegisRiftServer
+        backend/survival3d/main.cpp
+        backend/survival3d/SurvivalServerCore.cpp
+    )
+    target_include_directories(AegisRiftServer PRIVATE backend/survival3d)
+    target_link_libraries(AegisRiftServer PRIVATE
+        nlohmann_json::nlohmann_json
+        ws2_32
+    )
+endif()

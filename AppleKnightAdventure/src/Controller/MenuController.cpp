@@ -93,6 +93,7 @@ void MenuController::ShowMainMenu() {
 // ─────────────────────────────────────────────────────────────────────────────
 void MenuController::ResetFlags() {
     m_startGame      = false;
+    m_startSurvival  = false;
     m_openMapBuilder = false;
     m_quit           = false;
     m_openShop       = false;
@@ -148,26 +149,35 @@ void MenuController::Update(float dt) {
 
 // =============================================================================
 // HandleMainMenuInput
-// Items: Adventure, Custom Map, Builder, Shop, Leaderboard, Achievements, Options, Quit
+// Items: Adventure, Rift Survival, Custom Map, Builder, Shop, Leaderboard,
+//        Achievements, Options, Quit
 // =============================================================================
 void MenuController::HandleMainMenuInput(float dt) {
     (void)dt;
     auto& view = View::MenuView::GetInstance();
     InputCommand cmd = InputController::GetInstance().Poll();
 
-    const int kItemCount = 8;
+    const int kItemCount = 9;
 
     // ── Keyboard navigation ───────────────────────────────────────────────
     if (m_inputCooldown <= 0.0f) {
         if (cmd.menuDelta != 0) {
-            // The main menu is a 2 x 3 grid: vertical input keeps the column.
-            m_selected = (m_selected + cmd.menuDelta * 2 + kItemCount) % kItemCount;
+            // Keep the current column while moving through the two-column grid.
+            // The final row contains only Quit, so both columns converge on it.
+            constexpr int kColumns = 2;
+            const int rows = (kItemCount + kColumns - 1) / kColumns;
+            const int column = m_selected % kColumns;
+            int row = m_selected / kColumns;
+            row = (row + cmd.menuDelta + rows) % rows;
+            m_selected = row * kColumns + column;
+            if (m_selected >= kItemCount) m_selected = kItemCount - 1;
             m_inputCooldown = kInputCooldown;
         } else if (cmd.menuDeltaX != 0) {
             // Horizontal input toggles between the two buttons in the same row.
             const int row = m_selected / 2;
             const int col = m_selected % 2;
-            m_selected = row * 2 + (col + cmd.menuDeltaX + 2) % 2;
+            const int other = row * 2 + (col + cmd.menuDeltaX + 2) % 2;
+            m_selected = other < kItemCount ? other : kItemCount - 1;
             m_inputCooldown = kInputCooldown;
         }
     }
@@ -195,7 +205,12 @@ void MenuController::HandleMainMenuInput(float dt) {
                 view.ShowLevelSelect(6, 1);
                 break;
 
-            case 1: // Open the custom-map library
+            case 1: // Standalone 3D roguelite mode
+                m_startSurvival = true;
+                m_inputCooldown = kInputCooldown;
+                break;
+
+            case 2: // Open the custom-map library
                 RefreshCustomMapLibrary();
                 m_inCustomMaps = true;
                 m_pendingMapDelete.clear();
@@ -204,36 +219,36 @@ void MenuController::HandleMainMenuInput(float dt) {
                 m_inputCooldown = kInputCooldown;
                 break;
 
-            case 2: // Map Builder
+            case 3: // Map Builder
                 m_openMapBuilder = true;
                 m_inputCooldown = kInputCooldown;
                 break;
 
-            case 3: // Shop
+            case 4: // Shop
                 m_openShop = true;
                 m_inputCooldown = kInputCooldown;
                 break;
 
-            case 4: // Leaderboard
+            case 5: // Leaderboard
                 m_selected = 0;
                 m_leaderboardFastest = false;
                 m_inputCooldown = kInputCooldown;
                 view.ShowLeaderboard(1, false);
                 break;
 
-            case 5: // Achievements
+            case 6: // Achievements
                 m_selected = 0;
                 m_inputCooldown = kInputCooldown;
                 view.ShowAchievements(0);
                 break;
 
-            case 6: // Options
+            case 7: // Options
                 m_openOptions = true;
                 m_inputCooldown = kInputCooldown;
                 view.ShowOptions();
                 break;
 
-            case 7: // Quit
+            case 8: // Quit
                 m_quit = true;
                 break;
         }

@@ -139,13 +139,14 @@ private:
     float m_scrollTime = 0.0f;
 
     // ── Main menu buttons (animated) ──────────────────────────────────────
-    static constexpr int kMaxMainButtons = 8;
+    static constexpr int kMaxMainButtons = 9;
     std::array<AnimatedButton, kMaxMainButtons> m_mainButtons{};
 
     // Label lists
     std::vector<std::string> m_mainItems    = {
-        "PLAY ADVENTURE", "PLAY CUSTOM MAP", "MAP BUILDER",
-        "SHOP", "LEADERBOARD", "ACHIEVEMENTS", "OPTIONS", "QUIT"
+        "PLAY ADVENTURE", "RIFT SURVIVAL", "PLAY CUSTOM MAP",
+        "MAP BUILDER", "SHOP", "LEADERBOARD",
+        "ACHIEVEMENTS", "OPTIONS", "QUIT"
     };
     std::string m_mainNotice;
     float m_mainNoticeTimer = 0.0f;

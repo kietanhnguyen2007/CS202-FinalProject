@@ -16,6 +16,7 @@ protected:
         float cooldown = 0.0f;
         float cooldownRemaining = 0.0f;
         int lastSample = -1;
+        bool layered = false;
     };
 
     std::unordered_map<std::string, Sound> m_sounds;
@@ -28,6 +29,7 @@ protected:
     bool m_audioInitialized;
 
     SoundManager();
+    void PlaySoundInternal(const std::string& name, float gain, float pan);
 
 public:
     SoundManager(const SoundManager&) = delete;
@@ -45,6 +47,8 @@ public:
     void Update(float dt);
 
     void PlaySound(const std::string& name);
+    void PlaySoundAt(const std::string& name, Vector3 source,
+                     Vector3 listener, float maxDistance = 28.0f);
     void StopSound(const std::string& name);
     void PauseSound(const std::string& name);
     void ResumeSound(const std::string& name);
