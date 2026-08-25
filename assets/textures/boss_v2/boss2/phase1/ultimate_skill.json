@@ -1,0 +1,78 @@
+{
+    "clips": {
+        "ultimate_skill": {
+            "loop": false,
+            "frames": [
+                "ultimate_skill_0",
+                "ultimate_skill_1",
+                "ultimate_skill_2",
+                "ultimate_skill_3",
+                "ultimate_skill_4",
+                "ultimate_skill_5",
+                "ultimate_skill_6",
+                "ultimate_skill_7"
+            ],
+            "durations": [
+                0.1,
+                0.1,
+                0.1,
+                0.1,
+                0.1,
+                0.1,
+                0.1,
+                0.1
+            ]
+        }
+    },
+    "frames": {
+        "ultimate_skill_0": {
+            "x": 0,
+            "y": 0,
+            "w": 197,
+            "h": 248
+        },
+        "ultimate_skill_1": {
+            "x": 197,
+            "y": 0,
+            "w": 197,
+            "h": 248
+        },
+        "ultimate_skill_2": {
+            "x": 394,
+            "y": 0,
+            "w": 197,
+            "h": 248
+        },
+        "ultimate_skill_3": {
+            "x": 591,
+            "y": 0,
+            "w": 197,
+            "h": 248
+        },
+        "ultimate_skill_4": {
+            "x": 788,
+            "y": 0,
+            "w": 197,
+            "h": 248
+        },
+        "ultimate_skill_5": {
+            "x": 985,
+            "y": 0,
+            "w": 197,
+            "h": 248
+        },
+        "ultimate_skill_6": {
+            "x": 1182,
+            "y": 0,
+            "w": 197,
+            "h": 248
+        },
+        "ultimate_skill_7": {
+            "x": 1379,
+            "y": 0,
+            "w": 197,
+            "h": 248
+        }
+    },
+    "image": "ultimate_skill.png"
+}

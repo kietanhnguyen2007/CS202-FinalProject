@@ -105,37 +105,79 @@ std::shared_ptr<TextureAtlas> TextureAtlas::LoadFromJSON(const std::string& json
                 auto clip = std::make_shared<AnimationClip>();
                 clip->name = clipName;
                 if (clipObj.contains("frames") && clipObj["frames"].is_array()) {
-                    for (const auto& fname : clipObj["frames"]) {
-                        if (!fname.is_string()) continue;
-                        std::string fnameS = fname.get<std::string>();
-                        auto fit = atlas->m_frames.find(fnameS);
-                        if (fit != atlas->m_frames.end()) {
-                            AnimationFrame af;
-                            af.src = fit->second;
-                            af.duration = 0.1f;
-                            af.origin = {0,0};
-                            af.name = fnameS;
+                    size_t inlineFrameIndex = 0;
+                    for (const auto& frameEntry : clipObj["frames"]) {
+                        AnimationFrame af;
+                        af.duration = 0.1f;
+                        af.origin = {0,0};
+                        const nlohmann::json* frameMetadata = nullptr;
+                        bool hasValidRect = false;
 
-                            // read metadata from top-level frames JSON if available
-                            if (j.contains("frames") && j["frames"].is_object() && j["frames"].contains(fnameS)) {
-                                const auto& frameJson = j["frames"][fnameS];
-                                if (frameJson.contains("rotated")) af.rotated = frameJson["rotated"].get<bool>();
-                                if (frameJson.contains("trimmed")) af.trimmed = frameJson["trimmed"].get<bool>();
-                                if (frameJson.contains("spriteSourceSize") && frameJson["spriteSourceSize"].is_object()) {
-                                    af.spriteSourceSize.x = (float)frameJson["spriteSourceSize"].value("x", 0);
-                                    af.spriteSourceSize.y = (float)frameJson["spriteSourceSize"].value("y", 0);
-                                }
-                                if (frameJson.contains("sourceSize") && frameJson["sourceSize"].is_object()) {
-                                    af.originalSize.x = (float)frameJson["sourceSize"].value("w", 0);
-                                    af.originalSize.y = (float)frameJson["sourceSize"].value("h", 0);
-                                }
-                                if (af.originalSize.x > 0 && af.originalSize.y > 0) {
-                                    af.origin = { af.spriteSourceSize.x, af.spriteSourceSize.y };
+                        // TexturePacker-style atlases reference a frame declared in
+                        // the top-level "frames" object by name.
+                        if (frameEntry.is_string()) {
+                            const std::string frameName = frameEntry.get<std::string>();
+                            auto fit = atlas->m_frames.find(frameName);
+                            if (fit != atlas->m_frames.end()) {
+                                af.src = fit->second;
+                                af.name = frameName;
+                                hasValidRect = af.src.width > 0.0f && af.src.height > 0.0f;
+                                if (j.contains("frames") && j["frames"].is_object() && j["frames"].contains(frameName)) {
+                                    frameMetadata = &j["frames"][frameName];
                                 }
                             }
-
-                            clip->frames.push_back(af);
                         }
+                        // The generated V2 character atlases store each rectangle
+                        // directly in the clip: { "rect": [x, y, w, h], ... }.
+                        else if (frameEntry.is_object()) {
+                            int x = 0, y = 0, w = 0, h = 0;
+                            if (frameEntry.contains("rect") && frameEntry["rect"].is_array() &&
+                                frameEntry["rect"].size() >= 4) {
+                                const auto& rect = frameEntry["rect"];
+                                x = rect[0].get<int>();
+                                y = rect[1].get<int>();
+                                w = rect[2].get<int>();
+                                h = rect[3].get<int>();
+                            } else if (frameEntry.contains("frame") && frameEntry["frame"].is_object()) {
+                                const auto& rect = frameEntry["frame"];
+                                x = rect.value("x", 0);
+                                y = rect.value("y", 0);
+                                w = rect.value("w", 0);
+                                h = rect.value("h", 0);
+                            } else {
+                                x = frameEntry.value("x", 0);
+                                y = frameEntry.value("y", 0);
+                                w = frameEntry.value("w", 0);
+                                h = frameEntry.value("h", 0);
+                            }
+
+                            af.src = Rectangle{(float)x, (float)y, (float)w, (float)h};
+                            af.duration = frameEntry.value("duration", 0.1f);
+                            af.name = frameEntry.value(
+                                "name", clipName + "_" + std::to_string(inlineFrameIndex));
+                            hasValidRect = w > 0 && h > 0;
+                            frameMetadata = &frameEntry;
+                        }
+
+                        if (hasValidRect && frameMetadata != nullptr) {
+                            const auto& frameJson = *frameMetadata;
+                            if (frameJson.contains("rotated")) af.rotated = frameJson["rotated"].get<bool>();
+                            if (frameJson.contains("trimmed")) af.trimmed = frameJson["trimmed"].get<bool>();
+                            if (frameJson.contains("spriteSourceSize") && frameJson["spriteSourceSize"].is_object()) {
+                                af.spriteSourceSize.x = (float)frameJson["spriteSourceSize"].value("x", 0);
+                                af.spriteSourceSize.y = (float)frameJson["spriteSourceSize"].value("y", 0);
+                            }
+                            if (frameJson.contains("sourceSize") && frameJson["sourceSize"].is_object()) {
+                                af.originalSize.x = (float)frameJson["sourceSize"].value("w", 0);
+                                af.originalSize.y = (float)frameJson["sourceSize"].value("h", 0);
+                            }
+                            if (af.originalSize.x > 0 && af.originalSize.y > 0) {
+                                af.origin = {af.spriteSourceSize.x, af.spriteSourceSize.y};
+                            }
+                        }
+
+                        if (hasValidRect) clip->frames.push_back(af);
+                        ++inlineFrameIndex;
                     }
                 }
                 if (clipObj.contains("durations") && clipObj["durations"].is_array()) {
@@ -152,6 +194,11 @@ std::shared_ptr<TextureAtlas> TextureAtlas::LoadFromJSON(const std::string& json
                 float total = 0.0f;
                 for (const auto& f : clip->frames) total += f.duration;
                 clip->totalDuration = total;
+
+                if (clip->frames.empty()) {
+                    std::cerr << "TextureAtlas: clip '" << clipName
+                              << "' has no valid frames in " << jsonPath << "\n";
+                }
 
                 atlas->m_clips.emplace(clipName, clip);
             }

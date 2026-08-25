@@ -108,11 +108,11 @@ void MapBuilderView::Init() {
     m_statusTimer = 0.0f;
 
     if (!m_resourcesLoaded) {
-        m_texPlayer = LoadTexture("assets/textures/player/knight/idle.png");
-        m_texEnemy = LoadTexture("assets/textures/player/ninja/idle.png"); // placeholder
-        m_texBoss1 = LoadTexture("assets/textures/boss/boss1/phase1/idle.png");
-        m_texBoss2 = LoadTexture("assets/textures/boss/boss2/phase1/idle.png");
-        m_texBoss3 = LoadTexture("assets/textures/boss/boss3/phase1/idle.png");
+        m_texPlayer = LoadTexture("assets/textures/player/knight_v2/idle_v2.png");
+        m_texEnemy = LoadTexture("assets/textures/player/ninja_v2/idle_v2.png"); // placeholder
+        m_texBoss1 = LoadTexture("assets/textures/boss_v2/boss1/phase1/idle.png");
+        m_texBoss2 = LoadTexture("assets/textures/boss_v2/boss2/phase1/idle.png");
+        m_texBoss3 = LoadTexture("assets/textures/boss_v2/boss3/phase1/idle.png");
         m_texCoin = LoadTexture("assets/textures/items/coin.png");
         m_texKey = LoadTexture("assets/textures/items/key.png");
         m_texPotion = LoadTexture("assets/textures/items/potion_red.png");

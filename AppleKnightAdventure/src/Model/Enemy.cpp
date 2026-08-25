@@ -1,4 +1,5 @@
 #include "Model/Enemy.h"
+#include <algorithm>
 #include <cmath>
 
 Enemy::Enemy()
@@ -11,6 +12,8 @@ Enemy::Enemy()
     , m_patrolRange(100.0f)
     , m_spawnPosition({0, 0})
     , m_stateTimer(0.0f)
+    , m_edgeTurnTimer(0.0f)
+    , m_edgeTurnDirection(0.0f)
 {
 }
 
@@ -24,6 +27,8 @@ Enemy::Enemy(Vector2 position, EnemyType type)
     , m_patrolRange(100.0f)
     , m_spawnPosition(position)
     , m_stateTimer(0.0f)
+    , m_edgeTurnTimer(0.0f)
+    , m_edgeTurnDirection(0.0f)
 {
     switch (type) {
         case EnemyType::Melee:
@@ -100,15 +105,40 @@ void Enemy::SetPatrolRange(float range) { m_patrolRange = range; }
 
 Vector2 Enemy::GetSpawnPosition() const { return m_spawnPosition; }
 
-void Enemy::UpdateAI(Vector2 playerPosition, float deltaTime) {
+void Enemy::TurnAwayFromEdge(float attemptedDirectionX) {
+    if (m_enemyType == EnemyType::Flying || std::abs(attemptedDirectionX) < 0.01f)
+        return;
+
+    m_edgeTurnDirection = attemptedDirectionX > 0.0f ? -1.0f : 1.0f;
+    m_edgeTurnTimer = 0.45f;
+    MoveX(m_edgeTurnDirection, 0.0f);
+    m_direction = m_edgeTurnDirection > 0.0f ? Direction::Right : Direction::Left;
+}
+
+void Enemy::UpdateAI(Vector2 playerPosition, float deltaTime, bool targetVisible) {
     float dx = playerPosition.x - m_position.x;
     float dy = playerPosition.y - m_position.y;
     float dist = std::sqrt(dx * dx + dy * dy);
+    const bool canSeePlayer = m_enemyType != EnemyType::Flying || targetVisible;
 
     // Keep enemy facing player whenever it is aware of the player
-    if (m_state == EnemyState::Chase || m_state == EnemyState::WindUp || m_state == EnemyState::Attack) {
+    if (canSeePlayer &&
+        (m_state == EnemyState::Chase || m_state == EnemyState::WindUp || m_state == EnemyState::Attack)) {
         if (std::abs(dx) > 1.0f)
             m_direction = (dx > 0) ? Direction::Right : Direction::Left;
+    }
+
+    // Hold the reversed direction briefly after detecting a ledge. Without
+    // this lock, Chase/Patrol would immediately point back toward the void on
+    // the next frame and make the enemy jitter at (or eventually cross) it.
+    const bool canMoveAwayFromEdge = m_state == EnemyState::Idle
+                                  || m_state == EnemyState::Patrol
+                                  || m_state == EnemyState::Chase;
+    if (m_enemyType != EnemyType::Flying && canMoveAwayFromEdge && m_edgeTurnTimer > 0.0f) {
+        m_edgeTurnTimer = std::max(0.0f, m_edgeTurnTimer - deltaTime);
+        MoveX(m_edgeTurnDirection, deltaTime);
+        m_direction = m_edgeTurnDirection > 0.0f ? Direction::Right : Direction::Left;
+        return;
     }
 
     switch (m_state) {
@@ -120,7 +150,7 @@ void Enemy::UpdateAI(Vector2 playerPosition, float deltaTime) {
             break;
 
         case EnemyState::Idle:
-            if (dist <= m_detectionRange) {
+            if (canSeePlayer && dist <= m_detectionRange) {
                 SetState(EnemyState::Chase);
             } else {
                 m_stateTimer += deltaTime;
@@ -132,14 +162,16 @@ void Enemy::UpdateAI(Vector2 playerPosition, float deltaTime) {
 
         case EnemyState::Patrol:
             Patrol(deltaTime);
-            if (dist <= m_detectionRange) {
+            if (canSeePlayer && dist <= m_detectionRange) {
                 SetState(EnemyState::Chase);
             }
             break;
 
         case EnemyState::Chase: {
             float distFromSpawn = std::abs(m_position.x - m_spawnPosition.x);
-            if (distFromSpawn > m_patrolRange * 1.5f) {
+            if (!canSeePlayer) {
+                SetState(EnemyState::Patrol);
+            } else if (distFromSpawn > m_patrolRange * 1.5f) {
                 SetState(EnemyState::Patrol);
             } else if (dist <= m_attackRange) {
                 // Flying enemies attack immediately; ground enemies wind up first
@@ -160,6 +192,10 @@ void Enemy::UpdateAI(Vector2 playerPosition, float deltaTime) {
         case EnemyState::WindUp: {
             MoveX(0, deltaTime);  // Stop moving while winding up
             m_stateTimer += deltaTime;
+            if (!canSeePlayer) {
+                SetState(EnemyState::Patrol);
+                break;
+            }
             // If player escapes during wind-up, cancel and chase
             if (dist > m_attackRange * 1.5f) {
                 SetState(EnemyState::Chase);
@@ -172,6 +208,10 @@ void Enemy::UpdateAI(Vector2 playerPosition, float deltaTime) {
         }
 
         case EnemyState::Attack: {
+            if (!canSeePlayer) {
+                SetState(EnemyState::Patrol);
+                break;
+            }
             if (m_enemyType != EnemyType::Flying) {
                 MoveX(0, deltaTime); // Stop moving while attacking for ground units
             }

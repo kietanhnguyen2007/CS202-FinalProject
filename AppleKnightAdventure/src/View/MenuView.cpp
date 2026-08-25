@@ -9,9 +9,12 @@
 #include "View/UIResourceManager.h"
 #include "Systems/SoundManager.h"
 #include "Systems/TweenSystem.h"
+#include "Systems/AchievementManager.h"
+#include "Model/SaveManager.h"
 #include <cmath>
 #include <cstdio>
 #include <algorithm>
+#include <cctype>
 
 // Needed for M_PI on MSVC
 #ifndef M_PI
@@ -47,6 +50,43 @@ struct CustomMapLayout {
     Rectangle confirmActions[2]{};
     float rowHeight{};
 };
+
+struct RecordsLayout {
+    Rectangle panel{};
+    Rectangle levelTabs[6]{};
+    Rectangle modeTabs[2]{};
+    Rectangle table{};
+};
+
+RecordsLayout BuildRecordsLayout(float w, float h) {
+    RecordsLayout l;
+    const float panelW = std::min(std::max(w * 0.84f, 620.0f), w - 30.0f);
+    const float panelH = std::min(std::max(h * 0.82f, 410.0f), h - 26.0f);
+    l.panel = {(w - panelW) * 0.5f, (h - panelH) * 0.5f, panelW, panelH};
+    const float inset = std::clamp(panelW * 0.035f, 18.0f, 32.0f);
+    const float gap = std::clamp(panelW * 0.012f, 6.0f, 12.0f);
+    const float tabW = (panelW - inset * 2.0f - gap * 5.0f) / 6.0f;
+    const float tabY = l.panel.y + std::clamp(panelH * 0.16f, 68.0f, 92.0f);
+    const float tabH = std::clamp(panelH * 0.075f, 34.0f, 46.0f);
+    for (int i = 0; i < 6; ++i)
+        l.levelTabs[i] = {l.panel.x + inset + i * (tabW + gap), tabY, tabW, tabH};
+    const float modeW = std::min(190.0f, (panelW - inset * 2.0f - gap) * 0.5f);
+    const float modeY = tabY + tabH + std::clamp(panelH * 0.025f, 10.0f, 16.0f);
+    l.modeTabs[0] = {l.panel.x + panelW * 0.5f - modeW - gap * 0.5f, modeY, modeW, tabH};
+    l.modeTabs[1] = {l.panel.x + panelW * 0.5f + gap * 0.5f, modeY, modeW, tabH};
+    const float tableY = modeY + tabH + std::clamp(panelH * 0.025f, 10.0f, 16.0f);
+    l.table = {l.panel.x + inset, tableY, panelW - inset * 2.0f,
+               l.panel.y + panelH - inset - tableY};
+    return l;
+}
+
+Rectangle AchievementNodeRect(const AchievementDefinition& definition, Rectangle content) {
+    const float node = std::clamp(std::min(content.width / 8.0f, content.height / 5.2f), 30.0f, 82.0f);
+    const float stepX = (content.width - node) / 4.0f;
+    const float stepY = (content.height - node) / 3.0f;
+    return {content.x + definition.column * stepX,
+            content.y + definition.row * stepY, node, node};
+}
 
 PauseLayout BuildPauseLayout(float w, float h) {
     PauseLayout l;
@@ -131,6 +171,26 @@ bool MenuView::LoadResources(const std::string& atlasJsonPath) {
     m_fontTitle = ::LoadFont("assets/fonts/game_font.ttf");
     m_fontBody  = ::LoadFont("assets/fonts/game_font.ttf");
     m_levelStarIcon = ::LoadTexture("assets/ui/victory/icon_star.png");
+    const char* achievementPaths[7] = {
+        "assets/ui/victory/icon_trophy.png",
+        "assets/ui/victory/icon_star.png",
+        "assets/ui/victory/icon_target.png",
+        "assets/textures/items/coin.png",
+        "assets/textures/items/potion_red.png",
+        "assets/textures/player/magic_caster_v2/idle_v2.png",
+        "assets/textures/player/ninja_v2/idle_v2.png"
+    };
+    for (int i = 0; i < 7; ++i) {
+        m_achievementIcons[i] = ::LoadTexture(achievementPaths[i]);
+        m_achievementIconSources[i] = {0, 0,
+            (float)m_achievementIcons[i].width, (float)m_achievementIcons[i].height};
+    }
+    if (m_achievementIcons[3].id != 0)
+        m_achievementIconSources[3].width = (float)m_achievementIcons[3].height;
+    if (m_achievementIcons[5].id != 0)
+        m_achievementIconSources[5].width = std::min(128.0f, (float)m_achievementIcons[5].width);
+    if (m_achievementIcons[6].id != 0)
+        m_achievementIconSources[6].width = std::min(128.0f, (float)m_achievementIcons[6].width);
     if (m_fontTitle.texture.id != 0 && m_fontBody.texture.id != 0) {
         m_fontsLoaded = true;
     } else {
@@ -159,6 +219,10 @@ void MenuView::Shutdown() {
         ::UnloadTexture(m_levelStarIcon);
         m_levelStarIcon = {};
     }
+    for (auto& texture : m_achievementIcons) {
+        if (texture.id != 0) ::UnloadTexture(texture);
+        texture = {};
+    }
     m_loaded = false;
 }
 
@@ -179,14 +243,19 @@ Rectangle MenuView::GetMainButtonRect(int index, int screenW, int screenH) const
     constexpr int columns = 2;
     const int column = index % columns;
     const int row = index / columns;
-    const float panelW = screenW * 0.58f;
+    const float panelW = screenW * 0.62f;
     const float gapX = screenW * 0.022f;
-    const float gapY = screenH * 0.025f;
+    const float gapY = screenH * 0.016f;
     const float buttonW = (panelW-gapX)/2.0f;
-    const float buttonH = screenH * 0.082f;
+    const float buttonH = screenH * 0.068f;
     const float startX = (screenW-panelW)*0.5f;
-    const float startY = screenH*0.50f;
-    return {startX+column*(buttonW+gapX),startY+row*(buttonH+gapY),buttonW,buttonH};
+    const float startY = screenH*0.47f;
+    // The ninth item (Quit) occupies the final row by itself; centering it
+    // keeps the expanded menu balanced instead of leaving a visual hole.
+    const float x = (index == 8)
+        ? (screenW-buttonW)*0.5f
+        : startX+column*(buttonW+gapX);
+    return {x,startY+row*(buttonH+gapY),buttonW,buttonH};
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -289,6 +358,30 @@ void MenuView::ShowCustomMaps(const std::vector<std::string>& mapNames,
     m_visible = true;
 }
 
+void MenuView::ShowLeaderboard(int level, bool fastestTime) {
+    m_mode = MenuMode::Leaderboard;
+    SetLeaderboardSelection(level, fastestTime);
+    m_visible = true;
+}
+
+void MenuView::ShowAchievements(int selectedAchievement) {
+    m_mode = MenuMode::Achievements;
+    SetAchievementSelection(selectedAchievement);
+    m_visible = true;
+}
+
+void MenuView::SetLeaderboardSelection(int level, bool fastestTime) {
+    m_leaderboardLevel = std::clamp(level, 1, 6);
+    m_leaderboardFastest = fastestTime;
+    m_selected = m_leaderboardLevel - 1;
+}
+
+void MenuView::SetAchievementSelection(int index) {
+    const int count = (int)AchievementManager::GetInstance().GetDefinitions().size();
+    m_achievementSelected = count > 0 ? std::clamp(index, 0, count - 1) : 0;
+    m_selected = m_achievementSelected;
+}
+
 void MenuView::SetLevelStars(const std::vector<int>& bestStars) {
     m_levelBestStars = bestStars;
 }
@@ -308,6 +401,8 @@ void MenuView::Render() {
         case MenuMode::Shop:        RenderShop();        break;
         case MenuMode::LevelSelect: RenderLevelSelect(); break;
         case MenuMode::CustomMaps:  RenderCustomMaps();  break;
+        case MenuMode::Leaderboard: RenderLeaderboard(); break;
+        case MenuMode::Achievements: RenderAchievements(); break;
         case MenuMode::Options:     /* handled externally */    break;
     }
 }
@@ -364,7 +459,28 @@ int MenuView::GetHoveredItem(Vector2 mousePos) const {
                               layout.list.width, layout.rowHeight - 6.0f};
             if (::CheckCollisionPointRec(mousePos, rect)) return index;
         }
+    } else if (m_mode == MenuMode::Leaderboard) {
+        const RecordsLayout layout = BuildRecordsLayout((float)w, (float)h);
+        for (int i = 0; i < 6; ++i)
+            if (::CheckCollisionPointRec(mousePos, layout.levelTabs[i])) return i;
+    } else if (m_mode == MenuMode::Achievements) {
+        const RecordsLayout layout = BuildRecordsLayout((float)w, (float)h);
+        Rectangle content{layout.panel.x + 54.0f, layout.panel.y + 112.0f,
+                          layout.panel.width - 108.0f, layout.panel.height - 205.0f};
+        const auto& definitions = AchievementManager::GetInstance().GetDefinitions();
+        for (int i = 0; i < (int)definitions.size(); ++i)
+            if (::CheckCollisionPointRec(mousePos, AchievementNodeRect(definitions[i], content))) return i;
     }
+    return -1;
+}
+
+int MenuView::GetLeaderboardModeHovered(Vector2 mousePos) const {
+    if (m_mode != MenuMode::Leaderboard) return -1;
+    const RecordsLayout layout = BuildRecordsLayout(
+        (float)Renderer::GetInstance().GetWindowWidth(),
+        (float)Renderer::GetInstance().GetWindowHeight());
+    for (int i = 0; i < 2; ++i)
+        if (::CheckCollisionPointRec(mousePos, layout.modeTabs[i])) return i;
     return -1;
 }
 
@@ -758,7 +874,7 @@ void MenuView::RenderMain() {
     // ── Step 4: Dark vignette overlay ────────────────────────────────────
     ::DrawRectangle(0, 0, w, h, Color{8, 4, 18, 90});
 
-    const Rectangle commandPanel{w*0.18f,h*0.445f,w*0.64f,h*0.39f};
+    const Rectangle commandPanel{w*0.16f,h*0.415f,w*0.68f,h*0.47f};
     ::DrawRectangleRounded({commandPanel.x+7,commandPanel.y+9,
                             commandPanel.width,commandPanel.height},
                            0.08f,12,Color{3,1,10,145});
@@ -1461,4 +1577,256 @@ void MenuView::RenderLevelSelect() {
         ::DrawText(hint, (sw-hw)/2, (int)(sh*0.90f), hfs, Color{160,150,190,200});
     }
 #endif
+}
+
+void MenuView::DrawAchievementIcon(int icon, Rectangle destination, Color tint) const {
+    if (icon < 0 || icon >= (int)m_achievementIcons.size()) return;
+    const Texture2D& texture = m_achievementIcons[icon];
+    if (texture.id == 0) {
+        DrawPoly({destination.x + destination.width * 0.5f,
+                  destination.y + destination.height * 0.5f}, 4,
+                 std::min(destination.width, destination.height) * 0.30f, 45.0f, tint);
+        return;
+    }
+    if (icon == (int)AchievementIcon::Coop) {
+        Rectangle left{destination.x, destination.y + destination.height * 0.12f,
+                       destination.width * 0.62f, destination.height * 0.82f};
+        Rectangle right{destination.x + destination.width * 0.38f, destination.y,
+                        destination.width * 0.62f, destination.height * 0.82f};
+        DrawTexturePro(texture, m_achievementIconSources[icon], left, {0, 0}, 0.0f, tint);
+        DrawTexturePro(texture, m_achievementIconSources[icon], right, {0, 0}, 0.0f, tint);
+        return;
+    }
+    DrawTexturePro(texture, m_achievementIconSources[icon], destination, {0, 0}, 0.0f, tint);
+}
+
+void MenuView::RenderLeaderboard() {
+    const float w = (float)Renderer::GetInstance().GetWindowWidth();
+    const float h = (float)Renderer::GetInstance().GetWindowHeight();
+    const RecordsLayout l = BuildRecordsLayout(w, h);
+    const Font font = m_fontsLoaded ? m_fontBody : GetFontDefault();
+    const Color gold{241, 193, 78, 255};
+    const Color violet{151, 116, 206, 255};
+
+    RenderParallax();
+    DrawRectangle(0, 0, (int)w, (int)h, Color{7, 4, 17, 188});
+    DrawRectangleRounded({l.panel.x + 9, l.panel.y + 11, l.panel.width, l.panel.height},
+                         0.045f, 12, Color{0, 0, 0, 135});
+    DrawRectangleRounded(l.panel, 0.045f, 12, Color{19, 14, 34, 250});
+    DrawRectangleGradientV((int)l.panel.x + 3, (int)l.panel.y + 3,
+                           (int)l.panel.width - 6, (int)(l.panel.height * 0.15f),
+                           Color{65, 44, 91, 255}, Color{19, 14, 34, 250});
+    DrawRectangleRoundedLinesEx(l.panel, 0.045f, 12, 3.0f, gold);
+
+    const float titleSize = std::clamp(l.panel.height * 0.067f, 25.0f, 39.0f);
+    const char* title = "LEADERBOARD";
+    const Vector2 titleMeasure = MeasureTextEx(font, title, titleSize, 1.4f);
+    DrawTextEx(font, title, {l.panel.x + (l.panel.width - titleMeasure.x) * 0.5f,
+                            l.panel.y + 18.0f}, titleSize, 1.4f, gold);
+
+    for (int i = 0; i < 6; ++i) {
+        const bool selected = m_leaderboardLevel == i + 1;
+        DrawRectangleRounded(l.levelTabs[i], 0.18f, 8,
+            selected ? Color{89, 61, 124, 255} : Color{31, 24, 51, 245});
+        DrawRectangleRoundedLinesEx(l.levelTabs[i], 0.18f, 8, selected ? 2.5f : 1.3f,
+            selected ? gold : Color{91, 73, 125, 220});
+        char label[24];
+        std::snprintf(label, sizeof(label), "LEVEL %d", i + 1);
+        float fs = std::clamp(l.levelTabs[i].height * 0.38f, 12.0f, 17.0f);
+        Vector2 size = MeasureTextEx(font, label, fs, 0.6f);
+        DrawTextEx(font, label,
+            {l.levelTabs[i].x + (l.levelTabs[i].width - size.x) * 0.5f,
+             l.levelTabs[i].y + (l.levelTabs[i].height - size.y) * 0.5f},
+            fs, 0.6f, selected ? Color{255, 244, 204, 255} : Color{188, 178, 207, 255});
+    }
+
+    const char* modeLabels[2] = {"TOP SCORE", "FASTEST TIME"};
+    for (int i = 0; i < 2; ++i) {
+        const bool selected = m_leaderboardFastest == (i == 1);
+        DrawRectangleRounded(l.modeTabs[i], 0.20f, 8,
+            selected ? Color{70, 104, 117, 255} : Color{28, 23, 47, 245});
+        DrawRectangleRoundedLinesEx(l.modeTabs[i], 0.20f, 8, 2.0f,
+            selected ? Color{112, 230, 207, 255} : Color{83, 67, 115, 210});
+        const float fs = std::clamp(l.modeTabs[i].height * 0.38f, 12.0f, 17.0f);
+        const Vector2 size = MeasureTextEx(font, modeLabels[i], fs, 0.7f);
+        DrawTextEx(font, modeLabels[i],
+            {l.modeTabs[i].x + (l.modeTabs[i].width - size.x) * 0.5f,
+             l.modeTabs[i].y + (l.modeTabs[i].height - size.y) * 0.5f},
+            fs, 0.7f, selected ? Color{210, 255, 239, 255} : Color{178, 169, 198, 255});
+    }
+
+    DrawRectangleRounded(l.table, 0.025f, 8, Color{11, 9, 22, 235});
+    DrawRectangleRoundedLinesEx(l.table, 0.025f, 8, 1.5f, Color{91, 72, 125, 210});
+    const float headerH = std::clamp(l.table.height * 0.13f, 34.0f, 46.0f);
+    DrawRectangleGradientH((int)l.table.x + 2, (int)l.table.y + 2,
+                           (int)l.table.width - 4, (int)headerH,
+                           Color{53, 38, 76, 245}, Color{32, 28, 59, 245});
+    const float columns[6] = {0.035f, 0.12f, 0.39f, 0.60f, 0.75f, 0.89f};
+    const char* headers[6] = {"#", "PLAYER", "HERO", "SCORE", "TIME", "STARS"};
+    const float headerFs = std::clamp(headerH * 0.38f, 12.0f, 16.0f);
+    for (int i = 0; i < 6; ++i)
+        DrawTextEx(font, headers[i], {l.table.x + l.table.width * columns[i],
+                   l.table.y + (headerH - headerFs) * 0.5f}, headerFs, 0.6f, gold);
+
+    const auto& entries = m_leaderboardFastest
+        ? SaveManager::GetInstance().GetTopTimes(m_leaderboardLevel)
+        : SaveManager::GetInstance().GetTopScores(m_leaderboardLevel);
+    if (entries.empty()) {
+        const char* empty = "NO RECORDS YET - COMPLETE THIS LEVEL TO CLAIM THE BOARD";
+        float fs = std::clamp(l.table.height * 0.06f, 14.0f, 20.0f);
+        Vector2 size = MeasureTextEx(font, empty, fs, 0.7f);
+        DrawTextEx(font, empty, {l.table.x + (l.table.width - size.x) * 0.5f,
+                   l.table.y + headerH + (l.table.height - headerH - size.y) * 0.5f},
+                   fs, 0.7f, Color{155, 145, 178, 235});
+    } else {
+        const float rowH = (l.table.height - headerH - 4.0f) / 5.0f;
+        for (int row = 0; row < (int)entries.size() && row < 5; ++row) {
+            const auto& entry = entries[row];
+            const float y = l.table.y + headerH + row * rowH;
+            if (row % 2 == 0) DrawRectangle((int)l.table.x + 2, (int)y,
+                (int)l.table.width - 4, (int)rowH, Color{36, 28, 54, 145});
+            if (row == 0) DrawRectangle((int)l.table.x + 2, (int)y, 5, (int)rowH, gold);
+            const Color textColor = row == 0 ? Color{255, 238, 180, 255} : Color{225, 217, 237, 255};
+            const float fs = std::clamp(rowH * 0.34f, 12.0f, 18.0f);
+            char rank[8], score[24], time[24], stars[8];
+            std::snprintf(rank, sizeof(rank), "%d", row + 1);
+            std::snprintf(score, sizeof(score), "%d", entry.score);
+            const int seconds = entry.timeMs / 1000;
+            std::snprintf(time, sizeof(time), "%02d:%02d.%03d", seconds / 60,
+                          seconds % 60, entry.timeMs % 1000);
+            std::snprintf(stars, sizeof(stars), "%d/3", entry.stars);
+            std::string heroes;
+            for (size_t i = 0; i < entry.characterIds.size(); ++i) {
+                std::string hero;
+                if (entry.characterIds[i] == "magic_caster") hero = "MAGE";
+                else if (entry.characterIds[i] == "fighter") hero = "FIGHTER";
+                else if (entry.characterIds[i] == "ninja") hero = "NINJA";
+                else hero = "KNIGHT";
+                if (i) heroes += " + ";
+                heroes += hero;
+            }
+            const float textY = y + (rowH - fs) * 0.5f;
+            DrawTextEx(font, rank, {l.table.x + l.table.width * columns[0], textY}, fs, 0.5f, textColor);
+            DrawTextEx(font, entry.playerName.c_str(), {l.table.x + l.table.width * columns[1], textY}, fs, 0.5f, textColor);
+            DrawTextEx(font, heroes.c_str(), {l.table.x + l.table.width * columns[2], textY}, fs * 0.86f, 0.3f,
+                       entry.localCoop ? Color{121, 235, 210, 255} : textColor);
+            DrawTextEx(font, score, {l.table.x + l.table.width * columns[3], textY}, fs, 0.5f, textColor);
+            DrawTextEx(font, time, {l.table.x + l.table.width * columns[4], textY}, fs * 0.90f, 0.3f, textColor);
+            DrawTextEx(font, stars, {l.table.x + l.table.width * columns[5], textY}, fs, 0.5f, textColor);
+        }
+    }
+
+    const char* hint = "[LEFT / RIGHT] LEVEL     [UP / DOWN] RANKING     [ESC] BACK";
+    const float hintFs = std::clamp(h * 0.018f, 11.0f, 15.0f);
+    const Vector2 hintSize = MeasureTextEx(font, hint, hintFs, 0.5f);
+    DrawTextEx(font, hint, {(w - hintSize.x) * 0.5f, l.panel.y + l.panel.height - 21.0f},
+               hintFs, 0.5f, Color{170, 158, 194, 230});
+}
+
+void MenuView::RenderAchievements() {
+    const float w = (float)Renderer::GetInstance().GetWindowWidth();
+    const float h = (float)Renderer::GetInstance().GetWindowHeight();
+    const RecordsLayout base = BuildRecordsLayout(w, h);
+    const Rectangle panel = base.panel;
+    const Rectangle content{panel.x + 54.0f, panel.y + 112.0f,
+                            panel.width - 108.0f, panel.height - 205.0f};
+    const Font font = m_fontsLoaded ? m_fontBody : GetFontDefault();
+    const auto& manager = AchievementManager::GetInstance();
+    const auto& definitions = manager.GetDefinitions();
+    const Color gold{242, 194, 77, 255};
+
+    RenderParallax();
+    DrawRectangle(0, 0, (int)w, (int)h, Color{7, 4, 17, 192});
+    DrawRectangleRounded({panel.x + 9, panel.y + 11, panel.width, panel.height},
+                         0.045f, 12, Color{0, 0, 0, 135});
+    DrawRectangleRounded(panel, 0.045f, 12, Color{18, 14, 32, 250});
+    DrawRectangleGradientV((int)panel.x + 3, (int)panel.y + 3,
+                           (int)panel.width - 6, 92,
+                           Color{65, 44, 91, 255}, Color{18, 14, 32, 250});
+    DrawRectangleRoundedLinesEx(panel, 0.045f, 12, 3.0f, gold);
+
+    const float titleSize = std::clamp(panel.height * 0.062f, 24.0f, 38.0f);
+    const char* title = "ACHIEVEMENTS";
+    const Vector2 titleSizeV = MeasureTextEx(font, title, titleSize, 1.3f);
+    DrawTextEx(font, title, {panel.x + (panel.width - titleSizeV.x) * 0.5f,
+               panel.y + 16.0f}, titleSize, 1.3f, gold);
+    char countText[48];
+    std::snprintf(countText, sizeof(countText), "ADVANCEMENTS  %d / %d",
+                  manager.GetUnlockedCount(), (int)definitions.size());
+    const float countFs = std::clamp(panel.height * 0.026f, 12.0f, 16.0f);
+    const Vector2 countSize = MeasureTextEx(font, countText, countFs, 0.6f);
+    DrawTextEx(font, countText, {panel.x + (panel.width - countSize.x) * 0.5f,
+               panel.y + 60.0f}, countFs, 0.6f, Color{195, 181, 216, 255});
+
+    const int links[][2] = {{0,1},{1,2},{0,3},{3,4},{2,5},{5,6},{7,8},{7,9},{10,11},{11,12},{12,13},{13,14}};
+    for (const auto& link : links) {
+        if (link[0] >= (int)definitions.size() || link[1] >= (int)definitions.size()) continue;
+        Rectangle a = AchievementNodeRect(definitions[link[0]], content);
+        Rectangle b = AchievementNodeRect(definitions[link[1]], content);
+        const bool lit = manager.IsUnlocked(definitions[link[0]].id)
+                      && manager.IsUnlocked(definitions[link[1]].id);
+        DrawLineEx({a.x + a.width * 0.5f, a.y + a.height * 0.5f},
+                   {b.x + b.width * 0.5f, b.y + b.height * 0.5f},
+                   lit ? 5.0f : 3.0f, lit ? Color{242, 194, 77, 220} : Color{70, 61, 88, 210});
+    }
+
+    for (int i = 0; i < (int)definitions.size(); ++i) {
+        const auto& definition = definitions[i];
+        const bool unlocked = manager.IsUnlocked(definition.id);
+        const bool selected = i == m_achievementSelected;
+        Rectangle node = AchievementNodeRect(definition, content);
+        if (selected) {
+            const float pulse = 5.0f + std::sin(m_spotlightPulse * 4.0f) * 2.0f;
+            DrawCircleGradient({node.x + node.width * 0.5f,
+                node.y + node.height * 0.5f}, node.width * 0.75f + pulse,
+                Color{247, 196, 70, 80}, Color{247, 196, 70, 0});
+        }
+        DrawRectangleRounded({node.x + 5.0f, node.y + 7.0f, node.width, node.height},
+                             0.18f, 9, Color{0, 0, 0, 130});
+        DrawRectangleRounded(node, 0.18f, 9,
+            unlocked ? Color{79, 58, 104, 255} : Color{31, 29, 40, 255});
+        DrawRectangleRoundedLinesEx(node, 0.18f, 9, selected ? 4.0f : 2.5f,
+            unlocked ? gold : (selected ? Color{167, 151, 186, 255} : Color{76, 69, 88, 255}));
+        Rectangle iconDest{node.x + node.width * 0.16f, node.y + node.height * 0.13f,
+                           node.width * 0.68f, node.height * 0.68f};
+        DrawAchievementIcon((int)definition.icon, iconDest,
+            unlocked ? WHITE : Color{75, 75, 83, 230});
+        const int progress = manager.GetProgress(definition.id);
+        if (!unlocked && definition.target > 1) {
+            const float ratio = std::clamp((float)progress / definition.target, 0.0f, 1.0f);
+            Rectangle bar{node.x + 7.0f, node.y + node.height - 9.0f, node.width - 14.0f, 4.0f};
+            DrawRectangleRec(bar, Color{16, 14, 23, 255});
+            DrawRectangle((int)bar.x, (int)bar.y, (int)(bar.width * ratio), (int)bar.height,
+                          Color{119, 211, 179, 255});
+        }
+    }
+
+    if (!definitions.empty()) {
+        const auto& selected = definitions[std::clamp(m_achievementSelected, 0, (int)definitions.size() - 1)];
+        const bool unlocked = manager.IsUnlocked(selected.id);
+        const int progress = manager.GetProgress(selected.id);
+        Rectangle tip{panel.x + 34.0f, panel.y + panel.height - 79.0f,
+                      panel.width - 68.0f, 56.0f};
+        DrawRectangleRounded(tip, 0.12f, 8, Color{34, 26, 51, 250});
+        DrawRectangleRoundedLinesEx(tip, 0.12f, 8, 2.0f,
+                                    unlocked ? gold : Color{93, 80, 116, 255});
+        const float nameFs = std::clamp(tip.height * 0.34f, 15.0f, 20.0f);
+        DrawTextEx(font, selected.title.c_str(), {tip.x + 16.0f, tip.y + 8.0f},
+                   nameFs, 0.6f, unlocked ? gold : Color{205, 197, 218, 255});
+        DrawTextEx(font, selected.description.c_str(), {tip.x + 16.0f, tip.y + 31.0f},
+                   nameFs * 0.70f, 0.4f, Color{184, 174, 202, 255});
+        char progressText[32];
+        std::snprintf(progressText, sizeof(progressText), unlocked ? "UNLOCKED" : "%d / %d",
+                      progress, selected.target);
+        const Vector2 psize = MeasureTextEx(font, progressText, nameFs * 0.78f, 0.5f);
+        DrawTextEx(font, progressText, {tip.x + tip.width - psize.x - 16.0f,
+                   tip.y + (tip.height - psize.y) * 0.5f}, nameFs * 0.78f, 0.5f,
+                   unlocked ? Color{119, 232, 183, 255} : Color{190, 174, 211, 255});
+    }
+
+    const char* hint = "[ARROWS] EXPLORE     [ESC] BACK";
+    const float hintFs = std::clamp(h * 0.016f, 10.0f, 13.0f);
+    const Vector2 hintSize = MeasureTextEx(font, hint, hintFs, 0.4f);
+    DrawTextEx(font, hint, {(w - hintSize.x) * 0.5f, panel.y + panel.height - 18.0f},
+               hintFs, 0.4f, Color{155, 143, 178, 225});
 }

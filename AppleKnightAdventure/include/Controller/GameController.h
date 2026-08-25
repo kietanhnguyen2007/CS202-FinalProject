@@ -37,6 +37,7 @@ struct PlayerSaveState {
     int   coins       = 0;
     int   apples      = 0;
     int   keys        = 0;
+    bool  tookDamage  = false;
 };
 
 class GameController {
@@ -106,7 +107,7 @@ private:
                                float scale = 0.3f, bool facesLeft = true,
                                Vector2 hitboxSize = {0.0f, 0.0f});
     void SpawnLightningAt(Vector2 targetPos, int damage, float lifetime,
-                          const char* atlasPath = "assets/textures/player/magic_caster/projectile_attack1.json",
+                          const char* atlasPath = "assets/textures/player/magic_caster_v2/projectile_attack1_v2.json",
                           float rotation = 0.0f, float scale = 0.4f);
     void UpdatePlayerProjectiles(float dt);
     void UpdateNinjaTeleport(Player* player, float dt);
@@ -131,6 +132,7 @@ private:
     bool m_levelComplete  = false;
     bool m_playerOnGround = false;
     bool m_localCoop      = false;
+    bool m_runTookDamage  = false;
     CharacterClass m_secondPlayerClass = CharacterClass::Knight;
     int  m_defeatedEnemies = 0;
     int  m_collectedItems  = 0;

@@ -1,0 +1,54 @@
+{
+    "clips": {
+        "default": {
+            "loop": false,
+            "frames": [
+                "default_0",
+                "default_1",
+                "default_2",
+                "default_3",
+                "default_4"
+            ],
+            "durations": [
+                0.16,
+                0.16,
+                0.16,
+                0.16,
+                0.16
+            ]
+        }
+    },
+    "frames": {
+        "default_0": {
+            "x": 0,
+            "y": 0,
+            "w": 152,
+            "h": 184
+        },
+        "default_1": {
+            "x": 152,
+            "y": 0,
+            "w": 152,
+            "h": 184
+        },
+        "default_2": {
+            "x": 304,
+            "y": 0,
+            "w": 152,
+            "h": 184
+        },
+        "default_3": {
+            "x": 456,
+            "y": 0,
+            "w": 152,
+            "h": 184
+        },
+        "default_4": {
+            "x": 608,
+            "y": 0,
+            "w": 152,
+            "h": 184
+        }
+    },
+    "image": "projectile_attack2.png"
+}

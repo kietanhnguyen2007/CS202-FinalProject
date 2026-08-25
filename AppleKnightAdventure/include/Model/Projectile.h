@@ -3,6 +3,7 @@
 
 #include "Entity.h"
 #include "Utils/Types.h"
+#include <unordered_set>
 
 class Projectile : public Entity {
 protected:
@@ -39,6 +40,7 @@ public:
 
     // Hit tracking
     bool      m_hasHit           = false;
+    std::unordered_set<int> m_hitEntityIds;
 
     // Subtype for specific projectile identification (e.g., Boss3 has multiple projectiles)
     int       m_subType          = 0;
@@ -52,6 +54,8 @@ public:
 
     bool HasHit() const { return m_hasHit; }
     void SetHasHit(bool hit) { m_hasHit = hit; }
+    bool HasHitEntity(int entityId) const { return m_hitEntityIds.count(entityId) != 0; }
+    void MarkHitEntity(int entityId) { m_hitEntityIds.insert(entityId); }
 };
 
 #endif

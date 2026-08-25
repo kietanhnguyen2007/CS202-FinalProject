@@ -30,7 +30,9 @@
 #include "View/ParticleRenderer.h"
 #include "View/TutorialRenderer.h"
 #include "View/ResultView.h"
+#include "View/MinimapView.h"
 #include "Systems/SoundManager.h"
+#include "Systems/AchievementManager.h"
 #include "Utils/Constants.h"
 #include <nlohmann/json.hpp>
 #include <cmath>
@@ -104,6 +106,16 @@ float LoadVictoryParTime(int levelNumber) {
         return fallback;
     }
 }
+
+std::string CharacterClassId(CharacterClass value) {
+    switch (value) {
+        case CharacterClass::Fighter: return "fighter";
+        case CharacterClass::MagicCaster: return "magic_caster";
+        case CharacterClass::Ninja: return "ninja";
+        case CharacterClass::Knight:
+        default: return "knight";
+    }
+}
 } // namespace
 
 GameController& GameController::GetInstance() {
@@ -128,6 +140,7 @@ bool GameController::Init() {
     View::SkillBarView::GetInstance().Init();
     View::SkillBarView::GetInstance().LoadResources();
     View::UIStateManager::GetInstance().Init();
+    View::MinimapView::GetInstance().Init();
     View::TutorialRenderer::GetInstance().Init();
     View::ResultView::GetInstance().Init();
 
@@ -158,7 +171,7 @@ std::string GameController::GetLevelPath(int levelNumber) const {
     }
     
     // Map Level 2 -> lvl1.ldtk, Level 3 -> lvl2.ldtk, ...
-    if (levelNumber >= 2 && levelNumber <= 5) {
+    if (levelNumber >= 2 && levelNumber <= 6) {
         std::string path = "assets/levels/lvl" + std::to_string(levelNumber - 1) + ".ldtk";
         if (std::filesystem::exists(path)) return path;
     }
@@ -172,11 +185,11 @@ std::string GameController::GetLevelPath(int levelNumber) const {
 
 std::string GameController::GetPlayerAtlasRoot(CharacterClass playerClass) const {
     switch (playerClass) {
-        case CharacterClass::Fighter: return "assets/textures/player/fighter/";
-        case CharacterClass::Ninja: return "assets/textures/player/ninja/";
-        case CharacterClass::MagicCaster: return "assets/textures/player/magic_caster/";
+        case CharacterClass::Fighter: return "assets/textures/player/fighter_v2/";
+        case CharacterClass::Ninja: return "assets/textures/player/ninja_v2/";
+        case CharacterClass::MagicCaster: return "assets/textures/player/magic_caster_v2/";
         case CharacterClass::Knight:
-        default: return "assets/textures/player/knight/";
+        default: return "assets/textures/player/knight_v2/";
     }
 }
 
@@ -184,18 +197,7 @@ void GameController::RegisterPlayerVisuals(Player* player, CharacterClass player
     if (!player) return;
     const std::string root = GetPlayerAtlasRoot(playerClass);
     const auto atlasPath = [&](const std::string& stem) {
-        std::string v2Root;
-        switch (playerClass) {
-            case CharacterClass::Fighter:     v2Root = "assets/textures/player/fighter_v2/"; break;
-            case CharacterClass::MagicCaster: v2Root = "assets/textures/player/magic_caster_v2/"; break;
-            case CharacterClass::Ninja:       v2Root = "assets/textures/player/ninja_v2/"; break;
-            case CharacterClass::Knight:      v2Root = "assets/textures/player/knight_v2/"; break;
-        }
-        if (!v2Root.empty()) {
-            const std::string v2Path = v2Root + stem + "_v2.json";
-            if (std::filesystem::exists(v2Path)) return v2Path;
-        }
-        return root + stem + ".json";
+        return root + stem + "_v2.json";
     };
     auto& cr = View::CharacterRenderer::GetInstance();
     const uint32_t id = static_cast<uint32_t>(player->GetId());
@@ -219,10 +221,10 @@ void GameController::RegisterPlayerVisuals(Player* player, CharacterClass player
     // Attack3: class-specific
     if (playerClass == CharacterClass::Ninja) {
         // Ninja: teleport_start plays for Attack3, teleport_end plays after snap
-        if (std::filesystem::exists(root + "skill3_teleport_start.json"))
-            cr.MergeAtlas(id, root + "skill3_teleport_start.json", "attack_3");
-        if (std::filesystem::exists(root + "skill3_teleport_end.json"))
-            cr.MergeAtlas(id, root + "skill3_teleport_end.json",   "skill3_teleport_end");
+        if (std::filesystem::exists(atlasPath("skill3_teleport_start")))
+            cr.MergeAtlas(id, atlasPath("skill3_teleport_start"), "attack_3");
+        if (std::filesystem::exists(atlasPath("skill3_teleport_end")))
+            cr.MergeAtlas(id, atlasPath("skill3_teleport_end"),   "skill3_teleport_end");
     } else {
         if (std::filesystem::exists(atlasPath("attack3")))
             cr.MergeAtlas(id, atlasPath("attack3"), "attack_3");
@@ -316,7 +318,7 @@ void GameController::RegisterBossVisuals(Boss* boss) {
     const uint32_t id = static_cast<uint32_t>(boss->GetId());
 
     // Determine boss tier by m_bossType
-    std::string root = "assets/textures/boss/boss" + std::to_string(boss->GetBossType()) + "/";
+    std::string root = "assets/textures/boss_v2/boss" + std::to_string(boss->GetBossType()) + "/";
     cr.SetBossAssetRoot(id, root);
 
     cr.Register(boss, root + "phase1/idle.json", "idle"); // Initialize animator
@@ -362,26 +364,30 @@ void GameController::RegisterEntityVisuals(Entity* entity) {
                         Vector2 sz = proj->GetSize();
                         if (boss->GetBossType() == 2) {
                             if (proj->GetDirection() == Direction::None) {
-                                texPath = "assets/textures/boss/boss2/phase3/projectile_attack2.json";
+                                texPath = proj->GetSubType() == 5
+                                    ? "assets/textures/boss_v2/boss2/phase3/projectile_telegraph.json"
+                                    : "assets/textures/boss_v2/boss2/phase3/projectile_attack2.json";
                             } else {
                                 if (boss->GetPhase() == BossPhase::Phase3) {
-                                    texPath = "assets/textures/boss/boss2/phase3/projectile_attack1.json";
+                                    texPath = "assets/textures/boss_v2/boss2/phase3/projectile_attack1.json";
                                 } else if (boss->GetPhase() == BossPhase::Phase2) {
-                                    texPath = "assets/textures/boss/boss2/phase2/projectile_attack1.json";
+                                    texPath = "assets/textures/boss_v2/boss2/phase2/projectile_attack1.json";
                                 } else {
-                                    texPath = "assets/textures/boss/boss2/phase1/projectile_attack1.json";
+                                    texPath = "assets/textures/boss_v2/boss2/phase1/projectile_attack1.json";
                                 }
                             }
                         } else if (boss->GetBossType() == 3) {
                             int subType = proj->GetSubType();
                             if (subType == 1) {
-                                texPath = "assets/textures/boss/boss3/projectiles/energy_sphere.json";
+                                texPath = "assets/textures/boss_v2/boss3/projectiles/energy_sphere.json";
                             } else if (subType == 2) {
-                                texPath = "assets/textures/boss/boss3/projectiles/energy_blast.json";
+                                texPath = "assets/textures/boss_v2/boss3/projectiles/energy_blast.json";
                             } else if (subType == 3) {
-                                texPath = "assets/textures/boss/boss3/projectiles/energy_beam.json";
+                                texPath = "assets/textures/boss_v2/boss3/projectiles/energy_beam.json";
                             } else if (subType == 4) {
-                                texPath = "assets/textures/boss/boss3/ground_animate/default.json";
+                                texPath = "assets/textures/boss_v2/boss3/ground_animate/default.json";
+                            } else if (subType == 5) {
+                                texPath = "assets/textures/boss_v2/boss3/projectiles/energy_telegraph.json";
                             }
                         }
                         if (!texPath.empty()) {
@@ -389,17 +395,8 @@ void GameController::RegisterEntityVisuals(Entity* entity) {
                             bool flipX = (proj->GetDirection() == Direction::Left);
                             proj->SetRotation(0.0f); // Fix rotation bug so it doesn't offset from hitbox
                             
-                            Vector2 origin = {0.0f, 0.0f};
-                            if (texPath.find("energy_sphere.json") != std::string::npos) {
-                                origin = {219.5f, 154.0f}; // Centers 471x340 on 32x32
-                            } else if (texPath.find("energy_blast.json") != std::string::npos) {
-                                origin = {13.0f, 24.5f}; // Centers 154x177 on 128x128
-                            } else if (texPath.find("energy_beam.json") != std::string::npos) {
-                                origin = {0.0f, 67.5f}; // Centers 167 height on 32 height, aligns left edge
-                            }
-                            
                             View::EntityRenderer::GetInstance().RegisterAnimated(
-                                proj, texPath, "default", origin, flipX);
+                                proj, texPath, "default", {0.0f, 0.0f}, flipX);
                         } else {
                             std::cout << "[DEBUG] Boss Projectile texPath is EMPTY! size=" << sz.x << "x" << sz.y << std::endl;
                         }
@@ -441,16 +438,14 @@ void GameController::StartLevel(int levelNumber) {
     m_petProjectiles.clear();
     m_playerProjectiles.clear();
 
-    // Preserve the player's chosen class across level transitions
+    // The Prepare screen persists the current loadout before calling StartLevel.
+    // Always prefer that selection over a stale GameState from the previous run.
     CharacterClass cls = CharacterClass::Knight;
-    if (m_gameState) {
-        cls = m_gameState->GetPlayerClass();
-    } else {
-        std::string charId = SaveManager::GetInstance().GetSelectedChar();
-        if (charId == "magic_caster") cls = CharacterClass::MagicCaster;
-        else if (charId == "ninja") cls = CharacterClass::Ninja;
-        else if (charId == "fighter") cls = CharacterClass::Fighter; // if Fighter exists, otherwise fallback to Knight
-    }
+    const std::string charId = SaveManager::GetInstance().GetSelectedChar();
+    if (charId == "magic_caster") cls = CharacterClass::MagicCaster;
+    else if (charId == "ninja") cls = CharacterClass::Ninja;
+    else if (charId == "fighter") cls = CharacterClass::Fighter;
+    else if (charId.empty() && m_gameState) cls = m_gameState->GetPlayerClass();
 
     const std::string path = GetLevelPath(levelNumber);
     TraceLog(LOG_INFO, "GAME: Starting level %d from %s", levelNumber, path.c_str());
@@ -470,6 +465,7 @@ void GameController::StartLevel(int levelNumber) {
     }
     m_gameState->SetCurrentLevel(levelNumber);
     m_gameState->ResetTimer();
+    View::MinimapView::GetInstance().BeginLevel(m_gameState.get());
 
     m_scoring = LevelScoring();
     m_scoring.SetTotals(m_gameState->GetTotalItems(), m_gameState->GetTotalEnemies());
@@ -477,6 +473,7 @@ void GameController::StartLevel(int levelNumber) {
     m_defeatedEnemies = 0;
     m_collectedItems = 0;
     m_levelComplete = false;
+    m_runTookDamage = false;
     m_paused = false;
     m_returnToMenu = false;
     m_running = true;
@@ -492,11 +489,12 @@ void GameController::StartLevel(int levelNumber) {
     View::GameView::GetInstance().LoadBackgrounds(m_gameState->GetBackgroundTheme());
 
     if (Player* player = m_gameState->GetLocalPlayer()) {
-        // Sync the GameState's class to the actual Player's class
-        // (LDtk level files might have hardcoded a default class that overwrites GameState's field)
-        m_gameState->SetPlayerClass(player->GetCharacterClass());
+        // Legacy/default maps can still construct a Knight internally. Apply the
+        // selected class here so its skill set and renderer always agree.
+        if (player->GetCharacterClass() != cls) player->SetCharacterClass(cls);
+        m_gameState->SetPlayerClass(cls);
         
-        RegisterPlayerVisuals(player, m_gameState->GetPlayerClass());
+        RegisterPlayerVisuals(player, cls);
         m_respawnPoint = player->GetPosition();
 
         if (m_localCoop) {
@@ -848,7 +846,7 @@ void GameController::HandlePlayerInput(Player* player, const InputCommand& cmd, 
     } else if (MagicCasterSkillSet* ms = player->GetMagicSkills()) {
         if (!player->IsDashing() && !player->IsParrying()) {
             if (cmd.attack    && ms->TryAttack1()) {
-                player->Attack();
+                player->Attack(MagicCasterSkillSet::ATTACK1_ANIMATION_DURATION);
                 SoundManager::GetInstance().PlaySound("magic_attack_1");
             }
             if (cmd.parry     && ms->TryAttack2()) {
@@ -856,11 +854,11 @@ void GameController::HandlePlayerInput(Player* player, const InputCommand& cmd, 
                 SoundManager::GetInstance().PlaySound("magic_attack_2");
             }
             if (cmd.skill1    && ms->TryAttack3()) {
-                player->Attack3();
+                player->Attack3(MagicCasterSkillSet::ATTACK3_ANIMATION_DURATION);
                 SoundManager::GetInstance().PlaySound("magic_attack_3");
             }
             if (cmd.ultimate  && ms->TryUltimate()) {
-                player->DoUltimate();
+                player->DoUltimate(MagicCasterSkillSet::ULTIMATE_ANIMATION_DURATION);
                 SoundManager::GetInstance().PlaySound("magic_ultimate");
             }
         }
@@ -870,15 +868,15 @@ void GameController::HandlePlayerInput(Player* player, const InputCommand& cmd, 
     } else if (NinjaSkillSet* ns = player->GetNinjaSkills()) {
         if (!player->IsDashing() && !player->IsParrying()) {
             if (cmd.attack    && ns->TryAttack1()) {
-                player->Attack();
+                player->Attack(NinjaSkillSet::ATTACK1_ANIMATION_DURATION);
                 SoundManager::GetInstance().PlaySound("ninja_attack_1");
             }
             if (cmd.parry     && ns->TryAttack2()) {
-                player->Attack2();
+                player->Attack2(NinjaSkillSet::ATTACK2_ANIMATION_DURATION);
                 SoundManager::GetInstance().PlaySound("ninja_attack_2");
             }
             if (cmd.skill1    && ns->TryAttack3()) {
-                player->Attack3();  // triggers teleport_start animation
+                player->Attack3(NinjaSkillSet::TELEPORT_START_DURATION + NinjaSkillSet::TELEPORT_END_DURATION);
                 SoundManager::GetInstance().PlaySound("ninja_attack_3");
             }
             if (cmd.ultimate  && ns->TryUltimate()) {
@@ -956,38 +954,88 @@ void GameController::UpdateEnemyAI(float dt) {
         if (entity->GetType() != EntityType::Enemy) continue;
         
         auto* enemy = static_cast<Enemy*>(entity.get());
-        enemy->UpdateAI(playerCenter, dt);
+        bool targetVisible = true;
+        if (enemy->GetEnemyType() == EnemyType::Flying) {
+            const Rectangle enemyBounds = enemy->GetBoundingBox();
+            const Vector2 enemyCenter{
+                enemyBounds.x + enemyBounds.width * 0.5f,
+                enemyBounds.y + enemyBounds.height * 0.5f
+            };
+            float nearestVisibleDistance = std::numeric_limits<float>::max();
+            targetVisible = false;
 
-        // Ground-based enemy pit/edge detection
-        if (enemy->GetEnemyType() != EnemyType::Flying) {
-            Vector2 vel = enemy->GetVelocity();
-            if (std::abs(vel.x) > 0.1f) {
-                // Check slightly ahead in the direction of movement
-                float checkX = enemy->GetPosition().x + (vel.x > 0.0f ? enemy->GetSize().x : 0.0f) + (vel.x > 0.0f ? 8.0f : -8.0f);
-                float checkY = enemy->GetPosition().y + enemy->GetSize().y + 8.0f; // slightly below feet
+            auto considerVisibleTarget = [&](const Player* candidate) {
+                if (!candidate || !candidate->IsActive() || !candidate->IsAlive()) return;
+                const Rectangle bounds = candidate->GetBoundingBox();
+                const Vector2 center{
+                    bounds.x + bounds.width * 0.5f,
+                    bounds.y + bounds.height * 0.5f
+                };
+                if (!CheckLineOfSight(enemyCenter, center)) return;
+                const float distance = Distance(enemyCenter, center);
+                if (distance < nearestVisibleDistance) {
+                    nearestVisibleDistance = distance;
+                    playerCenter = center;
+                    targetVisible = true;
+                }
+            };
+
+            considerVisibleTarget(player);
+            considerVisibleTarget(m_gameState->GetSecondLocalPlayer());
+        }
+        enemy->UpdateAI(playerCenter, dt, targetVisible);
+
+        // Ground enemies probe one step ahead and below their feet. The old
+        // code calculated groundAhead but never acted on it, so enemies still
+        // chased players straight into pits.
+        if (enemy->GetEnemyType() != EnemyType::Flying && IsOnGround(enemy)) {
+            const Vector2 velocity = enemy->GetVelocity();
+            if (std::abs(velocity.x) > 0.1f) {
+                const float directionX = velocity.x > 0.0f ? 1.0f : -1.0f;
+                const Rectangle bounds = enemy->GetBoundingBox();
+                const float lookAhead = std::max(8.0f, std::abs(velocity.x) * dt + 4.0f);
+                const float probeX = directionX > 0.0f
+                    ? bounds.x + bounds.width + lookAhead
+                    : bounds.x - lookAhead;
+                const Rectangle supportProbe{
+                    probeX - 2.0f,
+                    bounds.y + bounds.height + 1.0f,
+                    4.0f,
+                    10.0f
+                };
 
                 bool groundAhead = false;
                 for (const auto& tile : m_gameState->GetTiles(MapLayer::Main)) {
                     if (!tile.solid) continue;
-                    float tx = tile.x * TILE_SIZE;
-                    float ty = tile.y * TILE_SIZE;
-                    // Check if there is a tile below checkX
-                    if (checkX >= tx && checkX <= tx + TILE_SIZE &&
-                        checkY >= ty && checkY <= ty + TILE_SIZE) {
+                    const Rectangle tileRect{
+                        tile.x * (float)TILE_SIZE,
+                        tile.y * (float)TILE_SIZE,
+                        (float)TILE_SIZE,
+                        (float)TILE_SIZE
+                    };
+                    if (RectOverlap(supportProbe, tileRect)) {
                         groundAhead = true;
                         break;
                     }
                 }
 
-                float mapWidth = m_gameState->GetMapWidth() * TILE_SIZE;
-                if (checkX < 0.0f || checkX > mapWidth) {
-                    // Out of map bounds! Stop and turn back
-                    enemy->SetStateTimer(enemy->GetStateTimer() + 3.14159f); // Add PI to reverse Patrol sin wave
-                    vel.x = 0.0f;
-                    enemy->SetVelocity(vel);
-                    if (enemy->GetState() == EnemyState::Patrol) {
-                        enemy->SetState(EnemyState::Idle); // Pause patrol state to reverse direction
+                // FakeWall participates in character collision and can also
+                // be a valid platform, so it must count as support here.
+                if (!groundAhead) {
+                    for (const auto& support : m_gameState->GetAllEntities()) {
+                        if (!support->IsActive() || support->GetType() != EntityType::FakeWall)
+                            continue;
+                        if (RectOverlap(supportProbe, support->GetBoundingBox())) {
+                            groundAhead = true;
+                            break;
+                        }
                     }
+                }
+
+                const float mapWidth = m_gameState->GetMapWidth() * (float)TILE_SIZE;
+                const bool outsideMap = probeX < 0.0f || probeX >= mapWidth;
+                if (!groundAhead || outsideMap) {
+                    enemy->TurnAwayFromEdge(directionX);
                 }
             }
         }
@@ -1081,9 +1129,7 @@ void GameController::UpdateCombat(Player* player, float dt, bool updateEnemyCool
         // Fighter Ultimate: spawn projectile when charge done
         if (fs->WantsToFire()) {
             const std::string projectileAtlas =
-                std::filesystem::exists("assets/textures/player/fighter_v2/ultimate_projectile_v2.json")
-                    ? "assets/textures/player/fighter_v2/ultimate_projectile_v2.json"
-                    : "assets/textures/player/fighter/ultimate_projectile.json";
+                "assets/textures/player/fighter_v2/ultimate_projectile_v2.json";
             // Spawn at horizontal edge of player, raised high enough to not clip ground
             float spawnX = (player->GetDirection() == Direction::Right)
                 ? player->GetPosition().x + player->GetSize().x
@@ -1126,8 +1172,8 @@ void GameController::UpdateCombat(Player* player, float dt, bool updateEnemyCool
                     }
                 }
             }
-            SpawnLightningAt(targetPos, ms->attack1.damage, 0.12f,
-                             "assets/textures/player/magic_caster/projectile_attack1.json",
+            SpawnLightningAt(targetPos, ms->attack1.damage, 0.50f,
+                             "assets/textures/player/magic_caster_v2/projectile_attack1_v2.json",
                              0.0f, 0.8f);
             ms->ResetLightning();
         }
@@ -1141,7 +1187,7 @@ void GameController::UpdateCombat(Player* player, float dt, bool updateEnemyCool
                 player->GetPosition().y - 10.0f // raised even higher
             };
             SpawnPlayerProjectile(
-                "assets/textures/player/magic_caster/projectile_attack2.json",
+                "assets/textures/player/magic_caster_v2/projectile_attack2_v2.json",
                 spawnPos, player->GetDirection(),
                 ms->attack2.damage,
                 MagicCasterSkillSet::FIREBALL_SPEED,
@@ -1159,7 +1205,7 @@ void GameController::UpdateCombat(Player* player, float dt, bool updateEnemyCool
                 player->GetPosition().y - 75.0f  // keep the enlarged hitbox just above ground
             };
             SpawnPlayerProjectile(
-                "assets/textures/player/magic_caster/projectile_attack3.json",
+                "assets/textures/player/magic_caster_v2/projectile_attack3_v2.json",
                 spawnPos, player->GetDirection(),
                 ms->attack3.damage,
                 MagicCasterSkillSet::WAVE_SPEED,
@@ -1185,8 +1231,8 @@ void GameController::UpdateCombat(Player* player, float dt, bool updateEnemyCool
                     }
                 }
             }
-            SpawnLightningAt(targetPos, ms->ultimate.damage, 0.12f,
-                             "assets/textures/player/magic_caster/ultimate_skill_projectile.json",
+            SpawnLightningAt(targetPos, ms->ultimate.damage, 0.50f,
+                             "assets/textures/player/magic_caster_v2/ultimate_skill_projectile_v2.json",
                              0.0f, 1.0f);
             ms->ResetUltLightning();
         }
@@ -1206,7 +1252,7 @@ void GameController::UpdateCombat(Player* player, float dt, bool updateEnemyCool
                 player->GetPosition().y - 32.0f  // keep the tallest K frame above the floor
             };
             SpawnPlayerProjectile(
-                "assets/textures/player/ninja/projectile_attack2.json",
+                "assets/textures/player/ninja_v2/projectile_attack2_v2.json",
                 spawnPos, player->GetDirection(),
                 ns->attack2.damage,
                 NinjaSkillSet::BLADE_RUSH_SPEED,
@@ -1228,7 +1274,7 @@ void GameController::UpdateCombat(Player* player, float dt, bool updateEnemyCool
                 player->GetPosition().y - 66.0f
             };
             SpawnPlayerProjectile(
-                "assets/textures/player/ninja/projectile_ultimate_attack.json",
+                "assets/textures/player/ninja_v2/projectile_ultimate_attack_v2.json",
                 spawnPos, player->GetDirection(),
                 ns->ultimate.damage,
                 NinjaSkillSet::CLONE_SPEED,
@@ -1263,13 +1309,23 @@ void GameController::UpdateCombat(Player* player, float dt, bool updateEnemyCool
             auto* enemy = static_cast<Enemy*>(entity.get());
             if (enemy->GetState() == EnemyState::Attack) {
                 if (enemy->CanAttack()) {
-                    isAttacking = true;
                     attackDamage = enemy->GetDamage();
                     attackRange = enemy->GetAttackRange();
                     attackCenter = {
                         enemy->GetPosition().x + enemy->GetSize().x * 0.5f,
                         enemy->GetPosition().y + enemy->GetSize().y * 0.5f
                     };
+
+                    // Flying enemies use direct contact damage rather than a
+                    // projectile. Validate both range and LOS before consuming
+                    // their cooldown so P2 can still be hit when P1 is hidden.
+                    if (enemy->GetEnemyType() == EnemyType::Flying &&
+                        (Distance(playerCenter, attackCenter) > attackRange ||
+                         !CheckLineOfSight(attackCenter, playerCenter))) {
+                        continue;
+                    }
+
+                    isAttacking = true;
                     enemy->Attack();
                     SoundManager::GetInstance().PlaySound("enemy_attack");
                     
@@ -1328,13 +1384,17 @@ void GameController::UpdateCombat(Player* player, float dt, bool updateEnemyCool
                 }
             }
 
-            if (!proj->HasHit() && RectOverlap(proj->GetBoundingBox(), player->GetBoundingBox())) {
+            if (proj->GetDamage() > 0 && !proj->HasHitEntity(player->GetId())
+                && RectOverlap(proj->GetBoundingBox(), player->GetBoundingBox())) {
                 if (!player->IsInvincible()) {
+                    const int healthBeforeHit = player->GetHealth();
                     player->TakeDamage(proj->GetDamage());
+                    if (player->GetHealth() < healthBeforeHit) m_runTookDamage = true;
                     SoundManager::GetInstance().PlaySound(player->IsAlive() ? "player_hurt" : "player_die");
                     View::FloatingTextManager::GetInstance().Emit(
                         player->GetPosition(), "-" + std::to_string(proj->GetDamage()), RED, 1.0f);
                     View::GameView::GetInstance().Shake(4.0f, 0.2f);
+                    proj->MarkHitEntity(player->GetId());
                     proj->SetHasHit(true);
                 }
                 // Despawn moving projectiles on hit; keep stationary AoE/beams active so visuals complete
@@ -1351,7 +1411,9 @@ void GameController::UpdateCombat(Player* player, float dt, bool updateEnemyCool
         
         // Invincibility from dash blocks all damage
         if (!player->IsInvincible()) {
+            const int healthBeforeHit = player->GetHealth();
             player->TakeDamage(attackDamage);
+            if (player->GetHealth() < healthBeforeHit) m_runTookDamage = true;
             SoundManager::GetInstance().PlaySound(player->IsAlive() ? "player_hurt" : "player_die");
             View::FloatingTextManager::GetInstance().Emit(
                 player->GetPosition(), "-" + std::to_string(attackDamage), RED, 1.0f);
@@ -1389,6 +1451,7 @@ void GameController::UpdateItems(Player* player, float dt) {
                     m_gameState->GetLocalPlayer()->GetInventory().AddCoins(item->GetAmount());
                 }
                 SaveManager::GetInstance().AddCoins(item->GetAmount());
+                AchievementManager::GetInstance().OnCoinCollected(item->GetAmount());
                 persistentCoinsChanged = true;
                 player->AddScore(item->GetAmount() * 10);
                 m_scoring.AddScore(item->GetAmount() * 10);
@@ -1402,6 +1465,7 @@ void GameController::UpdateItems(Player* player, float dt) {
             case ItemType::Potion:
                 pickupSound = "potion_pickup";
                 player->Heal(50);
+                AchievementManager::GetInstance().OnPotionUsed();
                 break;
             default:
                 player->GetInventory().AddItem(
@@ -1588,6 +1652,7 @@ void GameController::OnEntityRemoved(Entity* entity) {
             SoundManager::GetInstance().PlaySound("enemy_death");
             View::ParticleRenderer::GetInstance().EmitBurst(entity->GetPosition(), 20, RED);
             View::GameView::GetInstance().Shake(5.0f, 0.3f);
+            AchievementManager::GetInstance().OnEnemyDefeated(entity->GetType() == EntityType::Boss);
         }
     }
     UnregisterEntityVisuals(entity->GetId());
@@ -1708,6 +1773,23 @@ void GameController::CheckLevelComplete() {
             save.SetLevelHighScore(level, score);
             save.SetLevelBestStars(level, snapshot.stars);
             save.SetLevelBestTime(level, snapshot.clearTime);
+            if (level >= 1 && level <= 6) {
+                LeaderboardEntry entry;
+                entry.playerName = save.GetPlayerName();
+                entry.characterIds.push_back(CharacterClassId(snapshot.characterClass));
+                if (m_localCoop && m_gameState->GetSecondLocalPlayer()) {
+                    entry.characterIds.push_back(CharacterClassId(
+                        m_gameState->GetSecondLocalPlayer()->GetCharacterClass()));
+                }
+                entry.score = score;
+                entry.timeMs = std::max(1, static_cast<int>(snapshot.clearTime * 1000.0f + 0.5f));
+                entry.stars = snapshot.stars;
+                entry.localCoop = m_localCoop;
+                save.RecordLevelResult(level, entry);
+                AchievementManager::GetInstance().OnLevelCompleted(
+                    level, snapshot.stars, snapshot.clearTime, snapshot.parTime,
+                    !m_runTookDamage, m_localCoop);
+            }
             save.Save();
         }
 
@@ -1755,6 +1837,7 @@ void GameController::SavePlayerState(Player* player) {
     m_savedPlayerState.coins       = player->GetInventory().GetCoins();
     m_savedPlayerState.apples      = player->GetInventory().GetApples();
     m_savedPlayerState.keys        = player->GetInventory().GetKeys();
+    m_savedPlayerState.tookDamage  = m_runTookDamage;
     m_hasSavedState = true;
 }
 
@@ -1766,6 +1849,7 @@ void GameController::RestorePlayerState(Player* player) {
     player->GetInventory().AddCoins(m_savedPlayerState.coins);
     player->GetInventory().AddApples(m_savedPlayerState.apples);
     player->GetInventory().AddKeys(m_savedPlayerState.keys);
+    m_runTookDamage = m_savedPlayerState.tookDamage;
 }
 
 void GameController::Update(float dt) {
@@ -1787,6 +1871,14 @@ void GameController::Update(float dt) {
         ? InputController::GetInstance().PollPlayerOne()
         : cmd;
     InputCommand playerTwoCmd = InputController::GetInstance().PollPlayerTwo();
+
+    if (!m_paused && IsKeyPressed(KEY_M)) {
+        View::MinimapView::GetInstance().ToggleVisible();
+        SoundManager::GetInstance().PlaySound("ui_confirm");
+    }
+    View::MinimapView::GetInstance().Update(
+        dt, m_gameState.get(), m_gameState->GetLocalPlayer(),
+        m_localCoop ? m_gameState->GetSecondLocalPlayer() : nullptr);
 
     if (m_levelComplete) {
         View::ResultView& result = View::ResultView::GetInstance();
@@ -1966,6 +2058,7 @@ void GameController::Update(float dt) {
     if (player && player->IsAlive()) {
         const float mapHeight = std::max(1, m_gameState->GetMapHeight()) * TILE_SIZE;
         if (player->GetPosition().y > mapHeight + TILE_SIZE * 2) {
+            m_runTookDamage = true;
             player->TakeDamage(player->GetMaxHealth()); // Technically dies
             SoundManager::GetInstance().PlaySound("player_die");
             RespawnPlayer(player, !m_localCoop);
@@ -1975,6 +2068,7 @@ void GameController::Update(float dt) {
     if (secondPlayer && secondPlayer->IsAlive()) {
         const float mapHeight = std::max(1, m_gameState->GetMapHeight()) * TILE_SIZE;
         if (secondPlayer->GetPosition().y > mapHeight + TILE_SIZE * 2) {
+            m_runTookDamage = true;
             secondPlayer->TakeDamage(secondPlayer->GetMaxHealth());
             SoundManager::GetInstance().PlaySound("player_die");
             RespawnPlayer(secondPlayer, false);
@@ -2059,6 +2153,13 @@ void GameController::Render() {
         };
         drawPlayerMarker(m_gameState->GetLocalPlayer(), "P1", Color{104, 210, 255, 255}, -48.0f);
         drawPlayerMarker(m_gameState->GetSecondLocalPlayer(), "P2", Color{220, 168, 255, 255}, 48.0f);
+    }
+
+    // Keep the map above world-space labels, but below modal overlays.
+    if (!m_paused && !m_levelComplete && !View::OptionsView::GetInstance().IsVisible()) {
+        View::MinimapView::GetInstance().Render(
+            m_gameState.get(), m_gameState->GetLocalPlayer(),
+            m_localCoop ? m_gameState->GetSecondLocalPlayer() : nullptr);
     }
 
     if (View::OptionsView::GetInstance().IsVisible()) {
@@ -2398,6 +2499,7 @@ void GameController::UpdatePets(float dt, const InputCommand& cmd) {
                         pickupSound = "coin_pickup";
                         player->GetInventory().AddCoins(item->GetAmount());
                         SaveManager::GetInstance().AddCoins(item->GetAmount());
+                        AchievementManager::GetInstance().OnCoinCollected(item->GetAmount());
                         persistentCoinsChanged = true;
                         player->AddScore(item->GetAmount() * 10);
                         m_scoring.AddScore(item->GetAmount() * 10);
@@ -2411,6 +2513,7 @@ void GameController::UpdatePets(float dt, const InputCommand& cmd) {
                     case ItemType::Potion:
                         pickupSound = "potion_pickup";
                         player->Heal(50);
+                        AchievementManager::GetInstance().OnPotionUsed();
                         break;
                     default:
                         player->GetInventory().AddItem(
@@ -2655,7 +2758,7 @@ void GameController::SpawnLightningAt(Vector2 targetPos, int damage, float lifet
         m_gameState->GetLocalPlayer() ? m_gameState->GetLocalPlayer()->GetId() : 0);
 
     proj->SetVelocity({0.0f, 0.0f});
-    proj->SetLifetime(0.6f);  // 5-7 frames × 0.1s
+    proj->SetLifetime(lifetime > 0.0f ? lifetime : 0.5f);
     proj->SetScale(scale);
     proj->SetRotation(rotation);
 

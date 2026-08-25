@@ -1,1 +1,0 @@
-{ "clips": { "hurt": { "loop": false, "frames": ["hurt_0", "hurt_1", "hurt_2", "hurt_3"], "durations": [0.1, 0.1, 0.1, 0.1] } }, "frames": { "hurt_0": { "x": 0, "y": 0, "w": 298, "h": 260 }, "hurt_1": { "x": 298, "y": 0, "w": 298, "h": 260 }, "hurt_2": { "x": 596, "y": 0, "w": 298, "h": 260 }, "hurt_3": { "x": 894, "y": 0, "w": 298, "h": 260 } }, "image": "hurt.png" }

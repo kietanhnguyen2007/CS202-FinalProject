@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "balanceVersion": "easy-submission-1",
+  "scaling": {
+    "hpLinear": 0.018,
+    "hpQuadratic": 0.0002,
+    "damageLinear": 0.008,
+    "damageQuadratic": 0.00008
+  },
+  "director": {
+    "budgetBase": 5.0,
+    "budgetLinear": 0.65,
+    "budgetQuadratic": 0.012,
+    "spawnInterval": 1.1,
+    "minSpawnInterval": 0.5,
+    "activeCapBase": 10,
+    "activeCapPerWave": 0.4,
+    "activeCapMax": 120
+  },
+  "assist": {
+    "enemyHpMultiplier": 0.55,
+    "enemyDamageMultiplier": 0.35,
+    "enemySpeedMultiplier": 0.78,
+    "playerHealthMultiplier": 1.75,
+    "playerDamageMultiplier": 2.0,
+    "playerCooldownMultiplier": 0.68,
+    "waveHealFraction": 0.65
+  }
+}

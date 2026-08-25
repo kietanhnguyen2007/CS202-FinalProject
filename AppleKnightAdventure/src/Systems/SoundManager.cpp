@@ -1,6 +1,7 @@
 #include "Systems/SoundManager.h"
 #include <nlohmann/json.hpp>
 #include <algorithm>
+#include <cmath>
 #include <fstream>
 #include <utility>
 
@@ -106,6 +107,7 @@ bool SoundManager::LoadManifest(const std::string& filepath) {
             event.samples = config.value("samples", std::vector<std::string>{});
             event.volume = std::clamp(config.value("volume", 1.0f), 0.0f, 1.0f);
             event.cooldown = std::max(0.0f, config.value("cooldown", 0.0f));
+            event.layered = config.value("layered", false);
             if (config.contains("pitch") && config["pitch"].is_array() && config["pitch"].size() == 2) {
                 event.minPitch = std::max(0.1f, config["pitch"][0].get<float>());
                 event.maxPitch = std::max(event.minPitch, config["pitch"][1].get<float>());
@@ -146,12 +148,49 @@ void SoundManager::Update(float dt) {
 }
 
 void SoundManager::PlaySound(const std::string& name) {
+    PlaySoundInternal(name, 1.0f, 0.5f);
+}
+
+void SoundManager::PlaySoundAt(const std::string& name, Vector3 source,
+                               Vector3 listener, float maxDistance) {
+    maxDistance = std::max(0.1f, maxDistance);
+    const float dx = source.x - listener.x;
+    const float dz = source.z - listener.z;
+    const float distance = std::sqrt(dx * dx + dz * dz);
+    const float normalized = std::clamp(distance / maxDistance, 0.0f, 1.0f);
+    const float attenuation = (1.0f - normalized) * (1.0f - normalized);
+    const float pan = std::clamp(0.5f + dx / (maxDistance * 1.65f), 0.08f, 0.92f);
+    if (attenuation > 0.002f) PlaySoundInternal(name, attenuation, pan);
+}
+
+void SoundManager::PlaySoundInternal(const std::string& name, float gain,
+                                     float pan) {
     if (!m_audioInitialized) return;
+    gain = std::clamp(gain, 0.0f, 1.0f);
+    pan = std::clamp(pan, 0.0f, 1.0f);
 
     auto eventIt = m_events.find(name);
     if (eventIt != m_events.end()) {
         SoundEvent& event = eventIt->second;
         if (event.cooldownRemaining > 0.0f || event.samples.empty()) return;
+
+        if (event.layered) {
+            for (const std::string& sampleName : event.samples) {
+                auto sampleIt = m_sounds.find(sampleName);
+                if (sampleIt == m_sounds.end()) continue;
+                const float t = static_cast<float>(GetRandomValue(0, 10000))
+                              / 10000.0f;
+                const float pitch = event.minPitch
+                    + (event.maxPitch - event.minPitch) * t;
+                ::SetSoundVolume(sampleIt->second,
+                                 m_sfxVolume * event.volume * gain);
+                ::SetSoundPitch(sampleIt->second, pitch);
+                ::SetSoundPan(sampleIt->second, pan);
+                ::PlaySound(sampleIt->second);
+            }
+            event.cooldownRemaining = event.cooldown;
+            return;
+        }
 
         int index = 0;
         if (event.samples.size() > 1) {
@@ -164,8 +203,9 @@ void SoundManager::PlaySound(const std::string& name) {
         if (sampleIt == m_sounds.end()) return;
         const float t = static_cast<float>(GetRandomValue(0, 10000)) / 10000.0f;
         const float pitch = event.minPitch + (event.maxPitch - event.minPitch) * t;
-        ::SetSoundVolume(sampleIt->second, m_sfxVolume * event.volume);
+        ::SetSoundVolume(sampleIt->second, m_sfxVolume * event.volume * gain);
         ::SetSoundPitch(sampleIt->second, pitch);
+        ::SetSoundPan(sampleIt->second, pan);
         ::PlaySound(sampleIt->second);
         event.cooldownRemaining = event.cooldown;
         return;
@@ -173,7 +213,8 @@ void SoundManager::PlaySound(const std::string& name) {
 
     auto it = m_sounds.find(name);
     if (it != m_sounds.end()) {
-        ::SetSoundVolume(it->second, m_sfxVolume);
+        ::SetSoundVolume(it->second, m_sfxVolume * gain);
+        ::SetSoundPan(it->second, pan);
         ::PlaySound(it->second);
     }
 }

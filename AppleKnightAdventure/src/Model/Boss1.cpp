@@ -1,6 +1,14 @@
 #include "Model/Boss1.h"
 #include <cmath>
 
+namespace {
+constexpr float ATTACK_DURATION = 0.8f;
+constexpr float ATTACK_IMPACT_TIME = 0.55f;
+constexpr float DASH_WINDUP_TIME = 0.3f;
+constexpr float DASH_ACTIVE_TIME = ATTACK_DURATION - DASH_WINDUP_TIME;
+constexpr float TRANSITION_DURATION = 1.5f;
+}
+
 Boss1::Boss1(Vector2 position, Vector2 size) 
     : Boss(position, size, 1) 
 {
@@ -24,9 +32,16 @@ void Boss1::TransitionToNextPhase() {
         ChangeState(BossState::Transition);
         m_damage = 30; // Stronger phase 2
         m_cooldownTimer = 1.5f;
-        m_activeTimer = 3.0f; // 3s transition animation
+        m_activeTimer = TRANSITION_DURATION;
         m_health = m_maxHealth; // Refill health for Phase 2
     }
+}
+
+void Boss1::ResetToPhase1() {
+    Boss::ResetToPhase1();
+    m_damage = 20;
+    m_cooldownTimer = 2.0f;
+    m_attackRange = 50.0f;
 }
 
 void Boss1::UpdateState(float deltaTime, Vector2 playerPos) {
@@ -47,10 +62,8 @@ void Boss1::UpdateState(float deltaTime, Vector2 playerPos) {
     }
     
     if (m_currentState == BossState::Hurt) {
-        m_activeTimer -= deltaTime; // Need to set this in TakeDamage or here? Wait, TakeDamage doesn't set it.
-        // Actually, let's just let animation finish or set a fixed stun time
+        m_activeTimer -= deltaTime;
         if (m_activeTimer <= 0.0f) {
-            // Let's rely on standard Character animation or just a 0.5s stun
             ChangeState(BossState::Idle);
         }
         return;
@@ -101,8 +114,8 @@ void Boss1::UpdateState(float deltaTime, Vector2 playerPos) {
                 
                 ChangeState(BossState::Idle); // Reset triggers
                 ChangeState(BossState::Skill1);
-                m_chargeTimer = 0.2f; // Faster subsequent hits
-                m_activeTimer = m_chargeTimer + 0.2f;
+                m_chargeTimer = ATTACK_IMPACT_TIME;
+                m_activeTimer = ATTACK_DURATION;
             } else {
                 m_comboStep = 0;
                 m_cooldownTimer = (m_currentPhase == BossPhase::Phase1) ? 2.0f : 1.5f;
@@ -124,16 +137,16 @@ void Boss1::UpdateState(float deltaTime, Vector2 playerPos) {
             if (dist > 300.0f && CheckLineOfSight(GetCenter(), playerPos)) {
                 // Dash Attack
                 ChangeState(BossState::Skill2);
-                m_chargeTimer = 0.3f; // Wind-up
-                m_activeTimer = 0.6f;
+                m_chargeTimer = DASH_WINDUP_TIME;
+                m_activeTimer = DASH_ACTIVE_TIME;
                 return;
             }
             if (dist <= m_attackRange) {
                 if (CheckLineOfSight(GetCenter(), playerPos)) {
                     ChangeState(BossState::Skill1);
                     m_comboStep = 0;
-                    m_chargeTimer = 0.4f; // Wind-up for first hit
-                    m_activeTimer = m_chargeTimer + 0.2f;
+                    m_chargeTimer = ATTACK_IMPACT_TIME;
+                    m_activeTimer = ATTACK_DURATION;
                     return;
                 }
             }
