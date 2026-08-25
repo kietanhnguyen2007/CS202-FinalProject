@@ -31,11 +31,21 @@
 #include <cstdio>
 #include <algorithm>
 
+#if defined(_WIN32)
+// Hybrid-GPU laptops otherwise tend to start this OpenGL executable on the
+// integrated adapter. Both vendors recognize these exports as a request for
+// the high-performance GPU; systems without switchable graphics ignore them.
+extern "C" {
+__declspec(dllexport) unsigned long NvOptimusEnablement = 0x00000001;
+__declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
+}
+#endif
+
 int main() {
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Apple Knight Adventure");
     SetExitKey(0); // Disable ESC to quit so we can use it for Pause Menu
     SetWindowState(FLAG_WINDOW_RESIZABLE);
-    SetWindowMinSize(640, 360);  // minimum 16:9 at half base resolution
+    SetWindowMinSize(960, 540);  // minimum 3/4 base resolution to prevent UI layout issues
     WindowManager::GetInstance().Init(SCREEN_WIDTH, SCREEN_HEIGHT);
     SetTargetFPS(60);
 

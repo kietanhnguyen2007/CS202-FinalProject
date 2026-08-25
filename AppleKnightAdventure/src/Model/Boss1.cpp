@@ -14,7 +14,7 @@ Boss1::Boss1(Vector2 position, Vector2 size)
 {
     m_damage = 20; // Phase 1 default
     m_cooldownTimer = 2.0f;
-    m_attackRange = 50.0f; // scaled to the half-size hitbox
+    m_attackRange = 120.0f; // scaled up: hitbox x1.7, easier to hit player
     m_maxHealth = 5000;
     m_health = m_maxHealth;
 }

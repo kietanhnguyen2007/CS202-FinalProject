@@ -190,6 +190,11 @@ void MapBuilderController::Playtest() {
 void MapBuilderController::Update(float deltaTime) {
     if (!m_isRunning || !m_gameState) return;
 
+    // Keep camera centered relative to current window size on resize
+    if (!m_isDragging) {
+        m_camera.offset = {GetScreenWidth() * 0.5f, GetScreenHeight() * 0.5f};
+    }
+
     m_gameState->Update(deltaTime); // Merges m_newEntities
 
     auto& view = View::MapBuilderView::GetInstance();
@@ -451,18 +456,18 @@ void MapBuilderController::HandleTool(Vector2 mouseWorldPos) {
                         pos.y += TILE_SIZE - 48.0f; // Enemies are 48 high
                         newEntity = EnemyFactory::CreateEnemy(pos, sub == 0 ? EnemyType::Melee : EnemyType::Ranged); 
                         break;
-                    case EntityType::Boss: 
+                    case EntityType::Boss: {
+                        const Vector2 bossSize{TILE_SIZE * 0.85f, TILE_SIZE * 1.683f};
+                        pos.y += TILE_SIZE - bossSize.y;
                         if (sub == 3) {
-                            pos.y += TILE_SIZE - (TILE_SIZE * 0.99f);
-                            newEntity = std::make_unique<Boss3>(pos, Vector2{TILE_SIZE * 0.5f, TILE_SIZE * 0.99f}); 
+                            newEntity = std::make_unique<Boss3>(pos, bossSize);
                         } else if (sub == 2) {
-                            pos.y += TILE_SIZE - (TILE_SIZE * 0.99f);
-                            newEntity = std::make_unique<Boss2>(pos, Vector2{TILE_SIZE * 0.5f, TILE_SIZE * 0.99f});
+                            newEntity = std::make_unique<Boss2>(pos, bossSize);
                         } else {
-                            pos.y += TILE_SIZE - (TILE_SIZE * 0.99f);
-                            newEntity = std::make_unique<Boss1>(pos, Vector2{TILE_SIZE * 0.5f, TILE_SIZE * 0.99f}); 
+                            newEntity = std::make_unique<Boss1>(pos, bossSize);
                         }
                         break;
+                    }
                     case EntityType::Chest: 
                         pos.y += TILE_SIZE - 32.0f; // Chests are 32 high
                         newEntity = std::make_unique<Chest>(pos); 
