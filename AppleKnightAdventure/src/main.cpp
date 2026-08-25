@@ -55,6 +55,8 @@ int main() {
 
     auto& assetManager = View::AssetManager::GetInstance();
     assetManager.StartLoading(jsonFiles);
+    auto& survivalView = Survival3D::SurvivalView::GetInstance();
+    survivalView.BeginStartupAssetLoading();
 
     // Load game_font for loading screen
     Font loadingFont = LoadFont("assets/fonts/game_font.ttf");
@@ -75,6 +77,7 @@ int main() {
 
     float loadingTime = 0.0f;
     float completionHold = 0.0f;
+    float combinedDisplayProgress = 0.0f;
 
     while (!WindowShouldClose()) {
         WindowManager::GetInstance().Update(); // Catch resize events during loading!
@@ -82,24 +85,52 @@ int main() {
         float dt = GetFrameTime();
         loadingTime += dt;
 
+        // Raylib model/texture uploads must stay on the render thread. Process
+        // one Survival3D item per frame after the 2D atlas queue completes so
+        // the loading screen remains responsive and reports each real asset.
+        const bool atlasesComplete = assetManager.IsLoadingComplete();
+        if (atlasesComplete && !survivalView.IsStartupAssetLoadingComplete())
+            survivalView.LoadNextStartupAsset();
+
         // Always use actual screen size (window may be resizable)
         int sw = GetScreenWidth();
         int sh = GetScreenHeight();
 
-        const bool assetsComplete = assetManager.IsLoadingComplete();
-        float displayProg = std::clamp(assetManager.GetDisplayProgress(), 0.0f, 1.0f);
-        float realProg    = std::clamp(assetManager.GetProgress(), 0.0f, 1.0f);
+        const float atlasProgress = std::clamp(assetManager.GetProgress(), 0.0f, 1.0f);
+        const float survivalProgress = std::clamp(
+            survivalView.GetStartupAssetLoadingProgress(), 0.0f, 1.0f);
+        // The final 28% is intentionally reserved for Survival3D. Counting
+        // each GLB as one tiny item beside hundreds of sprite atlases would
+        // hide the expensive 3D phase and make the bar misleading.
+        const float realProg = 0.72f * atlasProgress
+                             + (atlasesComplete ? 0.28f * survivalProgress : 0.0f);
+        const float smoothing = std::clamp(dt * 8.0f, 0.0f, 1.0f);
+        combinedDisplayProgress += (realProg - combinedDisplayProgress) * smoothing;
+        float displayProg = std::clamp(combinedDisplayProgress, 0.0f, 1.0f);
+        const bool assetsComplete = atlasesComplete
+            && survivalView.IsStartupAssetLoadingComplete();
         if (assetsComplete && displayProg >= 0.995f) completionHold += dt;
         else completionHold = 0.0f;
         int percent = std::clamp(static_cast<int>(displayProg * 100.0f + 0.5f), 0, 100);
 
-        std::string assetName = assetManager.GetCurrentAssetName();
+        std::string assetName = atlasesComplete
+            ? survivalView.GetStartupAssetName()
+            : assetManager.GetCurrentAssetName();
         if (assetName.empty()) assetName = "Preparing the adventure";
-        const char* stage = realProg < 0.20f ? "FORGING THE WORLD"
-                          : realProg < 0.52f ? "AWAKENING THE HEROES"
-                          : realProg < 0.82f ? "SUMMONING CREATURES"
-                          : assetsComplete ? "READYING YOUR ADVENTURE"
-                                           : "POLISHING THE REALMS";
+        const char* stage = nullptr;
+        if (!atlasesComplete) {
+            stage = realProg < 0.20f ? "FORGING THE WORLD"
+                  : realProg < 0.52f ? "AWAKENING THE HEROES"
+                                     : "SUMMONING CREATURES";
+        } else if (survivalProgress < 0.40f) {
+            stage = "RAISING THE 3D ARENA";
+        } else if (survivalProgress < 0.74f) {
+            stage = "AWAKENING 3D HEROES";
+        } else if (!assetsComplete) {
+            stage = "CHARGING 3D SKILLS";
+        } else {
+            stage = "READYING YOUR ADVENTURE";
+        }
 
         BeginDrawing();
         ClearBackground(Color{10, 8, 20, 255});
@@ -213,6 +244,7 @@ int main() {
     // initializing the whole game just to tear it down immediately.
     if (WindowShouldClose()) {
         SetTraceLogLevel(LOG_WARNING);
+        survivalView.Shutdown();
         assetManager.Shutdown();
         View::Renderer::GetInstance().Shutdown();
         CloseWindow();

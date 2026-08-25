@@ -4,7 +4,9 @@
 #include "Survival3D/Vfx/VfxRuntime.h"
 #include "raylib.h"
 #include <array>
+#include <cstddef>
 #include <cstdint>
+#include <string>
 
 namespace Survival3D {
 
@@ -37,6 +39,15 @@ struct BladeTrailState {
 class SurvivalView {
 public:
     static SurvivalView& GetInstance();
+
+    // Loads the Survival3D startup set incrementally on the render thread so
+    // the global loading screen can report real progress without calling GPU
+    // APIs from a worker thread.
+    void BeginStartupAssetLoading();
+    bool LoadNextStartupAsset();
+    bool IsStartupAssetLoadingComplete() const;
+    float GetStartupAssetLoadingProgress() const;
+    std::string GetStartupAssetName() const;
 
     bool Init();
     void Shutdown();
@@ -162,6 +173,9 @@ private:
     std::array<WeaponModelAsset, 3> m_weaponModels{};
     // Knight: Basic/K/U/H/Dash, Mage: Basic/K/U/H/Dash.
     std::array<SkillModelAsset, 10> m_skillModels{};
+    std::size_t m_startupAssetIndex = 0;
+    bool m_startupAssetLoading = false;
+    std::string m_startupAssetName;
 };
 
 } // namespace Survival3D

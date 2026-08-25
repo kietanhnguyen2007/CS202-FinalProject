@@ -142,6 +142,73 @@ enum SkillModelSlot : std::size_t {
     SkillModelCount
 };
 
+constexpr std::array<const char*, 13> kStartupTexturePaths{{
+    "assets/survival3d/textures/vfx/knight_sword_arc_v2.png",
+    "assets/survival3d/textures/vfx/knight_guard_crest_v1.png",
+    "assets/survival3d/textures/vfx/knight_shield_rush_impact_v1.png",
+    "assets/survival3d/textures/vfx/knight_blade_storm_v1.png",
+    "assets/survival3d/textures/vfx/hero_dash_streak_v1.png",
+    "assets/survival3d/textures/vfx/mage_arcane_sigil_v1.png",
+    "assets/survival3d/textures/vfx/mage_arcane_bolt_v1.png",
+    "assets/survival3d/textures/vfx/mage_frost_nova_v1.png",
+    "assets/survival3d/textures/vfx/mage_gravity_vortex_v1.png",
+    "assets/survival3d/textures/vfx/mage_astral_tempest_v1.png",
+    "assets/survival3d/textures/environment/aegis_rift_void_panorama_v1.png",
+    "assets/survival3d/textures/ui/aegis_rift_upgrade_card_v1.png",
+    "assets/survival3d/textures/ui/aegis_rift_result_ledger_v1.png"
+}};
+
+constexpr const char* kArenaModelPath =
+    "assets/survival3d/models/environment/aegis_rift_arena_v1.glb";
+
+constexpr std::array<const char*, 10> kStartupActorPaths{{
+    "assets/survival3d/models/step7/actors/knight_named_actions.glb",
+    "assets/survival3d/models/step7/actors/magic_caster_named_actions.glb",
+    "assets/survival3d/models/step7/actors/riftling_named_actions.glb",
+    "assets/survival3d/models/step7/actors/hex_archer_named_actions.glb",
+    "assets/survival3d/models/step7/actors/obsidian_brute_named_actions.glb",
+    "assets/survival3d/models/step7/actors/brood_warden_named_actions.glb",
+    "assets/survival3d/models/step7/actors/hexeye_artillerist_named_actions.glb",
+    "assets/survival3d/models/step7/actors/ironroot_colossus_named_actions.glb",
+    "assets/survival3d/models/step7/actors/eclipse_chimera_named_actions.glb",
+    "assets/survival3d/models/step7/actors/void_sovereign_named_actions.glb"
+}};
+
+constexpr std::array<const char*, 3> kStartupWeaponPaths{{
+    "assets/survival3d/models/weapons/knight_greatsword.glb",
+    "assets/survival3d/models/weapons/magic_caster_staff.glb",
+    "assets/survival3d/models/enemies/hex_archer_bow.glb"
+}};
+
+constexpr std::array<const char*, SkillModelCount> kStartupSkillPaths{{
+    "assets/survival3d/models/skills/knight_violet_edge.glb",
+    "assets/survival3d/models/skills/knight_aegis_counter_v2.glb",
+    "assets/survival3d/models/skills/knight_shield_rush_v2.glb",
+    "assets/survival3d/models/skills/knight_bastion_breaker_v2.glb",
+    "assets/survival3d/models/skills/knight_steel_step.glb",
+    "assets/survival3d/models/skills/mage_arc_bolt_v2.glb",
+    "assets/survival3d/models/skills/mage_frost_ring.glb",
+    "assets/survival3d/models/skills/mage_gravity_well.glb",
+    "assets/survival3d/models/skills/mage_astral_tempest.glb",
+    "assets/survival3d/models/skills/mage_phase_blink.glb"
+}};
+
+constexpr std::size_t kStartupAssetCount = 1u + kStartupTexturePaths.size()
+    + 1u + kStartupActorPaths.size() + kStartupWeaponPaths.size()
+    + kStartupSkillPaths.size();
+
+std::string StartupAssetLabel(const char* path) {
+    std::string label = path != nullptr ? path : "";
+    std::replace(label.begin(), label.end(), '\\', '/');
+    constexpr const char* root = "assets/survival3d/";
+    if (label.rfind(root, 0) == 0) label.erase(0, std::char_traits<char>::length(root));
+    const std::size_t extension = label.find_last_of('.');
+    if (extension != std::string::npos) label.erase(extension);
+    std::string breadcrumb;
+    for (char c : label) breadcrumb += c == '/' ? "  >  " : std::string(1, c);
+    return breadcrumb;
+}
+
 Vfx::SkillPackage SkillPackageForCue(CombatCue cue,
                                      CharacterId character,
                                      bool& valid) {
@@ -1409,96 +1476,81 @@ SurvivalView& SurvivalView::GetInstance() {
     return instance;
 }
 
-bool SurvivalView::Init() {
-    if (m_initialized) return true;
-    m_font = LoadFont("assets/fonts/game_font.ttf");
-    const auto loadVfx = [](Texture2D& texture, const char* path) {
+void SurvivalView::BeginStartupAssetLoading() {
+    if (m_initialized || m_startupAssetLoading) return;
+    m_startupAssetIndex = 0;
+    m_startupAssetName = "Preparing Survival3D";
+    m_startupAssetLoading = true;
+}
+
+bool SurvivalView::LoadNextStartupAsset() {
+    if (m_initialized) return false;
+    BeginStartupAssetLoading();
+    if (m_startupAssetIndex >= kStartupAssetCount) return false;
+
+    Texture2D* textureSlots[] = {
+        &m_knightSwordArcTexture, &m_knightGuardTexture,
+        &m_knightRushTexture, &m_knightStormTexture,
+        &m_dashStreakTexture, &m_mageSigilTexture, &m_mageBoltTexture,
+        &m_mageFrostTexture, &m_mageGravityTexture,
+        &m_mageUltimateTexture, &m_arenaBackdropTexture,
+        &m_upgradeCardFrameTexture, &m_resultLedgerFrameTexture
+    };
+    static_assert(std::size(textureSlots) == kStartupTexturePaths.size());
+
+    const std::size_t textureBegin = 1u;
+    const std::size_t arenaStep = textureBegin + kStartupTexturePaths.size();
+    const std::size_t actorBegin = arenaStep + 1u;
+    const std::size_t weaponBegin = actorBegin + kStartupActorPaths.size();
+    const std::size_t skillBegin = weaponBegin + kStartupWeaponPaths.size();
+    const std::size_t step = m_startupAssetIndex;
+
+    if (step == 0u) {
+        m_startupAssetName = "Survival3D  >  game font";
+        m_font = LoadFont("assets/fonts/game_font.ttf");
+    } else if (step < arenaStep) {
+        const std::size_t slot = step - textureBegin;
+        const char* path = kStartupTexturePaths[slot];
+        m_startupAssetName = StartupAssetLabel(path);
         if (!FileExists(path)) {
             TraceLog(LOG_WARNING,
                      "SURVIVAL3D: Combat VFX missing; using procedural fallback: %s",
                      path);
-            return;
+        } else {
+            *textureSlots[slot] = LoadTexture(path);
+            if (textureSlots[slot]->id != 0)
+                SetTextureFilter(*textureSlots[slot], TEXTURE_FILTER_BILINEAR);
         }
-        texture = LoadTexture(path);
-        if (texture.id != 0)
-            SetTextureFilter(texture, TEXTURE_FILTER_BILINEAR);
-    };
-    loadVfx(m_knightSwordArcTexture,
-            "assets/survival3d/textures/vfx/knight_sword_arc_v2.png");
-    loadVfx(m_knightGuardTexture,
-            "assets/survival3d/textures/vfx/knight_guard_crest_v1.png");
-    loadVfx(m_knightRushTexture,
-            "assets/survival3d/textures/vfx/knight_shield_rush_impact_v1.png");
-    loadVfx(m_knightStormTexture,
-            "assets/survival3d/textures/vfx/knight_blade_storm_v1.png");
-    loadVfx(m_dashStreakTexture,
-            "assets/survival3d/textures/vfx/hero_dash_streak_v1.png");
-    loadVfx(m_mageSigilTexture,
-            "assets/survival3d/textures/vfx/mage_arcane_sigil_v1.png");
-    loadVfx(m_mageBoltTexture,
-            "assets/survival3d/textures/vfx/mage_arcane_bolt_v1.png");
-    loadVfx(m_mageFrostTexture,
-            "assets/survival3d/textures/vfx/mage_frost_nova_v1.png");
-    loadVfx(m_mageGravityTexture,
-            "assets/survival3d/textures/vfx/mage_gravity_vortex_v1.png");
-    loadVfx(m_mageUltimateTexture,
-            "assets/survival3d/textures/vfx/mage_astral_tempest_v1.png");
-    loadVfx(m_arenaBackdropTexture,
-            "assets/survival3d/textures/environment/aegis_rift_void_panorama_v1.png");
-    loadVfx(m_upgradeCardFrameTexture,
-            "assets/survival3d/textures/ui/aegis_rift_upgrade_card_v1.png");
-    loadVfx(m_resultLedgerFrameTexture,
-            "assets/survival3d/textures/ui/aegis_rift_result_ledger_v1.png");
-    const char* arenaModelPath =
-        "assets/survival3d/models/environment/aegis_rift_arena_v1.glb";
-    if (FileExists(arenaModelPath)) {
-        m_arenaEnvironmentModel = LoadModel(arenaModelPath);
-        m_arenaEnvironmentReady = m_arenaEnvironmentModel.meshCount > 0;
-        if (m_arenaEnvironmentReady)
-            TraceLog(LOG_INFO, "SURVIVAL3D: Loaded Aegis Rift arena: %s",
-                     arenaModelPath);
+    } else if (step == arenaStep) {
+        m_startupAssetName = StartupAssetLabel(kArenaModelPath);
+        if (FileExists(kArenaModelPath)) {
+            m_arenaEnvironmentModel = LoadModel(kArenaModelPath);
+            m_arenaEnvironmentReady = m_arenaEnvironmentModel.meshCount > 0;
+            if (m_arenaEnvironmentReady)
+                TraceLog(LOG_INFO, "SURVIVAL3D: Loaded Aegis Rift arena: %s",
+                         kArenaModelPath);
+        } else {
+            TraceLog(LOG_WARNING,
+                     "SURVIVAL3D: Aegis Rift arena missing; using fallback geometry: %s",
+                     kArenaModelPath);
+        }
+    } else if (step < weaponBegin) {
+        const std::size_t slot = step - actorBegin;
+        m_startupAssetName = StartupAssetLabel(kStartupActorPaths[slot]);
+        LoadAnimatedModel(slot, kStartupActorPaths[slot]);
+    } else if (step < skillBegin) {
+        const std::size_t slot = step - weaponBegin;
+        m_startupAssetName = StartupAssetLabel(kStartupWeaponPaths[slot]);
+        LoadWeaponModel(slot, kStartupWeaponPaths[slot]);
     } else {
-        TraceLog(LOG_WARNING,
-                 "SURVIVAL3D: Aegis Rift arena missing; using fallback geometry: %s",
-                 arenaModelPath);
+        const std::size_t slot = step - skillBegin;
+        m_startupAssetName = StartupAssetLabel(kStartupSkillPaths[slot]);
+        LoadSkillModel(slot, kStartupSkillPaths[slot]);
     }
-    const char* modelPaths[] = {
-        "assets/survival3d/models/step7/actors/knight_named_actions.glb",
-        "assets/survival3d/models/step7/actors/magic_caster_named_actions.glb",
-        "assets/survival3d/models/step7/actors/riftling_named_actions.glb",
-        "assets/survival3d/models/step7/actors/hex_archer_named_actions.glb",
-        "assets/survival3d/models/step7/actors/obsidian_brute_named_actions.glb",
-        "assets/survival3d/models/step7/actors/brood_warden_named_actions.glb",
-        "assets/survival3d/models/step7/actors/hexeye_artillerist_named_actions.glb",
-        "assets/survival3d/models/step7/actors/ironroot_colossus_named_actions.glb",
-        "assets/survival3d/models/step7/actors/eclipse_chimera_named_actions.glb",
-        "assets/survival3d/models/step7/actors/void_sovereign_named_actions.glb"
-    };
-    for (std::size_t i = 0; i < m_animatedModels.size(); ++i)
-        LoadAnimatedModel(i, modelPaths[i]);
-    const char* weaponPaths[] = {
-        "assets/survival3d/models/weapons/knight_greatsword.glb",
-        "assets/survival3d/models/weapons/magic_caster_staff.glb",
-        "assets/survival3d/models/enemies/hex_archer_bow.glb"
-    };
-    for (std::size_t i = 0; i < m_weaponModels.size(); ++i)
-        LoadWeaponModel(i, weaponPaths[i]);
-    const char* skillModelPaths[] = {
-        "assets/survival3d/models/skills/knight_violet_edge.glb",
-        "assets/survival3d/models/skills/knight_aegis_counter_v2.glb",
-        "assets/survival3d/models/skills/knight_shield_rush_v2.glb",
-        "assets/survival3d/models/skills/knight_bastion_breaker_v2.glb",
-        "assets/survival3d/models/skills/knight_steel_step.glb",
-        "assets/survival3d/models/skills/mage_arc_bolt_v2.glb",
-        "assets/survival3d/models/skills/mage_frost_ring.glb",
-        "assets/survival3d/models/skills/mage_gravity_well.glb",
-        "assets/survival3d/models/skills/mage_astral_tempest.glb",
-        "assets/survival3d/models/skills/mage_phase_blink.glb"
-    };
-    static_assert(std::size(skillModelPaths) == SkillModelCount,
-                  "Every hero ability must have one non-VFX model asset");
-    for (std::size_t i = 0; i < m_skillModels.size(); ++i)
-        LoadSkillModel(i, skillModelPaths[i]);
+
+    ++m_startupAssetIndex;
+    if (m_startupAssetIndex < kStartupAssetCount) return true;
+
     m_skillVfxRuntime.Reset();
     for (const Vfx::Package& package : Vfx::SkillPackages()) {
         if (!m_skillVfxRuntime.RegisterPackage(package))
@@ -1509,12 +1561,36 @@ bool SurvivalView::Init() {
     m_skillParticles = {};
     m_skillParticleCursor = 0u;
     m_skillParticleSerial = 1u;
+    m_startupAssetLoading = false;
+    m_startupAssetName = "Survival3D ready";
     m_initialized = true;
     return true;
 }
 
+bool SurvivalView::IsStartupAssetLoadingComplete() const {
+    return m_initialized;
+}
+
+float SurvivalView::GetStartupAssetLoadingProgress() const {
+    if (m_initialized) return 1.0f;
+    if (!m_startupAssetLoading) return 0.0f;
+    return static_cast<float>(m_startupAssetIndex)
+         / static_cast<float>(kStartupAssetCount);
+}
+
+std::string SurvivalView::GetStartupAssetName() const {
+    return m_startupAssetName;
+}
+
+bool SurvivalView::Init() {
+    if (m_initialized) return true;
+    BeginStartupAssetLoading();
+    while (!IsStartupAssetLoadingComplete()) LoadNextStartupAsset();
+    return m_initialized;
+}
+
 void SurvivalView::Shutdown() {
-    if (!m_initialized) return;
+    if (!m_initialized && !m_startupAssetLoading && m_startupAssetIndex == 0u) return;
     for (Texture2D* texture : {
             &m_knightSwordArcTexture, &m_knightGuardTexture,
             &m_knightRushTexture, &m_knightStormTexture,
@@ -1541,6 +1617,9 @@ void SurvivalView::Shutdown() {
     m_skillParticleCursor = 0u;
     m_skillParticleSerial = 1u;
     m_font = {};
+    m_startupAssetIndex = 0u;
+    m_startupAssetLoading = false;
+    m_startupAssetName.clear();
     m_initialized = false;
 }
 
