@@ -837,7 +837,7 @@ void GameController::HandlePlayerInput(Player* player, const InputCommand& cmd, 
             }
             if (cmd.ultimate  && fs->TryUltimate()) {
                 player->DoUltimate(FighterSkillSet::ULTIMATE_ANIMATION_DURATION);
-                SoundManager::GetInstance().PlaySound("fighter_ultimate");
+                SoundManager::GetInstance().PlaySound("fighter_ultimate_charge");
             }
         }
         if (!player->IsDashing() && cmd.parryBlock && fs->TryParry()) {}
@@ -1075,7 +1075,7 @@ void GameController::UpdateCombat(Player* player, float dt, bool updateEnemyCool
                 if (!boss->IsAlive() || boss->GetBossState() == BossState::Hurt || boss->GetBossState() == BossState::Die || boss->GetBossState() == BossState::Transition) continue;
 
                 boss->TakeDamage(damage);
-                SoundManager::GetInstance().PlaySound("enemy_hurt"); 
+                SoundManager::GetInstance().PlaySound("boss_hurt");
                 View::FloatingTextManager::GetInstance().Emit(
                     boss->GetPosition(), "-" + std::to_string(damage), YELLOW, 1.0f);
                 View::ParticleRenderer::GetInstance().EmitBurst(boss->GetPosition(), 16, WHITE);
@@ -1089,7 +1089,7 @@ void GameController::UpdateCombat(Player* player, float dt, bool updateEnemyCool
                 if (wall->IsDestroyed()) continue;
 
                 wall->TakeDamage(damage);
-                SoundManager::GetInstance().PlaySound("enemy_hurt");
+                SoundManager::GetInstance().PlaySound("stone_hit");
                 View::ParticleRenderer::GetInstance().EmitBurst(wall->GetPosition(), 6, GRAY);
                 View::GameView::GetInstance().Shake(2.0f, 0.1f);
 
@@ -1144,7 +1144,7 @@ void GameController::UpdateCombat(Player* player, float dt, bool updateEnemyCool
                 fs->ultimate.damage, 400.0f, 0.9f, // V2: 12 frames * 0.075s; legacy: 9 * 0.1s
                 0.8f, false);  // Fighter H faces right by default
             fs->ResetFireFlag();
-            SoundManager::GetInstance().PlaySound("fighter_ultimate");
+            SoundManager::GetInstance().PlaySound("fighter_ultimate_release");
         }
 
     // ==================== MAGIC CASTER COMBAT ====================
@@ -1172,6 +1172,7 @@ void GameController::UpdateCombat(Player* player, float dt, bool updateEnemyCool
                     }
                 }
             }
+            SoundManager::GetInstance().PlaySound("magic_attack_1_release");
             SpawnLightningAt(targetPos, ms->attack1.damage, 0.50f,
                              "assets/textures/player/magic_caster_v2/projectile_attack1_v2.json",
                              0.0f, 0.8f);
@@ -1186,6 +1187,7 @@ void GameController::UpdateCombat(Player* player, float dt, bool updateEnemyCool
                 fbSpawnX,
                 player->GetPosition().y - 10.0f // raised even higher
             };
+            SoundManager::GetInstance().PlaySound("magic_attack_2_release");
             SpawnPlayerProjectile(
                 "assets/textures/player/magic_caster_v2/projectile_attack2_v2.json",
                 spawnPos, player->GetDirection(),
@@ -1204,6 +1206,7 @@ void GameController::UpdateCombat(Player* player, float dt, bool updateEnemyCool
                 waveSpawnX,
                 player->GetPosition().y - 75.0f  // keep the enlarged hitbox just above ground
             };
+            SoundManager::GetInstance().PlaySound("magic_attack_3_release");
             SpawnPlayerProjectile(
                 "assets/textures/player/magic_caster_v2/projectile_attack3_v2.json",
                 spawnPos, player->GetDirection(),
@@ -1231,6 +1234,7 @@ void GameController::UpdateCombat(Player* player, float dt, bool updateEnemyCool
                     }
                 }
             }
+            SoundManager::GetInstance().PlaySound("magic_ultimate_release");
             SpawnLightningAt(targetPos, ms->ultimate.damage, 0.50f,
                              "assets/textures/player/magic_caster_v2/ultimate_skill_projectile_v2.json",
                              0.0f, 1.0f);
@@ -1251,6 +1255,7 @@ void GameController::UpdateCombat(Player* player, float dt, bool updateEnemyCool
                 brSpawnX,
                 player->GetPosition().y - 32.0f  // keep the tallest K frame above the floor
             };
+            SoundManager::GetInstance().PlaySound("ninja_attack_2_release");
             SpawnPlayerProjectile(
                 "assets/textures/player/ninja_v2/projectile_attack2_v2.json",
                 spawnPos, player->GetDirection(),
@@ -1273,6 +1278,7 @@ void GameController::UpdateCombat(Player* player, float dt, bool updateEnemyCool
                 cloneSpawnX,
                 player->GetPosition().y - 66.0f
             };
+            SoundManager::GetInstance().PlaySound("ninja_ultimate_release");
             SpawnPlayerProjectile(
                 "assets/textures/player/ninja_v2/projectile_ultimate_attack_v2.json",
                 spawnPos, player->GetDirection(),
@@ -1327,7 +1333,13 @@ void GameController::UpdateCombat(Player* player, float dt, bool updateEnemyCool
 
                     isAttacking = true;
                     enemy->Attack();
-                    SoundManager::GetInstance().PlaySound("enemy_attack");
+                    const char* enemyAttackEvent = "enemy_melee_attack";
+                    if (enemy->GetEnemyType() == EnemyType::Ranged) {
+                        enemyAttackEvent = "enemy_ranged_attack";
+                    } else if (enemy->GetEnemyType() == EnemyType::Flying) {
+                        enemyAttackEvent = "enemy_flying_attack";
+                    }
+                    SoundManager::GetInstance().PlaySound(enemyAttackEvent);
                     
                     if (enemy->GetEnemyType() == EnemyType::Ranged) {
                         Vector2 pSize = {32.0f, 32.0f}; // size of bomb
@@ -1457,9 +1469,11 @@ void GameController::UpdateItems(Player* player, float dt) {
                 m_scoring.AddScore(item->GetAmount() * 10);
                 break;
             case ItemType::Apple:
+                pickupSound = "apple_pickup";
                 player->Heal(25);
                 break;
             case ItemType::Key:
+                pickupSound = "key_pickup";
                 player->GetInventory().AddKeys(1);
                 break;
             case ItemType::Potion:
@@ -1649,7 +1663,8 @@ void GameController::OnEntityRemoved(Entity* entity) {
             m_defeatedEnemies++;
             m_scoring.DefeatEnemy();
             m_scoring.AddScore(50);
-            SoundManager::GetInstance().PlaySound("enemy_death");
+            SoundManager::GetInstance().PlaySound(
+                entity->GetType() == EntityType::Boss ? "boss_death" : "enemy_death");
             View::ParticleRenderer::GetInstance().EmitBurst(entity->GetPosition(), 20, RED);
             View::GameView::GetInstance().Shake(5.0f, 0.3f);
             AchievementManager::GetInstance().OnEnemyDefeated(entity->GetType() == EntityType::Boss);
@@ -2423,7 +2438,8 @@ void GameController::FireDragonProjectile(Pet* pet) {
         proj.get(), projVisual, "attack");
 
     m_petProjectiles.push_back(std::move(proj));
-    SoundManager::GetInstance().PlaySound("pet_attack");
+    SoundManager::GetInstance().PlaySound(
+        pet->GetPetType() == PetType::Skull ? "pet_skull_attack" : "pet_dragon_attack");
     pet->ResetFireFlag();
 }
 
@@ -2503,9 +2519,11 @@ void GameController::UpdatePets(float dt, const InputCommand& cmd) {
                         m_scoring.AddScore(item->GetAmount() * 10);
                         break;
                     case ItemType::Apple:
+                        pickupSound = "apple_pickup";
                         player->Heal(25);
                         break;
                     case ItemType::Key:
+                        pickupSound = "key_pickup";
                         player->GetInventory().AddKeys(1);
                         break;
                     case ItemType::Potion:
@@ -2592,7 +2610,7 @@ void GameController::UpdateProjectiles(float dt) {
                     if (!RectOverlap(proj->GetBoundingBox(), boss->GetBoundingBox())) continue;
 
                     boss->TakeDamage(proj->GetDamage());
-                    SoundManager::GetInstance().PlaySound("enemy_hurt");
+                    SoundManager::GetInstance().PlaySound("boss_hurt");
                     View::FloatingTextManager::GetInstance().Emit(
                         boss->GetPosition(), "-" + std::to_string(proj->GetDamage()), ORANGE, 1.0f);
                     if (!boss->IsActive()) OnEntityRemoved(boss);
@@ -2785,7 +2803,7 @@ void GameController::SpawnLightningAt(Vector2 targetPos, int damage, float lifet
             if (!boss->IsAlive() || boss->GetBossState() == BossState::Die || boss->GetBossState() == BossState::Transition) continue;
             if (!RectOverlap(hitBox, boss->GetBoundingBox())) continue;
             boss->TakeDamage(damage);
-            SoundManager::GetInstance().PlaySound("enemy_hurt");
+            SoundManager::GetInstance().PlaySound("boss_hurt");
             View::FloatingTextManager::GetInstance().Emit(
                 boss->GetPosition(), "-" + std::to_string(damage), PURPLE, 1.0f);
             View::ParticleRenderer::GetInstance().EmitBurst(boss->GetPosition(), 12, PURPLE);
@@ -2850,7 +2868,7 @@ void GameController::UpdatePlayerProjectiles(float dt) {
                 if (!RectOverlap(proj->GetBoundingBox(), boss->GetBoundingBox())) continue;
 
                 boss->TakeDamage(proj->GetDamage());
-                SoundManager::GetInstance().PlaySound("enemy_hurt");
+                SoundManager::GetInstance().PlaySound("boss_hurt");
                 View::FloatingTextManager::GetInstance().Emit(
                     boss->GetPosition(), "-" + std::to_string(proj->GetDamage()), ORANGE, 1.0f);
                 View::ParticleRenderer::GetInstance().EmitBurst(boss->GetPosition(), 8, ORANGE);
@@ -2921,6 +2939,8 @@ void GameController::UpdateNinjaTeleport(Player* player, float dt) {
         player->SetPosition(newPos);
         player->SetVelocity({0.0f, 0.0f});
         ns->m_teleportDone = true;
+
+        SoundManager::GetInstance().PlaySound("ninja_attack_3_arrive");
 
         View::ParticleRenderer::GetInstance().EmitBurst(newPos, 15, WHITE);
         // Play teleport_end animation after snap
