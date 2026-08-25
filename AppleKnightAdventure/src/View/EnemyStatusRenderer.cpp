@@ -1,4 +1,5 @@
 #include "View/EnemyStatusRenderer.h"
+#include "View/AssetManager.h"
 #include "View/EntityRenderer.h"
 #include "View/Renderer.h"
 #include "View/FloatingText.h"
@@ -16,12 +17,12 @@ EnemyStatusRenderer& EnemyStatusRenderer::GetInstance() {
 
 bool EnemyStatusRenderer::LoadResources(const std::string& atlasJsonPath) {
     if (atlasJsonPath.empty()) { m_loaded = true; return true; }
-    m_atlas = TextureAtlas::LoadFromJSON(atlasJsonPath);
+    m_atlas = AssetManager::GetInstance().GetAtlas(atlasJsonPath);
     if (!m_atlas) {
         m_loaded = false;
         return false;
     }
-    if (!m_atlas->LoadTexture()) {
+    if (!m_atlas->IsTextureLoaded()) {
         m_loaded = false;
         return false;
     }

@@ -4,6 +4,9 @@
 #include "raylib.h"
 #include "Model/GameState.h"
 #include "Model/Entity.h"
+#include "View/TextureAtlas.h"
+#include <array>
+#include <memory>
 #include <string>
 
 namespace View {
@@ -75,6 +78,8 @@ private:
     Texture2D m_texPortalGreen{};
     Texture2D m_texPortalPurple{};
     Texture2D m_texPortalRed{};
+    std::array<std::shared_ptr<Animations::TextureAtlas>, 15> m_iconAtlases{};
+    std::array<bool, 15> m_ownsIconTextures{};
     Rectangle m_srcPlayer{};
     Rectangle m_srcEnemy{};
     Rectangle m_srcBoss1{};
@@ -89,6 +94,7 @@ private:
 
     // Properties panel
     Entity* m_selectedEntity = nullptr;
+    int m_selectedEntityId = 0;
 
     // Minimap
     bool m_showMinimap = true;
@@ -157,8 +163,12 @@ public:
     bool IsLayerVisible(MapLayer layer) const { return m_layerVisible[static_cast<int>(layer)]; }
     bool IsLayerLocked(MapLayer layer) const { return m_layerLocked[static_cast<int>(layer)]; }
 
-    void SetSelectedEntity(Entity* entity) { m_selectedEntity = entity; }
+    void SetSelectedEntity(Entity* entity) {
+        m_selectedEntity = entity;
+        m_selectedEntityId = entity ? entity->GetId() : 0;
+    }
     Entity* GetSelectedEntity() const { return m_selectedEntity; }
+    int GetSelectedEntityId() const { return m_selectedEntityId; }
 
     bool WantsPlaytest() { bool v = m_wantsPlaytest; m_wantsPlaytest = false; return v; }
     bool WantsSave() { bool v = m_wantsSave; m_wantsSave = false; return v; }

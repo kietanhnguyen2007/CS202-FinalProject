@@ -31,6 +31,7 @@ public:
     bool Init();
     bool LoadResources(const std::string& atlasJsonPath = "");
     void Shutdown();
+    void ClearEntityReferences();
     void Update(float dt, const Player* player, const Player* secondPlayer = nullptr);
     void Render();
 

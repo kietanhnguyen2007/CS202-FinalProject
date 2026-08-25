@@ -1,4 +1,5 @@
 #include "View/GameView.h"
+#include "View/AssetManager.h"
 #include "View/CharacterRenderer.h"
 #include "View/EntityRenderer.h"
 #include "View/ParticleRenderer.h"
@@ -219,6 +220,10 @@ void GameView::Update(float dt) {
 // ── Background Parallax ────────────────────────────────────────────
 
 void GameView::LoadBackgrounds(BackgroundTheme theme) {
+    if (m_hasLoadedBackground && theme == m_loadedBackgroundTheme && !m_backgrounds.empty()) {
+        return;
+    }
+
     // Unload current set before loading new one
     for (auto& bgSet : m_backgrounds)
         for (auto& layer : bgSet)
@@ -270,6 +275,8 @@ void GameView::LoadBackgrounds(BackgroundTheme theme) {
         m_backgrounds[0].push_back(info);
     }
     m_activeBgIndex = 0;
+    m_loadedBackgroundTheme = theme;
+    m_hasLoadedBackground = true;
 }
 
 void GameView::SetActiveBackground(int index) {
@@ -311,9 +318,32 @@ void GameView::RenderBackground(const Camera2D& cam) {
 // ── Tilemap / Multi-tilesheet ──────────────────────────────────────
 
 void GameView::LoadTileset(int tileType, const std::string& texturePath, int cols) {
+    auto existing = m_tilesets.find(tileType);
+    if (existing != m_tilesets.end()) {
+        if (existing->second.texture.id != 0 && existing->second.texturePath == texturePath) {
+            existing->second.gridCols = (cols > 0) ? cols : 1;
+            return;
+        }
+        if (existing->second.texture.id != 0 && existing->second.ownsTexture) {
+            ::UnloadTexture(existing->second.texture);
+        }
+    }
+
     TilesetInfo info;
-    info.texture = ::LoadTexture(texturePath.c_str());
     info.gridCols = (cols > 0) ? cols : 1;
+    info.texturePath = texturePath;
+
+    std::string atlasPath = texturePath;
+    const std::size_t extension = atlasPath.find_last_of('.');
+    if (extension != std::string::npos) atlasPath.replace(extension, std::string::npos, ".json");
+    auto atlas = AssetManager::GetInstance().GetAtlas(atlasPath);
+    if (atlas && atlas->IsTextureLoaded() && atlas->GetTexture()) {
+        info.atlas = std::move(atlas);
+        info.texture = *info.atlas->GetTexture();
+    } else {
+        info.texture = ::LoadTexture(texturePath.c_str());
+        info.ownsTexture = info.texture.id != 0;
+    }
     m_tilesets[tileType] = info;
 }
 
@@ -422,7 +452,7 @@ void GameView::Shutdown() {
 
     // Unload tilesets
     for (auto& kv : m_tilesets) {
-        if (kv.second.texture.id != 0) {
+        if (kv.second.texture.id != 0 && kv.second.ownsTexture) {
             ::UnloadTexture(kv.second.texture);
         }
     }
@@ -437,6 +467,7 @@ void GameView::Shutdown() {
         }
     }
     m_backgrounds.clear();
+    m_hasLoadedBackground = false;
 
     View::UIResourceManager::GetInstance().Shutdown();
 }

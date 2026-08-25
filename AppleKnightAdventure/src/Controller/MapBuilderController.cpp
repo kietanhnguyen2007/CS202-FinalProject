@@ -92,17 +92,24 @@ void MapBuilderController::PasteSelection() {
 }
 
 void MapBuilderController::StartEditor(const std::string& filepath) {
+    // Detach every non-owning view reference before replacing an existing
+    // editor state (for example when loading another map from inside Update).
+    View::CharacterRenderer::GetInstance().Clear();
+    View::EntityRenderer::GetInstance().Clear();
+    View::GameView::GetInstance().SetTiles(MapLayer::Background, nullptr);
+    View::GameView::GetInstance().SetTiles(MapLayer::Main, nullptr);
+    View::GameView::GetInstance().SetTiles(MapLayer::Foreground, nullptr);
+    View::GameView::GetInstance().SetEntities(nullptr);
+    View::MapBuilderView::GetInstance().SetSelectedEntity(nullptr);
+    m_registeredEntities.clear();
+    m_commandManager.reset();
+
     m_currentFile = filepath.empty() ? "assets/levels/custom_map.lvl" : filepath;
     m_gameState = LevelFactory::LoadLevel(m_currentFile, GameMode::SinglePlayer, 0);
     if (!m_gameState) {
         m_gameState = LevelFactory::CreateDefaultLevel(1);
     }
     m_commandManager = std::make_unique<CommandManager>(m_gameState.get());
-    
-    // Clear renderers to prevent stale visuals
-    View::CharacterRenderer::GetInstance().Clear();
-    View::EntityRenderer::GetInstance().Clear();
-    m_registeredEntities.clear();
     
     View::MapBuilderView::GetInstance().Init();
     
@@ -119,12 +126,17 @@ void MapBuilderController::StartEditor(const std::string& filepath) {
 void MapBuilderController::ExitEditor() {
     m_isRunning = false;
     m_returnToMenu = true;
-    m_gameState.reset();
-    m_commandManager.reset();
-    
+
     View::CharacterRenderer::GetInstance().Clear();
     View::EntityRenderer::GetInstance().Clear();
+    View::GameView::GetInstance().SetTiles(MapLayer::Background, nullptr);
+    View::GameView::GetInstance().SetTiles(MapLayer::Main, nullptr);
+    View::GameView::GetInstance().SetTiles(MapLayer::Foreground, nullptr);
+    View::GameView::GetInstance().SetEntities(nullptr);
+    View::MapBuilderView::GetInstance().SetSelectedEntity(nullptr);
     m_registeredEntities.clear();
+    m_commandManager.reset();
+    m_gameState.reset();
 }
 
 void MapBuilderController::SaveMap(const std::string& filename) {
@@ -183,9 +195,15 @@ void MapBuilderController::Update(float deltaTime) {
     auto& view = View::MapBuilderView::GetInstance();
     view.Update(deltaTime);
 
-    if (view.WantsExit()) ExitEditor();
+    if (view.WantsExit()) {
+        ExitEditor();
+        return;
+    }
     if (view.WantsSave()) SaveMap(view.GetFileName());
-    if (view.WantsPlaytest()) Playtest();
+    if (view.WantsPlaytest()) {
+        Playtest();
+        return;
+    }
     if (view.WantsLoad()) {
         std::string selectedFile = FileDialog::OpenFile("Level Files (*.lvl)\0*.lvl\0All Files (*.*)\0*.*\0");
         if (!selectedFile.empty()) {
@@ -205,14 +223,21 @@ void MapBuilderController::Update(float deltaTime) {
     if (view.WantsClearAll()) {
         int w = m_gameState->GetMapWidth();
         int h = m_gameState->GetMapHeight();
+
+        // Clear visuals and model references before releasing the old state.
+        View::CharacterRenderer::GetInstance().Clear();
+        View::EntityRenderer::GetInstance().Clear();
+        View::GameView::GetInstance().SetTiles(MapLayer::Background, nullptr);
+        View::GameView::GetInstance().SetTiles(MapLayer::Main, nullptr);
+        View::GameView::GetInstance().SetTiles(MapLayer::Foreground, nullptr);
+        View::GameView::GetInstance().SetEntities(nullptr);
+        view.SetSelectedEntity(nullptr);
+        m_registeredEntities.clear();
+        m_commandManager.reset();
+
         m_gameState = std::make_unique<GameState>(GameMode::SinglePlayer);
         m_gameState->SetMapSize(w, h);
         m_commandManager = std::make_unique<CommandManager>(m_gameState.get());
-        
-        // Clear visuals for old entities
-        View::CharacterRenderer::GetInstance().Clear();
-        View::EntityRenderer::GetInstance().Clear();
-        m_registeredEntities.clear();
     }
 
     int rw = view.WantsResizeW();
@@ -242,9 +267,18 @@ void MapBuilderController::Update(float deltaTime) {
 
     HandleInput(deltaTime);
 
+    // Undo/redo commands can temporarily own an entity outside GameState.
+    // Resolve selection by stable ID before any renderer or properties panel
+    // uses the non-owning pointer, otherwise clearing the redo stack can leave
+    // MapBuilderView pointing at a destroyed entity.
+    if (const int selectedId = view.GetSelectedEntityId(); selectedId != 0) {
+        view.SetSelectedEntity(m_gameState->GetEntity(selectedId));
+    }
+
     // Sync newly added entities to the visual renderers
     std::set<uint32_t> currentIds;
     for (const auto& u_entity : m_gameState->GetAllEntities()) {
+        if (!u_entity) continue;
         auto* entity = u_entity.get();
         uint32_t id = entity->GetId();
         currentIds.insert(id);
@@ -465,6 +499,7 @@ void MapBuilderController::HandleTool(Vector2 mouseWorldPos) {
             } else if (tool == View::BuilderTool::Eraser) {
                 // We'll just loop and check bounds
                 for (const auto& e : m_gameState->GetAllEntities()) {
+                    if (!e) continue;
                     if (CheckCollisionPointRec(mouseWorldPos, e->GetBoundingBox())) {
                         m_commandManager->ExecuteCommand(std::make_unique<RemoveEntityCommand>(e->GetId()));
                         if (view.GetSelectedEntity() == e.get()) view.SetSelectedEntity(nullptr);
@@ -474,6 +509,7 @@ void MapBuilderController::HandleTool(Vector2 mouseWorldPos) {
             } else if (tool == View::BuilderTool::Select) {
                 Entity* selected = nullptr;
                 for (const auto& e : m_gameState->GetAllEntities()) {
+                    if (!e) continue;
                     if (CheckCollisionPointRec(mouseWorldPos, e->GetBoundingBox())) {
                         selected = e.get();
                         break;

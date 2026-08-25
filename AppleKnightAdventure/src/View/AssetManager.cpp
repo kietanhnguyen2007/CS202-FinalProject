@@ -1,6 +1,18 @@
 #include "View/AssetManager.h"
 #include <iostream>
 #include <algorithm>
+#include <filesystem>
+
+namespace {
+
+std::string NormalizeAssetPath(const std::string& path) {
+    // Cache keys must be independent of the slash style used by the caller.
+    // recursive_directory_iterator yields backslashes on Windows while most
+    // gameplay code uses forward slashes.
+    return std::filesystem::path(path).lexically_normal().generic_string();
+}
+
+} // namespace
 
 namespace View {
 
@@ -59,11 +71,12 @@ void AssetManager::StartLoading(const std::vector<std::string>& jsonPaths) {
     if (m_shutdownComplete.load()) return;
     std::lock_guard<std::mutex> lock(m_queueMutex);
     for (const auto& path : jsonPaths) {
+        const std::string normalizedPath = NormalizeAssetPath(path);
         // Skip if already loaded
         std::lock_guard<std::mutex> atlasLock(m_atlasMutex);
-        if (m_atlases.find(path) != m_atlases.end()) continue;
+        if (m_atlases.find(normalizedPath) != m_atlases.end()) continue;
         
-        m_pendingPaths.push(path);
+        m_pendingPaths.push(normalizedPath);
     }
     m_totalToLoad = m_pendingPaths.size();
     m_loadedCount = 0;
@@ -109,20 +122,41 @@ void AssetManager::WorkerLoop() {
 }
 
 void AssetManager::UpdateMainThread() {
-    std::lock_guard<std::mutex> lock(m_uploadMutex);
-    while (!m_uploadQueue.empty()) {
-        auto [path, atlas] = m_uploadQueue.front();
-        m_uploadQueue.pop();
-
-        if (atlas) {
-            atlas->UploadTextureFromImage();
+    // Upload only a small batch per frame. GPU uploads must happen on the main
+    // thread, but holding the queue mutex (and draining an unbounded queue) made
+    // the loading screen freeze while also blocking the worker.
+    constexpr std::size_t maxUploadsPerFrame = 4;
+    for (std::size_t uploaded = 0; uploaded < maxUploadsPerFrame; ++uploaded) {
+        std::pair<std::string, std::shared_ptr<Animations::TextureAtlas>> item;
+        {
+            std::lock_guard<std::mutex> lock(m_uploadMutex);
+            if (m_uploadQueue.empty()) break;
+            item = std::move(m_uploadQueue.front());
+            m_uploadQueue.pop();
         }
 
+        auto& [path, atlas] = item;
+
+        // GetAtlas() may have loaded this path synchronously while the worker
+        // was still decoding it. In that case the cached GPU atlas wins and we
+        // discard this CPU-side duplicate before doing another GPU upload.
         {
             std::lock_guard<std::mutex> atlasLock(m_atlasMutex);
-            m_atlases[path] = std::move(atlas);
+            auto cached = m_atlases.find(path);
+            if (cached != m_atlases.end() && cached->second) {
+                m_loadedCount++;
+                continue;
+            }
         }
-        
+
+        const bool ready = atlas && atlas->UploadTextureFromImage();
+        if (ready) {
+            std::lock_guard<std::mutex> atlasLock(m_atlasMutex);
+            m_atlases[path] = std::move(atlas);
+        } else {
+            std::cerr << "[AssetManager] Failed to upload atlas: " << path << "\n";
+        }
+
         m_loadedCount++;
     }
     
@@ -147,23 +181,28 @@ std::string AssetManager::GetCurrentAssetName() const {
 }
 
 std::shared_ptr<Animations::TextureAtlas> AssetManager::GetAtlas(const std::string& jsonPath) {
+    if (m_shutdownComplete.load()) return nullptr;
+
+    const std::string normalizedPath = NormalizeAssetPath(jsonPath);
     {
         std::lock_guard<std::mutex> lock(m_atlasMutex);
-        auto it = m_atlases.find(jsonPath);
+        auto it = m_atlases.find(normalizedPath);
         if (it != m_atlases.end()) {
             return it->second;
         }
     }
 
     // Fallback: synchronous load if not preloaded
-    auto atlas = Animations::TextureAtlas::LoadFromJSON(jsonPath);
-    if (atlas) {
-        atlas->LoadTexture(); // sync GPU upload
+    auto atlas = Animations::TextureAtlas::LoadFromJSON(normalizedPath);
+    if (atlas && !atlas->LoadTexture()) {
+        atlas.reset();
     }
-    
+
+    if (!atlas) return nullptr;
+
     std::lock_guard<std::mutex> lock(m_atlasMutex);
-    m_atlases[jsonPath] = atlas;
-    return atlas;
+    auto [it, inserted] = m_atlases.emplace(normalizedPath, atlas);
+    return inserted ? std::move(atlas) : it->second;
 }
 
 } // namespace View

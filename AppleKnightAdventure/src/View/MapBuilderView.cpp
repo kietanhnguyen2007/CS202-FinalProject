@@ -1,4 +1,5 @@
 #include "View/MapBuilderView.h"
+#include "View/AssetManager.h"
 #include "View/Renderer.h"
 #include "View/GameView.h"
 #include "View/TextureAtlas.h"
@@ -91,9 +92,9 @@ int PaletteColumns(const BuilderLayout& l, float cellWidth) {
     return std::max(1, static_cast<int>((l.palette.width - 16.0f) / cellWidth));
 }
 
-Rectangle FirstAnimationFrame(const char* atlasPath, const char* clipName,
-                              const Texture2D& fallbackTexture) {
-    auto atlas = Animations::TextureAtlas::LoadFromJSON(atlasPath);
+Rectangle FirstAnimationFrame(const std::shared_ptr<Animations::TextureAtlas>& atlas,
+                               const char* clipName,
+                               const Texture2D& fallbackTexture) {
     if (atlas) {
         auto clip = atlas->GetClip(clipName);
         if (clip && !clip->frames.empty()) {
@@ -121,35 +122,51 @@ void MapBuilderView::Init() {
     m_currentTab = PaletteTab::Tiles;
     m_currentLayer = MapLayer::Main;
     m_selectedEntity = nullptr;
+    m_selectedEntityId = 0;
     m_statusMessage.clear();
     m_statusTimer = 0.0f;
 
     if (!m_resourcesLoaded) {
-        m_texPlayer = LoadTexture("assets/textures/player/knight_v2/idle_v2.png");
-        m_texEnemy = LoadTexture("assets/textures/player/ninja_v2/idle_v2.png"); // placeholder
-        m_texBoss1 = LoadTexture("assets/textures/boss/boss1/phase1/idle.png");
-        m_texBoss2 = LoadTexture("assets/textures/boss/boss2/phase1/idle.png");
-        m_texBoss3 = LoadTexture("assets/textures/boss/boss3/phase1/idle.png");
-        m_texCoin = LoadTexture("assets/textures/items/coin.png");
-        m_texKey = LoadTexture("assets/textures/items/key.png");
-        m_texPotion = LoadTexture("assets/textures/items/potion_red.png");
-        m_texChest = LoadTexture("assets/textures/objects/chest_closed.png");
-        m_texCheckpoint = LoadTexture("assets/textures/objects/checkpoint_uncaptured.png");
-        m_texPortalBlue = LoadTexture("assets/textures/objects/portal_blue_spritesheet.png");
-        m_texPortalBrown = LoadTexture("assets/textures/objects/portal_brown_spritesheet.png");
-        m_texPortalGreen = LoadTexture("assets/textures/objects/portal_green_spritesheet.png");
-        m_texPortalPurple = LoadTexture("assets/textures/objects/portal_purple_spritesheet.png");
-        m_texPortalRed = LoadTexture("assets/textures/objects/portal_red_spritesheet.png");
-        m_srcPlayer = FirstAnimationFrame(
-            "assets/textures/player/knight_v2/idle_v2.json", "idle", m_texPlayer);
-        m_srcEnemy = FirstAnimationFrame(
-            "assets/textures/player/ninja_v2/idle_v2.json", "idle", m_texEnemy);
-        m_srcBoss1 = FirstAnimationFrame(
-            "assets/textures/boss/boss1/phase1/idle.json", "idle", m_texBoss1);
-        m_srcBoss2 = FirstAnimationFrame(
-            "assets/textures/boss/boss2/phase1/idle.json", "idle", m_texBoss2);
-        m_srcBoss3 = FirstAnimationFrame(
-            "assets/textures/boss/boss3/phase1/idle.json", "idle", m_texBoss3);
+        struct IconSpec {
+            Texture2D* texture;
+            const char* atlasPath;
+            const char* fallbackPath;
+        };
+        IconSpec icons[] = {
+            {&m_texPlayer, "assets/textures/player/knight_v2/idle_v2.json", "assets/textures/player/knight_v2/idle_v2.png"},
+            {&m_texEnemy, "assets/textures/player/ninja_v2/idle_v2.json", "assets/textures/player/ninja_v2/idle_v2.png"},
+            {&m_texBoss1, "assets/textures/boss/boss1/phase1/idle.json", "assets/textures/boss/boss1/phase1/idle.png"},
+            {&m_texBoss2, "assets/textures/boss/boss2/phase1/idle.json", "assets/textures/boss/boss2/phase1/idle.png"},
+            {&m_texBoss3, "assets/textures/boss/boss3/phase1/idle.json", "assets/textures/boss/boss3/phase1/idle.png"},
+            {&m_texCoin, "assets/textures/items/coin.json", "assets/textures/items/coin.png"},
+            {&m_texKey, "assets/textures/items/key.json", "assets/textures/items/key.png"},
+            {&m_texPotion, "assets/textures/items/potion_red.json", "assets/textures/items/potion_red.png"},
+            {&m_texChest, "assets/textures/objects/chest_closed.json", "assets/textures/objects/chest_closed.png"},
+            {&m_texCheckpoint, "assets/textures/objects/checkpoint_uncaptured.json", "assets/textures/objects/checkpoint_uncaptured.png"},
+            {&m_texPortalBlue, "assets/textures/objects/portal_blue_anim.json", "assets/textures/objects/portal_blue_spritesheet.png"},
+            {&m_texPortalBrown, "assets/textures/objects/portal_brown_anim.json", "assets/textures/objects/portal_brown_spritesheet.png"},
+            {&m_texPortalGreen, "assets/textures/objects/portal_green_anim.json", "assets/textures/objects/portal_green_spritesheet.png"},
+            {&m_texPortalPurple, "assets/textures/objects/portal_purple_anim.json", "assets/textures/objects/portal_purple_spritesheet.png"},
+            {&m_texPortalRed, "assets/textures/objects/portal_red_anim.json", "assets/textures/objects/portal_red_spritesheet.png"}
+        };
+        static_assert(std::size(icons) == 15);
+
+        for (std::size_t i = 0; i < std::size(icons); ++i) {
+            auto atlas = AssetManager::GetInstance().GetAtlas(icons[i].atlasPath);
+            if (atlas && atlas->IsTextureLoaded() && atlas->GetTexture()) {
+                *icons[i].texture = *atlas->GetTexture();
+            } else {
+                *icons[i].texture = LoadTexture(icons[i].fallbackPath);
+                m_ownsIconTextures[i] = icons[i].texture->id != 0;
+            }
+            m_iconAtlases[i] = std::move(atlas);
+        }
+
+        m_srcPlayer = FirstAnimationFrame(m_iconAtlases[0], "idle", m_texPlayer);
+        m_srcEnemy = FirstAnimationFrame(m_iconAtlases[1], "idle", m_texEnemy);
+        m_srcBoss1 = FirstAnimationFrame(m_iconAtlases[2], "idle", m_texBoss1);
+        m_srcBoss2 = FirstAnimationFrame(m_iconAtlases[3], "idle", m_texBoss2);
+        m_srcBoss3 = FirstAnimationFrame(m_iconAtlases[4], "idle", m_texBoss3);
         m_uiFont = LoadFont("assets/fonts/game_font.ttf");
         m_resourcesLoaded = true;
     }
@@ -164,9 +181,12 @@ void MapBuilderView::Shutdown() {
         &m_texPortalBlue, &m_texPortalBrown, &m_texPortalGreen,
         &m_texPortalPurple, &m_texPortalRed
     };
-    for (Texture2D* texture : textures) {
-        if (texture->id != 0) ::UnloadTexture(*texture);
+    for (std::size_t i = 0; i < std::size(textures); ++i) {
+        Texture2D* texture = textures[i];
+        if (m_ownsIconTextures[i] && texture->id != 0) ::UnloadTexture(*texture);
         *texture = {};
+        m_ownsIconTextures[i] = false;
+        m_iconAtlases[i].reset();
     }
     if (m_uiFont.texture.id != 0) {
         ::UnloadFont(m_uiFont);
@@ -179,6 +199,7 @@ void MapBuilderView::Shutdown() {
     m_srcBoss3 = {};
 
     m_selectedEntity = nullptr;
+    m_selectedEntityId = 0;
     m_resourcesLoaded = false;
 }
 
@@ -773,6 +794,7 @@ void MapBuilderView::RenderWorldOverlay(const Camera2D& camera, GameState* state
     // Draw Entities from GameState
     if (state) {
         for (const auto& entity : state->GetAllEntities()) {
+            if (!entity) continue;
             Vector2 pos = entity->GetPosition();
             EntityType type = entity->GetType();
             

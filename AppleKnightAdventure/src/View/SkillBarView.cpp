@@ -1,4 +1,5 @@
 #include "View/SkillBarView.h"
+#include "View/AssetManager.h"
 #include "View/Renderer.h"
 #include "Model/Player.h"
 #include "Model/KnightSkillSet.h"
@@ -64,11 +65,15 @@ bool SkillBarView::LoadResources(const std::string&) {
 void SkillBarView::Shutdown() {
     for (auto& icon : m_icons) { icon.atlas.reset(); icon.source = {}; }
     for (auto& icon : m_secondIcons) { icon.atlas.reset(); icon.source = {}; }
-    m_player = nullptr;
-    m_secondPlayer = nullptr;
+    ClearEntityReferences();
     m_loadedClass = static_cast<CharacterClass>(-1);
     m_secondLoadedClass = static_cast<CharacterClass>(-1);
     m_loaded = false;
+}
+
+void SkillBarView::ClearEntityReferences() {
+    m_player = nullptr;
+    m_secondPlayer = nullptr;
 }
 
 void SkillBarView::LoadClassIcons(CharacterClass cls) {
@@ -76,8 +81,8 @@ void SkillBarView::LoadClassIcons(CharacterClass cls) {
     for (int i = 0; i < 4; ++i) {
         auto& icon = m_icons[i];
         icon = {};
-        icon.atlas = Animations::TextureAtlas::LoadFromJSON(configs[i].path);
-        if (!icon.atlas || !icon.atlas->LoadTexture() || !icon.atlas->HasClip(configs[i].clip)) continue;
+        icon.atlas = AssetManager::GetInstance().GetAtlas(configs[i].path);
+        if (!icon.atlas || !icon.atlas->IsTextureLoaded() || !icon.atlas->HasClip(configs[i].clip)) continue;
         auto clip = icon.atlas->GetClip(configs[i].clip);
         if (!clip || clip->frames.empty()) continue;
         const size_t frameIndex = clip->frames.size() / 2;
@@ -91,8 +96,8 @@ void SkillBarView::LoadSecondClassIcons(CharacterClass cls) {
     for (int i = 0; i < 4; ++i) {
         auto& icon = m_secondIcons[i];
         icon = {};
-        icon.atlas = Animations::TextureAtlas::LoadFromJSON(configs[i].path);
-        if (!icon.atlas || !icon.atlas->LoadTexture() || !icon.atlas->HasClip(configs[i].clip)) continue;
+        icon.atlas = AssetManager::GetInstance().GetAtlas(configs[i].path);
+        if (!icon.atlas || !icon.atlas->IsTextureLoaded() || !icon.atlas->HasClip(configs[i].clip)) continue;
         auto clip = icon.atlas->GetClip(configs[i].clip);
         if (!clip || clip->frames.empty()) continue;
         icon.source = clip->frames[clip->frames.size() / 2].src;

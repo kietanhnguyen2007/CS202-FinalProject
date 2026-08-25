@@ -1,4 +1,5 @@
 #include "View/HUDView.h"
+#include "View/AssetManager.h"
 #include "View/Renderer.h"
 #include "Model/Boss.h"
 #include <algorithm>
@@ -72,8 +73,8 @@ bool HUDView::LoadResources(const std::string&) {
     for (Texture2D* texture : uiTextures) {
         if (texture->id) ::SetTextureFilter(*texture, TEXTURE_FILTER_POINT);
     }
-    m_coinAtlas = Animations::TextureAtlas::LoadFromJSON("assets/textures/items/coin.json");
-    if (m_coinAtlas && m_coinAtlas->LoadTexture() && m_coinAtlas->HasClip("spin")) {
+    m_coinAtlas = AssetManager::GetInstance().GetAtlas("assets/textures/items/coin.json");
+    if (m_coinAtlas && m_coinAtlas->IsTextureLoaded() && m_coinAtlas->HasClip("spin")) {
         m_coinAnim.SetTexture(m_coinAtlas->GetTexture());
         m_coinAnim.AddClip(m_coinAtlas->GetClip("spin"));
         m_coinAnim.Play("spin");
@@ -98,8 +99,15 @@ void HUDView::Shutdown() {
     m_secondAvatarClass = -1;
     m_coinAnim.Stop();
     m_coinAtlas.reset();
-    m_player = nullptr; m_secondPlayer = nullptr; m_boss = nullptr; m_lastBoss = nullptr;
+    ClearEntityReferences();
     m_loaded = false;
+}
+
+void HUDView::ClearEntityReferences() {
+    m_player = nullptr;
+    m_secondPlayer = nullptr;
+    m_boss = nullptr;
+    m_lastBoss = nullptr;
 }
 
 void HUDView::LoadAvatar(CharacterClass characterClass) {
@@ -111,8 +119,8 @@ void HUDView::LoadAvatar(CharacterClass characterClass) {
         case CharacterClass::MagicCaster: folder = "magic_caster"; break;
     }
     const std::string path = std::string("assets/textures/player/") + folder + "_v2/idle_v2.json";
-    auto atlas = Animations::TextureAtlas::LoadFromJSON(path);
-    if (!atlas || !atlas->LoadTexture() || !atlas->HasClip("idle")) return;
+    auto atlas = AssetManager::GetInstance().GetAtlas(path);
+    if (!atlas || !atlas->IsTextureLoaded() || !atlas->HasClip("idle")) return;
     auto clip = atlas->GetClip("idle");
     if (!clip || clip->frames.empty()) return;
     const size_t bestFrame = clip->frames.size() / 2;
@@ -130,8 +138,8 @@ void HUDView::LoadSecondAvatar(CharacterClass characterClass) {
         case CharacterClass::MagicCaster: folder = "magic_caster"; break;
     }
     const std::string path = std::string("assets/textures/player/") + folder + "_v2/idle_v2.json";
-    auto atlas = Animations::TextureAtlas::LoadFromJSON(path);
-    if (!atlas || !atlas->LoadTexture() || !atlas->HasClip("idle")) return;
+    auto atlas = AssetManager::GetInstance().GetAtlas(path);
+    if (!atlas || !atlas->IsTextureLoaded() || !atlas->HasClip("idle")) return;
     auto clip = atlas->GetClip("idle");
     if (!clip || clip->frames.empty()) return;
     m_secondAvatarSource = clip->frames[clip->frames.size() / 2].src;

@@ -1,4 +1,5 @@
 #include "View/ResultView.h"
+#include "View/AssetManager.h"
 #include "View/Renderer.h"
 #include "View/UIResourceManager.h"
 #include "Systems/SoundManager.h"
@@ -128,9 +129,9 @@ void ResultView::LoadAvatar(CharacterClass cls) {
         case CharacterClass::Ninja: folder = "ninja"; break;
         case CharacterClass::MagicCaster: folder = "magic_caster"; break;
     }
-    const std::string path = std::string("assets/textures/player/") + folder + "/idle.json";
-    auto atlas = Animations::TextureAtlas::LoadFromJSON(path);
-    if (!atlas || !atlas->LoadTexture() || !atlas->HasClip("idle")) return;
+    const std::string path = std::string("assets/textures/player/") + folder + "_v2/idle_v2.json";
+    auto atlas = AssetManager::GetInstance().GetAtlas(path);
+    if (!atlas || !atlas->IsTextureLoaded() || !atlas->HasClip("idle")) return;
     m_avatarAnimator.ClearClips();
     m_avatarAnimator.LoadClipsFromAtlas(*atlas);
     m_avatarAnimator.Play("idle");

@@ -1,4 +1,5 @@
 #include "View/PrepareView.h"
+#include "View/AssetManager.h"
 #include "Controller/PrepareController.h"
 #include "Systems/SoundManager.h"
 #include "View/Animator.h"
@@ -398,8 +399,8 @@ void PrepareView::LoadPreview(const std::string& charPath, const std::string& pe
     if (charPath != m_loadedCharPath) {
         m_loadedCharPath = charPath;
         if (!charPath.empty()) {
-            m_charAtlas = Animations::TextureAtlas::LoadFromJSON(charPath);
-            if (m_charAtlas && m_charAtlas->LoadTexture()) {
+            m_charAtlas = AssetManager::GetInstance().GetAtlas(charPath);
+            if (m_charAtlas && m_charAtlas->IsTextureLoaded()) {
                 m_charAnim.LoadClipsFromAtlas(*m_charAtlas);
                 m_charAnim.Play("idle", true);
             }
@@ -408,8 +409,8 @@ void PrepareView::LoadPreview(const std::string& charPath, const std::string& pe
     if (petPath != m_loadedPetPath) {
         m_loadedPetPath = petPath;
         if (!petPath.empty()) {
-            m_petAtlas = Animations::TextureAtlas::LoadFromJSON(petPath);
-            if (m_petAtlas && m_petAtlas->LoadTexture()) {
+            m_petAtlas = AssetManager::GetInstance().GetAtlas(petPath);
+            if (m_petAtlas && m_petAtlas->IsTextureLoaded()) {
                 m_petAnim.LoadClipsFromAtlas(*m_petAtlas);
                 m_petAnim.Play("idle", true);
             }

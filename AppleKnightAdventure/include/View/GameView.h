@@ -4,6 +4,8 @@
 #include "Utils/Types.h"
 #include "Utils/Constants.h"
 #include "Model/GameState.h"
+#include "View/TextureAtlas.h"
+#include <memory>
 #include <vector>
 #include <string>
 #include <unordered_map>
@@ -57,6 +59,9 @@ public:
     struct TilesetInfo {
         Texture2D texture{};
         int gridCols = 1;
+        std::string texturePath;
+        std::shared_ptr<Animations::TextureAtlas> atlas;
+        bool ownsTexture = false;
     };
     const TilesetInfo* GetTileset(int tileType) const {
         auto it = m_tilesets.find(tileType);
@@ -83,6 +88,8 @@ private:
     std::vector<std::vector<BGLayerInfo>> m_backgrounds;
     int m_activeBgIndex = 0;
     float m_bgScrollOffset = 0.0f;
+    BackgroundTheme m_loadedBackgroundTheme = BackgroundTheme::Forest;
+    bool m_hasLoadedBackground = false;
 
     // Static textures
     Texture2D m_magicTex{};

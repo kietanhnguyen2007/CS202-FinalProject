@@ -42,10 +42,13 @@ bool CharacterRenderer::Register(const Entity* entity,
     assert(rawId >= 0);
     uint32_t id = static_cast<uint32_t>(rawId);
 
-    // Check for double-register (warn and skip if same entity already registered)
-    if (m_entities.find(id) != m_entities.end()) {
-        // Already registered — this is safe to ignore (re-registration with same id)
-        return true;
+    // Re-registering the same object is harmless. If an ID is ever reused for a
+    // different object, replace every per-entity entry instead of preserving a
+    // stale raw pointer.
+    auto existing = m_entities.find(id);
+    if (existing != m_entities.end()) {
+        if (existing->second == entity) return true;
+        Unregister(id);
     }
 
     // Load or retrieve atlas from cache
@@ -147,6 +150,7 @@ void CharacterRenderer::Unregister(uint32_t entityId) {
     }
     m_animators.erase(entityId);
     m_entities.erase(entityId);
+    m_entityAtlas.erase(entityId);
     m_lastActions.erase(entityId);
     m_bossPhases.erase(entityId);
     m_bossAssetRoot.erase(entityId);
@@ -156,6 +160,7 @@ void CharacterRenderer::Clear() {
     m_animators.clear();
     m_entities.clear();
     m_atlasCache.clear();
+    m_entityAtlas.clear();
     m_actionConfigs.clear();
     m_lastActions.clear();
     m_bossPhases.clear();

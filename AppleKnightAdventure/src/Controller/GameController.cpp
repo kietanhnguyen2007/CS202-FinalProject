@@ -357,7 +357,7 @@ void GameController::RegisterEntityVisuals(Entity* entity) {
             if (proj->GetProjectileType() == ProjectileType::BossAttack) {
                 bool foundBoss = false;
                 for (auto& e : m_gameState->GetAllEntities()) {
-                    if (e->GetType() == EntityType::Boss && e->GetId() == proj->GetOwnerId()) {
+                    if (e && e->GetType() == EntityType::Boss && e->GetId() == proj->GetOwnerId()) {
                         foundBoss = true;
                         auto boss = static_cast<Boss*>(e.get());
                         std::string texPath;
@@ -424,6 +424,15 @@ void GameController::UnregisterEntityVisuals(int entityId) {
 }
 
 void GameController::StartLevel(int levelNumber) {
+    // A level can be replaced mid-frame (portal or Result -> Retry). Detach all
+    // view-owned raw pointers before destroying the old GameState so that the
+    // render pass at the end of this same frame cannot access freed entities.
+    View::HUDView::GetInstance().ClearEntityReferences();
+    View::SkillBarView::GetInstance().ClearEntityReferences();
+    View::GameView::GetInstance().SetEntities(nullptr);
+    View::GameView::GetInstance().SetTiles(MapLayer::Background, nullptr);
+    View::GameView::GetInstance().SetTiles(MapLayer::Main, nullptr);
+    View::GameView::GetInstance().SetTiles(MapLayer::Foreground, nullptr);
     View::ResultView::GetInstance().Dismiss();
     View::UIStateManager::GetInstance().Clear();
     View::SkillBarView::GetInstance().Open();
@@ -482,6 +491,7 @@ void GameController::StartLevel(int levelNumber) {
     View::GameView::GetInstance().SetTiles(MapLayer::Background, &m_gameState->GetTiles(MapLayer::Background));
     View::GameView::GetInstance().SetTiles(MapLayer::Main, &m_gameState->GetTiles(MapLayer::Main));
     View::GameView::GetInstance().SetTiles(MapLayer::Foreground, &m_gameState->GetTiles(MapLayer::Foreground));
+    View::GameView::GetInstance().SetEntities(&m_gameState->GetAllEntities());
 
     // Load background based on the theme set by LDtk level field (or default Forest)
     View::GameView::GetInstance().LoadBackgrounds(m_gameState->GetBackgroundTheme());
@@ -542,7 +552,7 @@ void GameController::StartLevel(int levelNumber) {
 
     bool containsBoss = false;
     for (const auto& entity : m_gameState->GetAllEntities()) {
-        if (entity->GetType() == EntityType::Boss) {
+        if (entity && entity->GetType() == EntityType::Boss) {
             containsBoss = true;
             auto* boss = static_cast<Boss*>(entity.get());
             m_knownBossPhases[entity->GetId()] = static_cast<int>(boss->GetPhase());
@@ -558,6 +568,10 @@ void GameController::StartLevel(int levelNumber) {
     
     View::HUDView::GetInstance().SetVisible(true);
     View::HUDView::GetInstance().SetPlaytestMode(IsPlaytest());
+    Player* hudPlayer = m_gameState->GetLocalPlayer();
+    Player* hudSecondPlayer = m_localCoop ? m_gameState->GetSecondLocalPlayer() : nullptr;
+    View::HUDView::GetInstance().Update(0.0f, hudPlayer, nullptr, hudSecondPlayer);
+    View::SkillBarView::GetInstance().Update(0.0f, hudPlayer, hudSecondPlayer);
 
     // Reset endgame checkpoint animation tracking
     m_endgameFlagRevealedIds.clear();
@@ -569,7 +583,7 @@ void GameController::StartLevel(int levelNumber) {
     // Before the first checkpoint, the player spawn acts as the checkpoint:
     // every regular enemy belongs to the section ahead and may respawn.
     for (const auto& entity : m_gameState->GetAllEntities()) {
-        if (entity->GetType() == EntityType::Enemy) {
+        if (entity && entity->GetType() == EntityType::Enemy) {
             m_checkpointRespawnEnemyIds.insert(entity->GetId());
         }
     }
@@ -597,7 +611,7 @@ bool GameController::IsRectOnGround(Rectangle box) const {
         }
     }
     for (const auto& entity : m_gameState->GetAllEntities()) {
-        if (!entity->IsActive() || entity->GetType() != EntityType::FakeWall) continue;
+        if (!entity || !entity->IsActive() || entity->GetType() != EntityType::FakeWall) continue;
         if (RectOverlap(probe, entity->GetBoundingBox())) {
             return true;
         }
@@ -694,7 +708,7 @@ void GameController::ResolveTileCollisions(Character* character, float dt) {
 
     // Resolve FakeWall collisions
     for (const auto& entity : m_gameState->GetAllEntities()) {
-        if (!entity->IsActive() || entity->GetType() != EntityType::FakeWall) continue;
+        if (!entity || !entity->IsActive() || entity->GetType() != EntityType::FakeWall) continue;
         Rectangle tileRect = entity->GetBoundingBox();
         if (!RectOverlap(box, tileRect)) continue;
 
@@ -904,7 +918,7 @@ void GameController::UpdateEnemyAI(float dt) {
     };
 
     for (auto& entity : m_gameState->GetAllEntities()) {
-        if (!entity->IsActive()) continue;
+        if (!entity || !entity->IsActive()) continue;
         playerCenter = {
             player->GetPosition().x + player->GetSize().x * 0.5f,
             player->GetPosition().y + player->GetSize().y * 0.5f
@@ -1021,7 +1035,7 @@ void GameController::UpdateEnemyAI(float dt) {
                 // be a valid platform, so it must count as support here.
                 if (!groundAhead) {
                     for (const auto& support : m_gameState->GetAllEntities()) {
-                        if (!support->IsActive() || support->GetType() != EntityType::FakeWall)
+                        if (!support || !support->IsActive() || support->GetType() != EntityType::FakeWall)
                             continue;
                         if (RectOverlap(supportProbe, support->GetBoundingBox())) {
                             groundAhead = true;
@@ -1051,7 +1065,7 @@ void GameController::UpdateCombat(Player* player, float dt, bool updateEnemyCool
     // ---- Helper: deal damage to enemies in a rect ----
     auto HitEnemiesInBox = [&](Rectangle attackBox, int damage) {
         for (auto& entity : m_gameState->GetAllEntities()) {
-            if (!entity->IsActive()) continue;
+            if (!entity || !entity->IsActive()) continue;
 
             if (entity->GetType() == EntityType::Enemy) {
                 auto* enemy = static_cast<Enemy*>(entity.get());
@@ -1301,7 +1315,7 @@ void GameController::UpdateCombat(Player* player, float dt, bool updateEnemyCool
     };
 
     for (auto& entity : m_gameState->GetAllEntities()) {
-        if (!entity->IsActive()) continue;
+        if (!entity || !entity->IsActive()) continue;
         
         bool isAttacking = false;
         int attackDamage = 0;
@@ -1447,7 +1461,7 @@ void GameController::UpdateItems(Player* player, float dt) {
     bool persistentCoinsChanged = false;
 
     for (const auto& entity : m_gameState->GetAllEntities()) {
-        if (entity->GetType() != EntityType::Item || !entity->IsActive()) continue;
+        if (!entity || entity->GetType() != EntityType::Item || !entity->IsActive()) continue;
         auto* item = static_cast<Item*>(entity.get());
         if (!RectOverlap(playerBox, ItemPickupBox(*item))) continue;
 
@@ -1506,7 +1520,7 @@ void GameController::UpdateInteractions(Player* player, const InputCommand& cmd)
     Rectangle playerBox = player->GetBoundingBox();
 
     for (auto& entity : m_gameState->GetAllEntities()) {
-        if (!entity->IsActive()) continue;
+        if (!entity || !entity->IsActive()) continue;
 
         Rectangle expanded = playerBox;
         expanded.x -= TILE_SIZE * 0.5f;
@@ -1675,7 +1689,7 @@ void GameController::CaptureCheckpointEnemies(float checkpointX) {
     m_checkpointRespawnEnemyIds.clear();
     if (!m_gameState) return;
     for (const auto& entity : m_gameState->GetAllEntities()) {
-        if (entity->GetType() != EntityType::Enemy) continue;
+        if (!entity || entity->GetType() != EntityType::Enemy) continue;
         const auto* enemy = static_cast<const Enemy*>(entity.get());
         if (enemy->GetSpawnPosition().x > checkpointX) {
             m_checkpointRespawnEnemyIds.insert(enemy->GetId());
@@ -1686,10 +1700,17 @@ void GameController::CaptureCheckpointEnemies(float checkpointX) {
 void GameController::RestoreCheckpointEnemies() {
     if (!m_gameState) return;
 
+    for (const auto& projectile : m_playerProjectiles) {
+        if (projectile) UnregisterEntityVisuals(projectile->GetId());
+    }
+    for (const auto& projectile : m_petProjectiles) {
+        if (projectile) UnregisterEntityVisuals(projectile->GetId());
+    }
     m_playerProjectiles.clear();
     m_petProjectiles.clear();
     std::vector<int> projectileIds;
     for (const auto& entity : m_gameState->GetAllEntities()) {
+        if (!entity) continue;
         if (entity->GetType() == EntityType::Projectile) {
             projectileIds.push_back(entity->GetId());
             continue;
@@ -1734,7 +1755,7 @@ void GameController::RespawnPlayer(Player* player, bool restoreEncounter) {
 
     if (m_previousLevelId != -1) {
         for (auto& entity : m_gameState->GetAllEntities()) {
-            if (entity->GetType() == EntityType::Boss) {
+            if (entity && entity->GetType() == EntityType::Boss) {
                 auto* boss = static_cast<Boss*>(entity.get());
                 boss->ResetToPhase1();
                 View::CharacterRenderer::GetInstance().SwitchPhase(boss->GetId(), BossPhase::Phase1);
@@ -1824,6 +1845,7 @@ void GameController::UpdateBossArenaPortals() {
     // Kiểm tra còn enemy/boss sống không
     bool anyAlive = false;
     for (auto& e : m_gameState->GetAllEntities()) {
+        if (!e) continue;
         auto t = e->GetType();
         if (t == EntityType::Enemy || t == EntityType::Boss) {
             auto* c = static_cast<Character*>(e.get());
@@ -1833,7 +1855,7 @@ void GameController::UpdateBossArenaPortals() {
 
     // Lock/unlock cổng thoát BossArena (targetLevelId == -1)
     for (auto& e : m_gameState->GetAllEntities()) {
-        if (e->GetType() != EntityType::TeleportPortal) continue;
+        if (!e || e->GetType() != EntityType::TeleportPortal) continue;
         auto* portal = static_cast<TeleportPortal*>(e.get());
         if (portal->GetPortalType() == PortalType::BossArena
                 && portal->GetTargetLevelId() == -1) {
@@ -2009,7 +2031,7 @@ void GameController::Update(float dt) {
     // final score/removal event must be observed here rather than only on the
     // exact attack frame.
     for (const auto& entity : m_gameState->GetAllEntities()) {
-        if (entity->GetType() != EntityType::Enemy || entity->IsActive()) continue;
+        if (!entity || entity->GetType() != EntityType::Enemy || entity->IsActive()) continue;
         auto* enemy = static_cast<Enemy*>(entity.get());
         if (enemy->GetState() == EnemyState::Dead &&
             m_countedDefeatedEnemyIds.count(enemy->GetId()) == 0) {
@@ -2019,7 +2041,7 @@ void GameController::Update(float dt) {
     
     // Check and register visuals for newly spawned entities (like projectiles or items)
     for (const auto& entity : m_gameState->GetAllEntities()) {
-        if (!entity->IsActive()) continue;
+        if (!entity || !entity->IsActive()) continue;
         uint32_t id = static_cast<uint32_t>(entity->GetId());
         
         bool isAnimated = View::EntityRenderer::GetInstance().IsRegistered(id) || 
@@ -2125,7 +2147,7 @@ void GameController::Update(float dt) {
         hudHalfW * 2.0f, hudHalfH * 2.0f
     };
     for (const auto& entity : m_gameState->GetAllEntities()) {
-        if (entity->IsActive() && entity->GetType() == EntityType::Boss
+        if (entity && entity->IsActive() && entity->GetType() == EntityType::Boss
             && RectOverlap(entity->GetBoundingBox(), hudViewport)) {
             activeBoss = static_cast<const Boss*>(entity.get());
             break;
@@ -2184,21 +2206,29 @@ void GameController::Shutdown() {
     SaveManager::GetInstance().Save();
     SoundManager::GetInstance().StopAllMusic();
     SoundManager::GetInstance().StopAllSounds();
-    m_gameState.reset();
-    m_running = false;
+
+    // Views and renderers hold non-owning Entity pointers. Detach them before
+    // releasing any owner, including projectiles and the active pet.
+    View::HUDView::GetInstance().ClearEntityReferences();
+    View::SkillBarView::GetInstance().ClearEntityReferences();
     View::CharacterRenderer::GetInstance().Clear();
     View::EntityRenderer::GetInstance().Clear();
+    View::GameView::GetInstance().SetTiles(MapLayer::Background, nullptr);
+    View::GameView::GetInstance().SetTiles(MapLayer::Main, nullptr);
+    View::GameView::GetInstance().SetTiles(MapLayer::Foreground, nullptr);
+    View::GameView::GetInstance().SetEntities(nullptr);
+
+    m_activePet.reset();
+    m_petProjectiles.clear();
+    m_playerProjectiles.clear();
+    m_gameState.reset();
+    m_running = false;
     View::UIStateManager::GetInstance().Clear();
     View::ResultView::GetInstance().Dismiss();
     View::OptionsView::GetInstance().SetVisible(false);
     View::HUDView::GetInstance().SetVisible(false);
     View::MenuView::GetInstance().SetVisible(false);
 
-    // Clear GameView pointers to prevent dangling references in other modes (e.g. Map Builder)
-    View::GameView::GetInstance().SetTiles(MapLayer::Background, nullptr);
-    View::GameView::GetInstance().SetTiles(MapLayer::Main, nullptr);
-    View::GameView::GetInstance().SetTiles(MapLayer::Foreground, nullptr);
-    View::GameView::GetInstance().SetEntities(nullptr);
 }
 
 // ============================================================
@@ -2218,7 +2248,7 @@ void GameController::UpdateItemPhysics(float dt) {
     std::vector<int> despawnIds;
 
     for (const auto& entity : m_gameState->GetAllEntities()) {
-        if (entity->GetType() != EntityType::Item || !entity->IsActive()) continue;
+        if (!entity || entity->GetType() != EntityType::Item || !entity->IsActive()) continue;
         auto* item = static_cast<Item*>(entity.get());
         if (!item->IsPhysicsEnabled()) continue;
 
@@ -2319,7 +2349,7 @@ void GameController::UpdateEndgameCheckpoints() {
     float dt = GetFrameTime();
 
     for (const auto& entity : m_gameState->GetAllEntities()) {
-        if (entity->GetType() != EntityType::Checkpoint || !entity->IsActive()) continue;
+        if (!entity || entity->GetType() != EntityType::Checkpoint || !entity->IsActive()) continue;
         auto* cp = static_cast<Checkpoint*>(entity.get());
         if (!cp->IsEndGame()) continue;
 
@@ -2450,7 +2480,7 @@ void GameController::UpdatePets(float dt, const InputCommand& cmd) {
                      player->GetPosition().y + player->GetSize().y * 0.5f };
     bool anyEnemyClose = false;
     for (const auto& e : m_gameState->GetAllEntities()) {
-        if (e->GetType() != EntityType::Enemy || !e->IsActive()) continue;
+        if (!e || e->GetType() != EntityType::Enemy || !e->IsActive()) continue;
         auto* enemy = static_cast<Enemy*>(e.get());
         if (!enemy->IsAlive()) continue;
         float dx = e->GetPosition().x - pPos.x;
@@ -2474,6 +2504,7 @@ void GameController::UpdatePets(float dt, const InputCommand& cmd) {
     std::vector<Entity*> enemies;
     std::vector<Entity*> items;
     for (const auto& e : m_gameState->GetAllEntities()) {
+        if (!e) continue;
         if (e->GetType() == EntityType::Enemy && e->IsActive()) {
             auto* enemy = static_cast<Enemy*>(e.get());
             if (enemy->IsAlive()) enemies.push_back(e.get());
@@ -2589,7 +2620,7 @@ void GameController::UpdateProjectiles(float dt) {
         // Check collision with enemies
         if (player) {
             for (const auto& e : m_gameState->GetAllEntities()) {
-                if (!e->IsActive()) continue;
+                if (!e || !e->IsActive()) continue;
                 if (e->GetType() == EntityType::Enemy) {
                     auto* enemy = static_cast<Enemy*>(e.get());
                     if (enemy->GetState() == EnemyState::Dead) continue;
@@ -2635,7 +2666,7 @@ void GameController::UpdateProjectiles(float dt) {
     if (m_gameState) {
         std::vector<int> expiredIds;
         for (const auto& e : m_gameState->GetAllEntities()) {
-            if (e->GetType() == EntityType::Projectile && !e->IsActive()) {
+            if (e && e->GetType() == EntityType::Projectile && !e->IsActive()) {
                 expiredIds.push_back(e->GetId());
             }
         }
@@ -2665,7 +2696,7 @@ bool GameController::CheckLineOfSight(Vector2 start, Vector2 end) const {
     }
 
     for (const auto& entity : m_gameState->GetAllEntities()) {
-        if (!entity->IsActive() || entity->GetType() != EntityType::FakeWall) continue;
+        if (!entity || !entity->IsActive() || entity->GetType() != EntityType::FakeWall) continue;
         const auto* wall = static_cast<const FakeWall*>(entity.get());
         if (!wall->IsDestroyed() && LineIntersectsRect(start, end, wall->GetBoundingBox())) {
             return false;
@@ -2689,7 +2720,7 @@ bool GameController::FindNearestVisibleEnemyInCamera(Vector2 origin, Vector2& ta
     float nearestDistanceSquared = std::numeric_limits<float>::max();
     bool found = false;
     for (const auto& entity : m_gameState->GetAllEntities()) {
-        if (!entity->IsActive()) continue;
+        if (!entity || !entity->IsActive()) continue;
 
         bool canTarget = false;
         if (entity->GetType() == EntityType::Enemy) {
@@ -2784,7 +2815,7 @@ void GameController::SpawnLightningAt(Vector2 targetPos, int damage, float lifet
     // rather than the visual projectile's bounding box which might be offset.
     Rectangle hitBox = { targetPos.x - 30.0f, targetPos.y - 30.0f, 60.0f, 60.0f };
     for (auto& e : m_gameState->GetAllEntities()) {
-        if (!e->IsActive()) continue;
+        if (!e || !e->IsActive()) continue;
         if (e->GetType() == EntityType::Enemy) {
             auto* enemy = static_cast<Enemy*>(e.get());
             if (enemy->GetState() == EnemyState::Dead) continue;
@@ -2844,7 +2875,7 @@ void GameController::UpdatePlayerProjectiles(float dt) {
         if (isStationary) continue;
 
         for (auto& e : m_gameState->GetAllEntities()) {
-            if (!e->IsActive()) continue;
+            if (!e || !e->IsActive()) continue;
             if (e->GetType() == EntityType::Enemy) {
                 auto* enemy = static_cast<Enemy*>(e.get());
                 if (enemy->GetState() == EnemyState::Dead) continue;
@@ -2907,7 +2938,7 @@ void GameController::UpdateNinjaTeleport(Player* player, float dt) {
         bool    foundEnemy = false;
 
         for (const auto& e : m_gameState->GetAllEntities()) {
-            if (e->GetType() != EntityType::Enemy || !e->IsActive()) continue;
+            if (!e || e->GetType() != EntityType::Enemy || !e->IsActive()) continue;
             float dx = e->GetPosition().x - player->GetPosition().x;
             float dy = e->GetPosition().y - player->GetPosition().y;
             float d  = std::sqrt(dx*dx + dy*dy);

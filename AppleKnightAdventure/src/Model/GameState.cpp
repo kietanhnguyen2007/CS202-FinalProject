@@ -40,7 +40,12 @@ void GameState::SetSecondLocalPlayer(std::unique_ptr<Player> player) {
 }
 
 void GameState::AddEntity(std::unique_ptr<Entity> entity) {
-    if (entity && entity->GetId() == 0) {
+    // Factories may legitimately fail and return nullptr.  Never let a failed
+    // creation enter the live entity list: most gameplay loops rely on this
+    // container containing real entities only.
+    if (!entity) return;
+
+    if (entity->GetId() == 0) {
         entity->SetId(GenerateEntityId());
     }
     m_newEntities.push_back(std::move(entity));
@@ -49,7 +54,7 @@ void GameState::AddEntity(std::unique_ptr<Entity> entity) {
 void GameState::RemoveEntity(int entityId) {
     auto it = std::remove_if(m_entities.begin(), m_entities.end(),
         [entityId](const std::unique_ptr<Entity>& e) {
-            return e->GetId() == entityId;
+            return !e || e->GetId() == entityId;
         });
     m_entities.erase(it, m_entities.end());
 }
@@ -57,7 +62,7 @@ void GameState::RemoveEntity(int entityId) {
 std::unique_ptr<Entity> GameState::ExtractEntity(int entityId) {
     auto it = std::find_if(m_entities.begin(), m_entities.end(),
         [entityId](const std::unique_ptr<Entity>& e) {
-            return e->GetId() == entityId;
+            return e && e->GetId() == entityId;
         });
     if (it != m_entities.end()) {
         std::unique_ptr<Entity> e = std::move(*it);
@@ -69,7 +74,7 @@ std::unique_ptr<Entity> GameState::ExtractEntity(int entityId) {
 
 Entity* GameState::GetEntity(int entityId) const {
     for (const auto& e : m_entities) {
-        if (e->GetId() == entityId) return e.get();
+        if (e && e->GetId() == entityId) return e.get();
     }
     return nullptr;
 }
@@ -148,6 +153,7 @@ Entity* GameState::GetEntityAt(float x, float y, float tolerance) const {
         }
     }
     for (const auto& e : m_entities) {
+        if (!e) continue;
         Vector2 pos = e->GetPosition();
         if (std::abs(pos.x - x) <= tolerance && std::abs(pos.y - y) <= tolerance) {
             return e.get();
@@ -173,6 +179,7 @@ void GameState::RemoveEntityAt(float x, float y, float tolerance) {
     }
     auto it = std::remove_if(m_entities.begin(), m_entities.end(),
         [x, y, tolerance](const std::unique_ptr<Entity>& e) {
+            if (!e) return true;
             Vector2 pos = e->GetPosition();
             return std::abs(pos.x - x) <= tolerance && std::abs(pos.y - y) <= tolerance;
         });
@@ -232,6 +239,7 @@ void GameState::PlayerInteract() {
     std::vector<std::unique_ptr<Entity>> newEntities;
 
     for (auto& entity : m_entities) {
+        if (!entity) continue;
         if (entity->GetType() == EntityType::Chest) {
             Chest* chest = static_cast<Chest*>(entity.get());
             if (!chest->IsOpened()) {
@@ -260,6 +268,7 @@ bool GameState::IsLevelComplete() const {
     Rectangle playerBox = m_localPlayer->GetBoundingBox();
 
     for (const auto& entity : m_entities) {
+        if (!entity) continue;
         if (entity->GetType() == EntityType::LevelCompleteCup) {
             hasCompletionCup = true;
             const auto* cup = static_cast<const LevelCompleteCup*>(entity.get());
@@ -288,8 +297,12 @@ bool GameState::IsLevelComplete() const {
 }
 
 void GameState::MergeNewEntities() {
+    if (m_newEntities.empty()) return;
+
     for (auto& entity : m_newEntities) {
-        m_entities.push_back(std::move(entity));
+        if (entity) {
+            m_entities.push_back(std::move(entity));
+        }
     }
     m_newEntities.clear();
 }
@@ -307,7 +320,7 @@ void GameState::Update(float deltaTime) {
         m_secondLocalPlayer->Update(deltaTime);
     }
     for (auto& entity : m_entities) {
-        if (entity->IsActive()) {
+        if (entity && entity->IsActive()) {
             entity->Update(deltaTime);
         }
     }
@@ -315,6 +328,7 @@ void GameState::Update(float deltaTime) {
 
 void GameState::Clear() {
     m_entities.clear();
+    m_newEntities.clear();
     m_localPlayer.reset();
     m_secondLocalPlayer.reset();
     for(int i = 0; i < static_cast<int>(MapLayer::Count); ++i) {

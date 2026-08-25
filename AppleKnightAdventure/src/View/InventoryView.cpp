@@ -1,4 +1,5 @@
 #include "View/InventoryView.h"
+#include "View/AssetManager.h"
 #include "View/Renderer.h"
 #include "View/UIHelpers.h"
 #include "View/UIResourceManager.h"
@@ -22,9 +23,8 @@ bool InventoryView::Init() {
 void InventoryView::LoadItemAtlases() {
     auto loadOne = [&](const std::string& itemName, const std::string& jsonPath,
                        bool animated, const std::string& clipName) {
-        auto atlas = Animations::TextureAtlas::LoadFromJSON(jsonPath);
-        if (!atlas) return;
-        atlas->LoadTexture();
+        auto atlas = AssetManager::GetInstance().GetAtlas(jsonPath);
+        if (!atlas || !atlas->IsTextureLoaded()) return;
         ItemIconInfo info;
         info.atlas = std::move(atlas);
         info.animated = animated;
