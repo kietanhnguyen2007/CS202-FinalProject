@@ -22,7 +22,7 @@ Boss3::Boss3(Vector2 position, Vector2 size)
 {
     m_damage = 30; // Base damage
     m_cooldownTimer = 1.5f;
-    m_attackRange = 140.0f;
+    m_attackRange = 245.0f;
     m_detectionRange = 800.0f;
     m_maxHealth = 5000;
     m_health = m_maxHealth;
@@ -60,7 +60,7 @@ void Boss3::ResetToPhase1() {
     Boss::ResetToPhase1();
     m_damage = 30;
     m_cooldownTimer = 1.5f;
-    m_attackRange = 70.0f;
+    m_attackRange = 122.5f;
     m_detectionRange = 800.0f;
     m_aoeTarget = {0.0f, 0.0f};
 }

@@ -18,7 +18,7 @@ public:
 
     SkillData attack1 { 25, 0.40f, 0.0f,  0.20f };  // J — Slash (melee)
     SkillData attack2 { 40, 1.0f,  0.0f,  ATTACK2_ANIMATION_DURATION };  // K — projectile on final frame
-    SkillData attack3 { 0,  2.0f,  0.0f,  0.0f  };  // U — Teleport
+    SkillData attack3 { 0,  15.0f, 0.0f, 0.0f  };  // U — Teleport (15s cooldown)
     SkillData ultimate{ 60, 7.0f,  0.40f, 0.0f  };  // H — Shadow Clone (projectile)
     SkillData parry   { 0,  0.0f,  0.0f,  0.30f };  // P — Block (no cooldown)
 

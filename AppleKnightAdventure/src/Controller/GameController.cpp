@@ -2972,6 +2972,53 @@ void GameController::UpdateNinjaTeleport(Player* player, float dt) {
             newPos.y = player->GetPosition().y;
         }
 
+        // Wall-check: make sure newPos doesn't place player inside solid tiles.
+        // Scan from target back toward player until a clear position is found.
+        auto isPosClear = [&](Vector2 p) -> bool {
+            Vector2 sz = player->GetSize();
+            // Check 4 corners (inset by 2px) of the player hitbox
+            const Vector2 corners[4] = {
+                {p.x + 2.0f,         p.y + 2.0f        },
+                {p.x + sz.x - 2.0f, p.y + 2.0f        },
+                {p.x + 2.0f,         p.y + sz.y - 2.0f },
+                {p.x + sz.x - 2.0f, p.y + sz.y - 2.0f },
+            };
+            for (const auto& c : corners) {
+                int tx = (int)(c.x / TILE_SIZE);
+                int ty = (int)(c.y / TILE_SIZE);
+                for (const auto& tile : m_gameState->GetTiles(MapLayer::Main)) {
+                    if (tile.solid && tile.x == tx && tile.y == ty) return false;
+                }
+            }
+            return true;
+        };
+
+        if (!isPosClear(newPos)) {
+            // Step back toward player's original position until clear
+            Vector2 origin = player->GetPosition();
+            float dx = origin.x - newPos.x;
+            float dy = origin.y - newPos.y;
+            float len = std::sqrt(dx*dx + dy*dy);
+            bool cleared = false;
+            if (len > 0.001f) {
+                float ux = dx / len;
+                float uy = dy / len;
+                for (float t = 8.0f; t <= len; t += 8.0f) {
+                    Vector2 candidate = {newPos.x + ux * t, newPos.y + uy * t};
+                    if (isPosClear(candidate)) {
+                        newPos = candidate;
+                        cleared = true;
+                        break;
+                    }
+                }
+            }
+            if (!cleared) {
+                // No safe spot found — cancel the teleport silently
+                ns->m_teleportDone = true;
+                return;
+            }
+        }
+
         player->SetPosition(newPos);
         player->SetVelocity({0.0f, 0.0f});
         ns->m_teleportDone = true;

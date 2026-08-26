@@ -271,13 +271,27 @@ void CharacterRenderer::UpdateAll(float dt) {
             }
 
 
-            // Switch clip if action changed or animator stopped (except when dead or parrying)
-            // Parry: play once, then hold last frame until state changes
             bool parryHolding = (state == Character::State::Parry && !animator.IsPlaying()
                                  && animator.CurrentClip() == clipName);
-            if (currentAction != prevAction || (!animator.IsPlaying() && state != Character::State::Dead && !parryHolding)) {
+
+            // Switch clip only when action changes.
+            // If the animation has naturally ended (non-loop clip), hold the last
+            // frame instead of restarting — this prevents the flash/flicker caused
+            // by resetting the playhead to frame 0 every tick.
+            bool clipChanged = (currentAction != prevAction);
+            if (clipChanged) {
                 animator.Play(clipName, 1.0f, true);
                 m_lastActions[id] = currentAction;
+            } else if (!animator.IsPlaying() && state != Character::State::Dead && !parryHolding) {
+                // Animation ended but state didn't change: if this is a looping clip
+                // that somehow stopped, restart it. Otherwise hold last frame.
+                if (animator.HasClip(clipName)) {
+                    auto* clip = animator.GetClipPtr(clipName);
+                    if (clip && clip->loop) {
+                        animator.Play(clipName, 1.0f, false); // resume without reset
+                    }
+                    // non-loop clips: hold last frame silently
+                }
             }
         }
 
@@ -307,7 +321,7 @@ void CharacterRenderer::RenderAll() {
         } else if (entity->GetType() == EntityType::Enemy) {
             visualScale = 0.6f * 1.7f; // Enemy: large, same as big tiles
         } else if (entity->GetType() == EntityType::Boss) {
-            visualScale = 0.77f * 1.7f * 0.5f;
+            visualScale = 0.77f * 1.7f * 0.5f * 1.75f;
             auto phaseIt = m_bossPhases.find(id);
             if (phaseIt != m_bossPhases.end()) {
                 if (phaseIt->second == BossPhase::Phase4) {
@@ -545,8 +559,10 @@ bool CharacterRenderer::SwitchPhase(uint32_t entityId, BossPhase phase) {
     }
     for (auto& c : loadedClips) {
         float h = clipMaxHeight(*c.second);
-        if (referenceHeight > 0.0f && h > referenceHeight) {
+        if (c.first == "hurt" && referenceHeight > 0.0f && h > referenceHeight) {
             c.second->scale = referenceHeight / h;
+        } else {
+            c.second->scale = 1.0f;
         }
         animator.AddClip(c.second);
     }
@@ -598,7 +614,7 @@ void CharacterRenderer::RenderBossPhaseOverlay(uint32_t entityId, const Entity* 
         Vector2 size = entity->GetSize();
         float baseScale = entity->GetScale();
         
-        float visualScale = 0.77f * 1.7f * 0.5f; // Boss visual scale matches RenderAll
+        float visualScale = 0.77f * 1.7f * 0.5f * 1.75f; // Boss visual scale matches RenderAll
         if (phaseIt->second == BossPhase::Enraged) visualScale *= 1.3f;
         
         Vector2 bottomCenter = { pos.x + size.x * 0.5f * baseScale, pos.y + size.y * baseScale };

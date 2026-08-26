@@ -320,6 +320,9 @@ bool TextureAtlas::UploadTextureFromImage() {
     if (!m_isImageLoaded) return false;
     
     m_texture = ::LoadTextureFromImage(m_image);
+    if (m_texture.id != 0) {
+        ::SetTextureFilter(m_texture, TEXTURE_FILTER_POINT);
+    }
     ::UnloadImage(m_image);
     m_image.data = nullptr;
     m_isImageLoaded = false;

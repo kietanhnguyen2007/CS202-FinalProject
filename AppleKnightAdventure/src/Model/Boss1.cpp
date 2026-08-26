@@ -14,7 +14,7 @@ Boss1::Boss1(Vector2 position, Vector2 size)
 {
     m_damage = 20; // Phase 1 default
     m_cooldownTimer = 2.0f;
-    m_attackRange = 120.0f; // scaled up: hitbox x1.7, easier to hit player
+    m_attackRange = 210.0f; // scaled up: hitbox x1.75 * 1.7, easier to hit player
     m_maxHealth = 5000;
     m_health = m_maxHealth;
 }
@@ -41,7 +41,7 @@ void Boss1::ResetToPhase1() {
     Boss::ResetToPhase1();
     m_damage = 20;
     m_cooldownTimer = 2.0f;
-    m_attackRange = 50.0f;
+    m_attackRange = 87.5f;
 }
 
 void Boss1::UpdateState(float deltaTime, Vector2 playerPos) {

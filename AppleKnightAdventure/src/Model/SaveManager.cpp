@@ -92,6 +92,10 @@ SaveManager::SaveManager()
     , fullscreenEnabled(false)
 {
     unlockedCharacters.push_back("knight");
+    // Temporarily unlock all characters for testing
+    unlockedCharacters.push_back("fighter");
+    unlockedCharacters.push_back("ninja");
+    unlockedCharacters.push_back("magic_caster");
 }
 
 bool SaveManager::Load(const std::string& path) {
@@ -149,6 +153,11 @@ bool SaveManager::Load(const std::string& path) {
     for (std::string& id : unlockedCharacters) id = NormalizeUnlockId(id);
     if (std::find(unlockedCharacters.begin(), unlockedCharacters.end(), "knight") == unlockedCharacters.end())
         unlockedCharacters.push_back("knight");
+    
+    // Temporarily unlock all characters for testing
+    unlockedCharacters.push_back("fighter");
+    unlockedCharacters.push_back("ninja");
+    unlockedCharacters.push_back("magic_caster");
     std::sort(unlockedCharacters.begin(), unlockedCharacters.end());
     unlockedCharacters.erase(std::unique(unlockedCharacters.begin(), unlockedCharacters.end()), unlockedCharacters.end());
 

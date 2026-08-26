@@ -244,6 +244,11 @@ int Animator::GetTotalFrames() const {
     return m_current ? (int)m_current->frames.size() : 0;
 }
 
+AnimationClip* Animator::GetClipPtr(const std::string& name) const {
+    auto it = m_clips.find(name);
+    return (it != m_clips.end()) ? it->second.get() : nullptr;
+}
+
 void Animator::Seek(float seconds) {
     if (!m_current || m_current->frames.empty()) return;
     float clipLength = m_current->totalDuration;

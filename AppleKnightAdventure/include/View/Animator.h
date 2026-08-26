@@ -89,6 +89,8 @@ public:
     // Debug / introspection
     int GetCurrentFrameIndex() const;
     int GetTotalFrames() const;
+    // Returns a raw pointer to the named clip (nullptr if not found). Cheap lookup for loop-flag inspection.
+    AnimationClip* GetClipPtr(const std::string& name) const;
 
     enum class PlaybackMode {
         Normal = 0,

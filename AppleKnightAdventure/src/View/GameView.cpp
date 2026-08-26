@@ -344,6 +344,9 @@ void GameView::LoadTileset(int tileType, const std::string& texturePath, int col
         info.texture = ::LoadTexture(texturePath.c_str());
         info.ownsTexture = info.texture.id != 0;
     }
+    if (info.texture.id != 0) {
+        ::SetTextureFilter(info.texture, TEXTURE_FILTER_POINT);
+    }
     m_tilesets[tileType] = info;
 }
 
@@ -364,11 +367,12 @@ void GameView::RenderTilemap(const std::vector<Tile>& tiles) {
         float srcW = srcSize * ((tile.flipFlags & 1) ? -1.0f : 1.0f);
         float srcH = srcSize * ((tile.flipFlags & 2) ? -1.0f : 1.0f);
 
+        float inset = 0.5f;
         Rectangle src = {
-            col * srcSize + (srcW < 0 ? srcSize : 0.0f),
-            row * srcSize + (srcH < 0 ? srcSize : 0.0f),
-            srcW,
-            srcH
+            col * srcSize + (srcW < 0 ? srcSize - inset : inset),
+            row * srcSize + (srcH < 0 ? srcSize - inset : inset),
+            srcW + (srcW < 0 ? inset*2 : -inset*2),
+            srcH + (srcH < 0 ? inset*2 : -inset*2)
         };
         Rectangle dest = {
             (float)tile.x * ts,
