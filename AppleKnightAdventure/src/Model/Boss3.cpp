@@ -12,6 +12,9 @@ constexpr float BLAST_WARNING_DURATION = 0.55f;
 constexpr float BLAST_ACTIVE_DURATION = 0.8f;
 constexpr float BEAM_CAST_TIME = 0.75f;
 constexpr float BEAM_ACTIVE_DURATION = 1.8f;
+constexpr float BLAST_ONLY_RANGE = 180.0f;
+constexpr float ENERGY_SPHERE_COLLISION_SIZE = 32.0f;
+constexpr float BEAM_HEIGHT = 96.0f;
 }
 
 Boss3::Boss3(Vector2 position, Vector2 size) 
@@ -178,7 +181,7 @@ void Boss3::UpdateState(float deltaTime, Vector2 playerPos) {
                     ChangeState(BossState::Skill1);
                     m_chargeTimer = ATTACK_IMPACT_TIME;
                     m_activeTimer = ATTACK_DURATION;
-                } else if (dist <= 250.0f) {
+                } else if (dist <= BLAST_ONLY_RANGE) {
                     // Tầm trung (Mid range) - Chủ yếu dùng Attack 2
                     ChangeState(BossState::Skill2); // Energy Blast
                     m_chargeTimer = BLAST_WARNING_DURATION;
@@ -289,7 +292,10 @@ void Boss3::ExecuteMeleeAttack(Vector2 playerPos) {
 void Boss3::ExecuteEnergySphere() {
     if (!m_gameState) return;
     Attack(); // Play attack_2 animation for Phase 3
-    Vector2 pSize = {32.0f, 32.0f};
+    // Keep this below the boss body height so the moving projectile cannot
+    // overlap the floor and despawn on the frame it is created. Its padded
+    // atlas receives a separate, larger visual footprint in EntityRenderer.
+    Vector2 pSize = {ENERGY_SPHERE_COLLISION_SIZE, ENERGY_SPHERE_COLLISION_SIZE};
     
     float scaledWidth = m_size.x * m_scale;
     float scaledHeight = m_size.y * m_scale;
@@ -352,7 +358,7 @@ void Boss3::ExecuteEnergyBeam(Vector2 playerPos) {
             break;
         }
     }
-    Vector2 pSize = {beamLength, 64.0f};
+    Vector2 pSize = {beamLength, BEAM_HEIGHT};
     
     Vector2 spawnPos;
     if (m_direction == Direction::Left) {

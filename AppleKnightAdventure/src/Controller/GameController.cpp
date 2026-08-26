@@ -361,6 +361,7 @@ void GameController::RegisterEntityVisuals(Entity* entity) {
                         foundBoss = true;
                         auto boss = static_cast<Boss*>(e.get());
                         std::string texPath;
+                        std::string startClip = "default";
                         Vector2 sz = proj->GetSize();
                         if (boss->GetBossType() == 2) {
                             if (proj->GetDirection() == Direction::None) {
@@ -378,14 +379,18 @@ void GameController::RegisterEntityVisuals(Entity* entity) {
                             int subType = proj->GetSubType();
                             if (subType == 1) {
                                 texPath = "assets/textures/boss/boss3/projectiles/energy_sphere.json";
+                                startClip = "energy_sphere";
                             } else if (subType == 2) {
                                 texPath = "assets/textures/boss/boss3/projectiles/energy_blast.json";
+                                startClip = "energy_blast";
                             } else if (subType == 3) {
                                 texPath = "assets/textures/boss/boss3/projectiles/energy_beam.json";
+                                startClip = "energy_beam";
                             } else if (subType == 4) {
                                 texPath = "assets/textures/boss/boss3/ground_animate/default.json";
                             } else if (subType == 5) {
                                 texPath = "assets/textures/boss/boss3/projectiles/energy_blast.json";
+                                startClip = "energy_blast";
                             }
                         }
                         if (!texPath.empty()) {
@@ -394,7 +399,7 @@ void GameController::RegisterEntityVisuals(Entity* entity) {
                             proj->SetRotation(0.0f); // Fix rotation bug so it doesn't offset from hitbox
                             
                             View::EntityRenderer::GetInstance().RegisterAnimated(
-                                proj, texPath, "default", {0.0f, 0.0f}, flipX);
+                                proj, texPath, startClip, {0.0f, 0.0f}, flipX);
                         } else {
                             std::cout << "[DEBUG] Boss Projectile texPath is EMPTY! size=" << sz.x << "x" << sz.y << std::endl;
                         }

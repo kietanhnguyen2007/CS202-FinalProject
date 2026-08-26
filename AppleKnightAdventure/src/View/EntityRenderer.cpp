@@ -115,29 +115,80 @@ void EntityRenderer::RenderAll() {
         if (entity->GetType() == EntityType::Projectile) {
             auto* proj = static_cast<const Projectile*>(entity);
             if (proj->GetSubType() == 3) {
-                const Vector2 size = entity->GetSize();
-                Vector2 scale = {
-                    src.width > 0.0f ? size.x / src.width : 1.0f,
-                    src.height > 0.0f ? size.y / src.height : 1.0f
-                };
-                View::Renderer::GetInstance().SubmitSprite(
-                    ad.animator.GetTexture(), src, entity->GetPosition(), scale,
-                    entity->GetRotation(), {0.0f, 0.0f}, WHITE,
-                    View::Layer::World, entity->GetZIndex(),
-                    proj->GetDirection() == Direction::Left, id);
+                // This atlas stores nine spatial beam pieces (the last one is
+                // the tip), not nine full-beam animation frames. Compose them
+                // with 50% overlap so transparent frame padding cannot create
+                // gaps, and derive all dimensions from the projectile hitbox.
+                auto beamClip = ad.atlas->GetClip("energy_beam");
+                if (beamClip && !beamClip->frames.empty()) {
+                    const Vector2 size = entity->GetSize();
+                    const std::size_t segmentCount = beamClip->frames.size();
+                    const float step = size.x / static_cast<float>(segmentCount + 1);
+                    const float segmentWidth = step * 2.0f;
+                    const bool faceLeft = proj->GetDirection() == Direction::Left;
+                    const Vector2 basePos = entity->GetPosition();
+
+                    // The projectile collision is active along the full beam,
+                    // so draw every segment immediately after the cast ends.
+                    for (std::size_t i = 0; i < segmentCount; ++i) {
+                        const Rectangle segmentSrc = beamClip->frames[i].src;
+                        if (segmentSrc.width <= 0.0f || segmentSrc.height <= 0.0f) continue;
+
+                        Vector2 segmentPos = basePos;
+                        if (faceLeft) {
+                            segmentPos.x += size.x - (static_cast<float>(i) * step + segmentWidth);
+                        } else {
+                            segmentPos.x += static_cast<float>(i) * step;
+                        }
+                        const Vector2 segmentScale = {
+                            segmentWidth / segmentSrc.width,
+                            size.y / segmentSrc.height
+                        };
+                        View::Renderer::GetInstance().SubmitSprite(
+                            ad.animator.GetTexture(), segmentSrc, segmentPos, segmentScale,
+                            entity->GetRotation(), {0.0f, 0.0f}, WHITE,
+                            View::Layer::World, entity->GetZIndex() + 0.20f,
+                            faceLeft, id);
+                    }
+                } else if (src.width > 0.0f && src.height > 0.0f) {
+                    // Keep the attack visible if a future atlas rename removes
+                    // the expected clip; asset validation should still report it.
+                    const Vector2 size = entity->GetSize();
+                    const bool faceLeft = proj->GetDirection() == Direction::Left;
+                    const Vector2 fallbackScale = {
+                        size.x / src.width,
+                        size.y / src.height
+                    };
+                    View::Renderer::GetInstance().SubmitSprite(
+                        ad.animator.GetTexture(), src, entity->GetPosition(), fallbackScale,
+                        entity->GetRotation(), {0.0f, 0.0f}, WHITE,
+                        View::Layer::World, entity->GetZIndex() + 0.20f,
+                        faceLeft, id);
+                }
                 continue;
             }
         }
 
         Vector2 scale2d = entity->GetScale2D();
+        Vector2 renderPosition = entity->GetPosition();
 
         if (entity->GetType() == EntityType::Projectile) {
             auto* projectile = static_cast<const Projectile*>(entity);
             if (projectile->GetProjectileType() == ProjectileType::BossAttack) {
                 const Vector2 size = entity->GetSize();
+                Vector2 visualSize = size;
+                if (projectile->GetSubType() == 1) {
+                    // The phase-3 sphere atlas contains generous transparent
+                    // padding. Enlarge only its visual, centered on the safe
+                    // 32x32 collision box, instead of inflating its collision
+                    // or every other boss projectile.
+                    visualSize = {160.0f, 120.0f};
+                    renderPosition.x -= (visualSize.x - size.x) * 0.5f;
+                    renderPosition.y -= (visualSize.y - size.y) * 0.5f;
+                }
                 scale2d = {
-                    src.width > 0.0f ? size.x / src.width : 1.0f,
-                    src.height > 0.0f ? size.y / src.height : 1.0f
+                    src.width > 0.0f ? visualSize.x / src.width : 1.0f,
+                    src.height > 0.0f ? visualSize.y / src.height : 1.0f
                 };
             }
         }
@@ -148,7 +199,7 @@ void EntityRenderer::RenderAll() {
         View::Renderer::GetInstance().SubmitSprite(
             ad.animator.GetTexture(),
             src,
-            entity->GetPosition(),
+            renderPosition,
             scale2d,
             entity->GetRotation(),
             ad.origin,
