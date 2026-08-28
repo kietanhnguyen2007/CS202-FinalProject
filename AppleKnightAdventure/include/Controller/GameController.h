@@ -9,6 +9,7 @@
 #include "Model/MagicCasterSkillSet.h"
 #include "Model/NinjaSkillSet.h"
 #include "Model/Inventory.h"
+#include "Model/BuffPickup.h"
 #include "Systems/CollisionSystem.h"
 #include "Systems/ParticleSystem.h"
 #include "Utils/Types.h"
@@ -102,15 +103,37 @@ private:
     // Skill projectile helpers
     bool CheckLineOfSight(Vector2 start, Vector2 end) const;
     bool FindNearestVisibleEnemyInCamera(Vector2 origin, Vector2& targetCenter) const;
-    void SpawnPlayerProjectile(const char* atlasPath, Vector2 spawnPos, Direction dir,
-                               int damage, float speed, float lifetime, 
+    // spawnCenter is the center of the projectile's collision box, which is also
+    // where its sprite is centered. Pass the point the effect should appear at.
+    void SpawnPlayerProjectile(const char* atlasPath, Vector2 spawnCenter, Direction dir,
+                               int damage, float speed, float lifetime,
                                float scale = 0.3f, bool facesLeft = true,
                                Vector2 hitboxSize = {0.0f, 0.0f});
+    // Center of the drawn player sprite, and the facing edge of its body. Skill
+    // effects should originate here rather than at a corner of the physics box.
+    static Vector2 PlayerSkillOrigin(const Player* player);
     void SpawnLightningAt(Vector2 targetPos, int damage, float lifetime,
                           const char* atlasPath = "assets/textures/player/magic_caster_v2/projectile_attack1_v2.json",
                           float rotation = 0.0f, float scale = 0.4f);
     void UpdatePlayerProjectiles(float dt);
     void UpdateNinjaTeleport(Player* player, float dt);
+
+    // Occasional wandering enemies, so a cleared stretch of map does not stay
+    // empty. Deliberately sparse: see the RANDOM_SPAWN_* constants.
+    void UpdateRandomEnemySpawns(float dt);
+    bool FindRandomSpawnPoint(Vector2 playerPos, Vector2& outPos) const;
+    bool IsInBossArena() const { return m_previousLevelId != -1; }
+
+    // Boss-arena boons: an orb drops every few seconds, the player picks which
+    // one to run for. Owned here rather than in GameState so the rest of the
+    // entity pipeline does not need to know about a new entity kind.
+    void UpdateBuffPickups(float dt);
+    bool FindBuffSpawnPoint(Vector2 playerPos, Vector2& outPos) const;
+    void CollectBuff(Player* player, BuffPickup* orb);
+    void RenderBuffPickups() const;
+    void RenderBuffHud() const;
+    std::vector<std::unique_ptr<BuffPickup>> m_buffPickups;
+    float m_buffSpawnTimer = 0.0f;
 
     // Player skill projectile list (separate from pet projectiles)
     std::vector<std::unique_ptr<Projectile>> m_playerProjectiles;
@@ -139,6 +162,10 @@ private:
     float m_enemyAttackCooldown = 0.0f;
     float m_footstepTimer = 0.0f;
     std::unordered_map<int, int> m_knownBossPhases;
+
+    // Random enemy spawning
+    float m_randomSpawnTimer = 0.0f;
+    std::vector<int> m_randomSpawnIds;   // ids of enemies this system created
 
     // Pet system
     std::unique_ptr<Pet>               m_activePet;

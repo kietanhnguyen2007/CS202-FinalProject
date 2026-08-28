@@ -207,8 +207,8 @@ void GameView::Update(float dt) {
         View::ResultView::GetInstance().Update(dt);
     }
 
-    // Background scroll
-    m_bgScrollOffset += dt * 30.0f;
+    // Background parallax is driven by the camera in RenderBackground, not by a
+    // timer -- a timer made the scene drift while the player stood still.
 
     // Camera shake decay
     if (m_shakeTimer > 0.0f) {
@@ -232,19 +232,28 @@ void GameView::LoadBackgrounds(BackgroundTheme theme) {
 
     struct LayerDef { const char* file; float speed; };
 
+    // Layers are listed back-to-front; the speed is how fast each one tracks
+    // the camera, so a bigger number reads as nearer to the player.
+    //
+    // Both packs ship a solid-black silhouette layer intended as a foreground
+    // frame. Full screen and almost fully opaque, it swamps the scene at close
+    // parallax, so it sits deep in the stack here instead: far enough back to
+    // read as distant treeline / masonry, showing through the gaps in the
+    // painted layers drawn over it.
+
     // ── Forest (Ansimuz Parallax Forest v2) ──────────────────────────
     static const LayerDef kForest[] = {
         {"assets/textures/backgrounds/forest/back.png",   0.10f},
+        {"assets/textures/backgrounds/forest/front.png",  0.16f},  // black silhouette
         {"assets/textures/backgrounds/forest/middle.png", 0.30f},
-        {"assets/textures/backgrounds/forest/front.png",  0.60f},
     };
     // ── Cold Corridor (Ansimuz Gothicvania Cold Corridors) ────────────
     static const LayerDef kColdCorridor[] = {
         {"assets/textures/backgrounds/cold_corridor/back.png",       0.05f},
         {"assets/textures/backgrounds/cold_corridor/far.png",        0.15f},
+        {"assets/textures/backgrounds/cold_corridor/foreground.png", 0.22f},  // black silhouette
         {"assets/textures/backgrounds/cold_corridor/middle.png",     0.30f},
         {"assets/textures/backgrounds/cold_corridor/near.png",       0.50f},
-        {"assets/textures/backgrounds/cold_corridor/foreground.png", 0.75f},
     };
     // ── Underwater (Ansimuz Underwater Fantasy) ───────────────────────
     static const LayerDef kUnderwater[] = {
@@ -272,6 +281,12 @@ void GameView::LoadBackgrounds(BackgroundTheme theme) {
         BGLayerInfo info;
         info.tex           = ::LoadTexture(entry.layers[l].file);
         info.parallaxSpeed = entry.layers[l].speed;
+        if (info.tex.id != 0) {
+            // Pixel art: keep it crisp, and clamp so tiled copies cannot sample
+            // a neighbouring edge and show a seam line between them.
+            ::SetTextureFilter(info.tex, TEXTURE_FILTER_POINT);
+            ::SetTextureWrap(info.tex, TEXTURE_WRAP_CLAMP);
+        }
         m_backgrounds[0].push_back(info);
     }
     m_activeBgIndex = 0;
@@ -289,29 +304,48 @@ void GameView::RenderBackground(const Camera2D& cam) {
     if (m_backgrounds.empty()) return;
     Renderer& r = Renderer::GetInstance();
 
-    int screenW = r.GetWindowWidth();
-    int screenH = r.GetWindowHeight();
+    const float screenW = (float)r.GetWindowWidth();
+    const float screenH = (float)r.GetWindowHeight();
 
     if (m_activeBgIndex < 0 || m_activeBgIndex >= (int)m_backgrounds.size()) return;
     const auto& layers = m_backgrounds[m_activeBgIndex];
 
-    for (auto& layer : layers) {
+    // Parallax follows the camera. A time-based scroll drifts even when the
+    // player stands still, which reads as the whole scene sliding on its own.
+    const float cameraX = cam.target.x;
+
+    // Layers are drawn back-to-front. Give each one its own depth so a nearer
+    // layer can never be sorted behind a farther one between frames.
+    float depth = -2.0f;
+
+    for (const auto& layer : layers) {
         if (layer.tex.id == 0) continue;
-        float tw = (float)layer.tex.width;
-        float th = (float)layer.tex.height;
+        const float tw = (float)layer.tex.width;
+        const float th = (float)layer.tex.height;
+        if (tw <= 0.0f || th <= 0.0f) continue;
 
-        // Parallax offset: farther layers scroll slower
-        float offsetX = m_bgScrollOffset * layer.parallaxSpeed;
-        float scaleX = (float)screenW / tw;
-        float scaleY = (float)screenH / th;
+        // One uniform scale so the artwork keeps its aspect ratio. Scaling X and
+        // Y independently to fill the screen smeared the narrow 32px-wide
+        // corridor strips 40x horizontally against 3.2x vertically.
+        const float scale = screenH / th;
+        const float drawW = tw * scale;
 
-        // Tile horizontally to fill screen
-        float wrapped = fmod(offsetX, tw);
-        for (float x = -wrapped; x < (float)screenW; x += tw) {
+        // Tiling must step by the *drawn* width. Stepping by the raw texture
+        // width made every layer overlap itself many times over (a 32px strip
+        // drawn 1280px wide but placed every 32px), and for layers wider than
+        // the screen it drew a single copy that wandered off-screen and back --
+        // the layer that kept vanishing and reappearing.
+        float offsetX = cameraX * layer.parallaxSpeed;
+        float wrapped = fmodf(offsetX, drawW);
+        if (wrapped < 0.0f) wrapped += drawW;   // fmodf keeps the sign of offsetX
+
+        // Start one tile to the left so scrolling never exposes a seam.
+        for (float x = -wrapped - drawW; x < screenW + drawW; x += drawW) {
             r.SubmitSprite(&layer.tex, {0, 0, tw, th}, {x, 0},
-                           {scaleX, scaleY}, 0.0f, {0, 0},
-                           WHITE, Layer::Background, -2.0f, false, 0);
+                           {scale, scale}, 0.0f, {0, 0},
+                           WHITE, Layer::Background, depth, false, 0);
         }
+        depth += 0.01f;
     }
 }
 

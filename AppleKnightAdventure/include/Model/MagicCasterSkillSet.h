@@ -48,6 +48,8 @@ public:
     static constexpr float WAVE_RANGE       = 700.0f;
 
     void Update(float deltaTime) override;
+    void TickCooldowns(float deltaTime) override;
+    void ClearCooldowns() override;
 
     bool TryAttack1();
     bool TryAttack2();

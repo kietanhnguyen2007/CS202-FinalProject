@@ -21,9 +21,14 @@ public:
     void Clear();
 
     // Register an entity with a spritesheet atlas for animation (e.g. Checkpoint, Chest)
+    // centerOnBounds: draw the frame centered on the entity's collision box instead
+    // of pinning the frame's top-left corner to it. Sprite sheets whose artwork sits
+    // in the middle of a large padded cell (skill projectiles) need this, otherwise
+    // the visual lands roughly half a frame down and to the right of what it hits.
     bool RegisterAnimated(const Entity* entity, const std::string& atlasPath,
                           const std::string& startClip,
-                          Vector2 origin = {}, bool flipX = false);
+                          Vector2 origin = {}, bool flipX = false,
+                          bool centerOnBounds = false);
 
     // Advance all animated entities' animators
     void Update(float dt);
@@ -85,6 +90,7 @@ private:
         Vector2 origin;
         bool flipX;
         bool visible = true;
+        bool centerOnBounds = false;
     };
     std::unordered_map<uint32_t, AnimatedEntityData> m_animatedEntities;
 };

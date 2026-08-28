@@ -21,7 +21,8 @@ enum class EntityType {
     TeleportPortal,
     InMapGuide,
     Signboard,
-    LevelCompleteCup
+    LevelCompleteCup,
+    BuffOrb          // boss-arena boon pickup; owned by GameController, not GameState
 };
 
 class Entity {

@@ -3,6 +3,7 @@
 #include "Model/Character.h"
 #include "Model/Enemy.h"
 #include "View/AssetManager.h"
+#include "Utils/Constants.h"
 #include <iostream>
 #include <cmath>
 #include <cassert>
@@ -321,7 +322,9 @@ void CharacterRenderer::RenderAll() {
         } else if (entity->GetType() == EntityType::Enemy) {
             visualScale = 0.6f * 1.7f; // Enemy: large, same as big tiles
         } else if (entity->GetType() == EntityType::Boss) {
-            visualScale = 0.77f * 1.7f * 0.5f * 1.75f;
+            // BOSS_BODY_SCALE keeps the sprite in step with the collision box,
+            // which LevelFactory builds from the same factor.
+            visualScale = 0.77f * 1.7f * 0.5f * 1.75f * BOSS_BODY_SCALE;
             auto phaseIt = m_bossPhases.find(id);
             if (phaseIt != m_bossPhases.end()) {
                 if (phaseIt->second == BossPhase::Phase4) {
@@ -614,7 +617,7 @@ void CharacterRenderer::RenderBossPhaseOverlay(uint32_t entityId, const Entity* 
         Vector2 size = entity->GetSize();
         float baseScale = entity->GetScale();
         
-        float visualScale = 0.77f * 1.7f * 0.5f * 1.75f; // Boss visual scale matches RenderAll
+        float visualScale = 0.77f * 1.7f * 0.5f * 1.75f * BOSS_BODY_SCALE; // matches RenderAll
         if (phaseIt->second == BossPhase::Enraged) visualScale *= 1.3f;
         
         Vector2 bottomCenter = { pos.x + size.x * 0.5f * baseScale, pos.y + size.y * baseScale };

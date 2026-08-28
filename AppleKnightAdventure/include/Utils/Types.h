@@ -25,6 +25,20 @@ enum class EnemyState {
     Dead
 };
 
+// Boons offered during a boss fight. Instant ones fire once on pickup; the rest
+// run for a duration and are read back as multipliers.
+enum class BuffType {
+    Vigor,        // instant: restore a chunk of max HP
+    SecondWind,   // regenerate HP over time
+    Focus,        // instant: clear every skill cooldown
+    Adrenaline,   // skill cooldowns tick faster
+    Haste,        // move faster
+    Power,        // deal more damage
+    Aegis,        // take less damage
+    Bloodthirst,  // heal for a share of damage dealt
+    Count
+};
+
 enum class ItemType {
     Coin,
     Apple,

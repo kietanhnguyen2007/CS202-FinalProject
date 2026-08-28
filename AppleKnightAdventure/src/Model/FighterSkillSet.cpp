@@ -1,3 +1,4 @@
+#include <initializer_list>
 #include "Model/FighterSkillSet.h"
 
 void FighterSkillSet::TickSkill(SkillData& s, float dt) {
@@ -125,4 +126,22 @@ float FighterSkillSet::Attack3CooldownRatio()  const {
 }
 float FighterSkillSet::UltimateCooldownRatio() const {
     return (ultimate.cooldownMax > 0.0f) ? (1.0f - ultimate.cooldownTimer / ultimate.cooldownMax) : 1.0f;
+}
+
+// Extra cooldown drain from the Adrenaline boon. Charge and active timers are
+// left alone so a skill's authored timing never changes.
+void FighterSkillSet::TickCooldowns(float dt) {
+    for (SkillData* s : {&attack1, &attack2, &attack3, &ultimate, &parry}) {
+        if (s->cooldownTimer > 0.0f) {
+            s->cooldownTimer -= dt;
+            if (s->cooldownTimer < 0.0f) s->cooldownTimer = 0.0f;
+        }
+    }
+}
+
+// Focus boon: everything usable again immediately.
+void FighterSkillSet::ClearCooldowns() {
+    for (SkillData* s : {&attack1, &attack2, &attack3, &ultimate, &parry}) {
+        s->cooldownTimer = 0.0f;
+    }
 }

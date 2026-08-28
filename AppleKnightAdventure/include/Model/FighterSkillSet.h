@@ -27,6 +27,8 @@ public:
     bool m_wantsToFire  = false;  // true for 1 frame when ultimate projectile should spawn
 
     void Update(float deltaTime) override;
+    void TickCooldowns(float deltaTime) override;
+    void ClearCooldowns() override;
 
     bool TryAttack1();
     bool TryAttack2();

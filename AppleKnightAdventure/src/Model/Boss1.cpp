@@ -167,9 +167,11 @@ void Boss1::ExecuteMeleeAttack(Vector2 playerPos) {
     float dx = playerPos.x - m_position.x;
     float dy = playerPos.y - m_position.y;
     float dist = std::sqrt(dx*dx + dy*dy);
-    
+
     if (dist <= m_attackRange) {
         Attack(); // Sets m_isAttacking = true which GameController reads
-        m_wantsMelee = true;
+        // The swing stays live briefly; GameController tests its hitbox against
+        // the player each frame of that window.
+        BeginMeleeSwing();
     }
 }

@@ -382,6 +382,10 @@ void SaveManager::SpendCoins(int amount) {
 }
 
 bool SaveManager::IsCharUnlocked(const std::string& charName) const {
+    // TEST: temporarily unlock every character and pet. Remove this line to
+    // restore normal shop/unlock gating.
+    return true;
+
     const std::string normalized = NormalizeUnlockId(charName);
     return std::find(unlockedCharacters.begin(), unlockedCharacters.end(), normalized) != unlockedCharacters.end();
 }

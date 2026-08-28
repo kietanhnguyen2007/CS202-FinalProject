@@ -1,6 +1,7 @@
 #include "Controller/GameController.h"
 #include "Controller/InputController.h"
 #include "Factories/LevelFactory.h"
+#include "Factories/EnemyFactory.h"
 #include "Model/Boss.h"
 #include "Model/Enemy.h"
 #include "Model/Chest.h"
@@ -783,6 +784,7 @@ void GameController::HandlePlayerInput(Player* player, const InputCommand& cmd, 
 
     // Sprint multiplier (only when not dashing/lunging)
     float speedMult = (cmd.sprint && !blockMovement) ? Player::SPRINT_MULTIPLIER : 1.0f;
+    speedMult *= player->GetSpeedMultiplier();   // Haste boon
     if (!blockMovement) {
         vel.x = moveX * PLAYER_SPEED * speedMult;
     }
@@ -798,8 +800,8 @@ void GameController::HandlePlayerInput(Player* player, const InputCommand& cmd, 
     }
     player->SetVelocity(vel);
 
-    // --- Dash (L) ---
-    if (cmd.dash && player->CanDash()) {
+    // --- Dash (L) --- also blocked mid-cast, or it cancels the wind-up.
+    if (cmd.dash && player->CanDash() && !player->IsCasting()) {
         // Always dash in the direction the player is currently facing
         float dirX = (player->GetDirection() == Direction::Right) ? 1.0f : -1.0f;
         player->StartDash(true, dirX);
@@ -811,16 +813,19 @@ void GameController::HandlePlayerInput(Player* player, const InputCommand& cmd, 
 
     // ==================== KNIGHT ====================
     if (KnightSkillSet* skills = player->GetKnightSkills()) {
-        if (!player->IsDashing() && !player->IsParrying()) {
+        // CanStartSkill() also blocks while a wind-up is in flight, so a charged
+        // skill can no longer be replaced half-way and lose its hit.
+        if (player->CanStartSkill()) {
             if (cmd.attack  && skills->TryAttack1()) {
                 player->Attack(KnightSkillSet::ATTACK1_ANIMATION_DURATION);
                 SoundManager::GetInstance().PlaySound("knight_attack_1");
             }
-            if (cmd.parry   && skills->TryAttack2()) {
+            else if (cmd.parry   && skills->TryAttack2()) {
                 player->Attack2(KnightSkillSet::ATTACK2_ANIMATION_DURATION);
+                player->BeginCast(skills->attack2.chargeMax);
                 SoundManager::GetInstance().PlaySound("knight_attack_2");
             }
-            if (cmd.skill1  && skills->TryAttack3()) {
+            else if (cmd.skill1  && skills->TryAttack3()) {
                 player->Attack3(KnightSkillSet::ATTACK3_ANIMATION_DURATION);
                 SoundManager::GetInstance().PlaySound("knight_attack_3");
                 float lDir = (player->GetDirection() == Direction::Right) ? 1.0f : -1.0f;
@@ -829,8 +834,9 @@ void GameController::HandlePlayerInput(Player* player, const InputCommand& cmd, 
                 Vector2 lv = player->GetVelocity(); lv.x = lDir * skills->m_lungeSpeed;
                 player->SetVelocity(lv);
             }
-            if (cmd.ultimate && skills->TryUltimate()) {
+            else if (cmd.ultimate && skills->TryUltimate()) {
                 player->DoUltimate(KnightSkillSet::ULTIMATE_ANIMATION_DURATION);
+                player->BeginCast(skills->ultimate.chargeMax);
                 SoundManager::GetInstance().PlaySound("knight_ultimate");
             }
         }
@@ -839,21 +845,23 @@ void GameController::HandlePlayerInput(Player* player, const InputCommand& cmd, 
 
     // ==================== FIGHTER ====================
     } else if (FighterSkillSet* fs = player->GetFighterSkills()) {
-        if (!player->IsDashing() && !player->IsParrying()) {
+        if (player->CanStartSkill()) {
             if (cmd.attack    && fs->TryAttack1()) {
                 player->Attack(FighterSkillSet::ATTACK1_ANIMATION_DURATION);
                 SoundManager::GetInstance().PlaySound("fighter_attack_1");
             }
-            if (cmd.parry     && fs->TryAttack2()) {
+            else if (cmd.parry     && fs->TryAttack2()) {
                 player->Attack2(FighterSkillSet::ATTACK2_ANIMATION_DURATION);
                 SoundManager::GetInstance().PlaySound("fighter_attack_2");
             }
-            if (cmd.skill1    && fs->TryAttack3()) {
+            else if (cmd.skill1    && fs->TryAttack3()) {
                 player->Attack3(FighterSkillSet::ATTACK3_ANIMATION_DURATION);
+                player->BeginCast(fs->attack3.chargeMax);
                 SoundManager::GetInstance().PlaySound("fighter_attack_3");
             }
-            if (cmd.ultimate  && fs->TryUltimate()) {
+            else if (cmd.ultimate  && fs->TryUltimate()) {
                 player->DoUltimate(FighterSkillSet::ULTIMATE_ANIMATION_DURATION);
+                player->BeginCast(fs->ultimate.chargeMax);
                 SoundManager::GetInstance().PlaySound("fighter_ultimate_charge");
             }
         }
@@ -861,21 +869,26 @@ void GameController::HandlePlayerInput(Player* player, const InputCommand& cmd, 
 
     // ==================== MAGIC CASTER ====================
     } else if (MagicCasterSkillSet* ms = player->GetMagicSkills()) {
-        if (!player->IsDashing() && !player->IsParrying()) {
+        // Every magic skill lands after a charge, so each one takes the lock.
+        if (player->CanStartSkill()) {
             if (cmd.attack    && ms->TryAttack1()) {
                 player->Attack(MagicCasterSkillSet::ATTACK1_ANIMATION_DURATION);
+                player->BeginCast(ms->attack1.chargeMax);
                 SoundManager::GetInstance().PlaySound("magic_attack_1");
             }
-            if (cmd.parry     && ms->TryAttack2()) {
+            else if (cmd.parry     && ms->TryAttack2()) {
                 player->Attack2(MagicCasterSkillSet::ATTACK2_ANIMATION_DURATION);
+                player->BeginCast(ms->attack2.chargeMax);
                 SoundManager::GetInstance().PlaySound("magic_attack_2");
             }
-            if (cmd.skill1    && ms->TryAttack3()) {
+            else if (cmd.skill1    && ms->TryAttack3()) {
                 player->Attack3(MagicCasterSkillSet::ATTACK3_ANIMATION_DURATION);
+                player->BeginCast(ms->attack3.chargeMax);
                 SoundManager::GetInstance().PlaySound("magic_attack_3");
             }
-            if (cmd.ultimate  && ms->TryUltimate()) {
+            else if (cmd.ultimate  && ms->TryUltimate()) {
                 player->DoUltimate(MagicCasterSkillSet::ULTIMATE_ANIMATION_DURATION);
+                player->BeginCast(ms->ultimate.chargeMax);
                 SoundManager::GetInstance().PlaySound("magic_ultimate");
             }
         }
@@ -883,21 +896,29 @@ void GameController::HandlePlayerInput(Player* player, const InputCommand& cmd, 
 
     // ==================== NINJA ====================
     } else if (NinjaSkillSet* ns = player->GetNinjaSkills()) {
-        if (!player->IsDashing() && !player->IsParrying()) {
+        if (player->CanStartSkill()) {
             if (cmd.attack    && ns->TryAttack1()) {
                 player->Attack(NinjaSkillSet::ATTACK1_ANIMATION_DURATION);
                 SoundManager::GetInstance().PlaySound("ninja_attack_1");
             }
-            if (cmd.parry     && ns->TryAttack2()) {
+            // K (Blade Rush): the projectile only leaves on the last animation
+            // frame, so the whole animation is the wind-up. Holding the lock for
+            // it is what stops another key from cancelling the throw.
+            else if (cmd.parry     && ns->TryAttack2()) {
                 player->Attack2(NinjaSkillSet::ATTACK2_ANIMATION_DURATION);
+                player->BeginCast(ns->attack2.activeDuration);
                 SoundManager::GetInstance().PlaySound("ninja_attack_2");
             }
-            if (cmd.skill1    && ns->TryAttack3()) {
-                player->Attack3(NinjaSkillSet::TELEPORT_START_DURATION + NinjaSkillSet::TELEPORT_END_DURATION);
+            else if (cmd.skill1    && ns->TryAttack3()) {
+                const float teleportTime = NinjaSkillSet::TELEPORT_START_DURATION
+                                         + NinjaSkillSet::TELEPORT_END_DURATION;
+                player->Attack3(teleportTime);
+                player->BeginCast(teleportTime);
                 SoundManager::GetInstance().PlaySound("ninja_attack_3");
             }
-            if (cmd.ultimate  && ns->TryUltimate()) {
+            else if (cmd.ultimate  && ns->TryUltimate()) {
                 player->DoUltimate(NinjaSkillSet::ULTIMATE_CAST_DURATION);
+                player->BeginCast(ns->ultimate.chargeMax);
                 SoundManager::GetInstance().PlaySound("ninja_ultimate");
             }
         }
@@ -1069,6 +1090,9 @@ void GameController::UpdateCombat(Player* player, float dt, bool updateEnemyCool
 
     // ---- Helper: deal damage to enemies in a rect ----
     auto HitEnemiesInBox = [&](Rectangle attackBox, int damage) {
+        // Power and Bloodthirst boons apply to every skill uniformly, so they
+        // are handled once here rather than at each skill's call site.
+        damage = static_cast<int>(damage * player->GetDamageMultiplier());
         for (auto& entity : m_gameState->GetAllEntities()) {
             if (!entity || !entity->IsActive()) continue;
 
@@ -1084,6 +1108,9 @@ void GameController::UpdateCombat(Player* player, float dt, bool updateEnemyCool
                 View::ParticleRenderer::GetInstance().EmitBurst(enemy->GetPosition(), 8, WHITE);
                 View::GameView::GetInstance().Shake(3.0f, 0.15f);
 
+                player->OnDamageDealt(damage);
+
+
                 if (!enemy->IsActive()) OnEntityRemoved(enemy);
             } 
             else if (entity->GetType() == EntityType::Boss) {
@@ -1097,6 +1124,9 @@ void GameController::UpdateCombat(Player* player, float dt, bool updateEnemyCool
                     boss->GetPosition(), "-" + std::to_string(damage), YELLOW, 1.0f);
                 View::ParticleRenderer::GetInstance().EmitBurst(boss->GetPosition(), 16, WHITE);
                 View::GameView::GetInstance().Shake(4.0f, 0.2f);
+                
+                player->OnDamageDealt(damage);
+
                 
                 if (!boss->IsActive()) OnEntityRemoved(boss);
             }
@@ -1147,17 +1177,9 @@ void GameController::UpdateCombat(Player* player, float dt, bool updateEnemyCool
         if (fs->WantsToFire()) {
             const std::string projectileAtlas =
                 "assets/textures/player/fighter_v2/ultimate_projectile_v2.json";
-            // Spawn at horizontal edge of player, raised high enough to not clip ground
-            float spawnX = (player->GetDirection() == Direction::Right)
-                ? player->GetPosition().x + player->GetSize().x
-                : player->GetPosition().x;
-            Vector2 spawnPos = {
-                spawnX,
-                player->GetPosition().y + 10.0f  // centered on player body
-            };
             SpawnPlayerProjectile(
                 projectileAtlas.c_str(),
-                spawnPos, player->GetDirection(),
+                PlayerSkillOrigin(player), player->GetDirection(),
                 fs->ultimate.damage, 400.0f, 0.9f, // V2: 12 frames * 0.075s; legacy: 9 * 0.1s
                 0.8f, false);  // Fighter H faces right by default
             fs->ResetFireFlag();
@@ -1197,17 +1219,10 @@ void GameController::UpdateCombat(Player* player, float dt, bool updateEnemyCool
         }
         // Fireball (attack2): fly forward
         if (ms->m_wantsFireball) {
-            float fbSpawnX = (player->GetDirection() == Direction::Right)
-                ? player->GetPosition().x + player->GetSize().x
-                : player->GetPosition().x;
-            Vector2 spawnPos = {
-                fbSpawnX,
-                player->GetPosition().y - 10.0f // raised even higher
-            };
             SoundManager::GetInstance().PlaySound("magic_attack_2_release");
             SpawnPlayerProjectile(
                 "assets/textures/player/magic_caster_v2/projectile_attack2_v2.json",
-                spawnPos, player->GetDirection(),
+                PlayerSkillOrigin(player), player->GetDirection(),
                 ms->attack2.damage,
                 MagicCasterSkillSet::FIREBALL_SPEED,
                 MagicCasterSkillSet::FIREBALL_RANGE / MagicCasterSkillSet::FIREBALL_SPEED,
@@ -1216,17 +1231,10 @@ void GameController::UpdateCombat(Player* player, float dt, bool updateEnemyCool
         }
         // Wave (attack3): fly forward slower
         if (ms->m_wantsWave) {
-            float waveSpawnX = (player->GetDirection() == Direction::Right)
-                ? player->GetPosition().x + player->GetSize().x
-                : player->GetPosition().x;
-            Vector2 spawnPos = {
-                waveSpawnX,
-                player->GetPosition().y - 75.0f  // keep the enlarged hitbox just above ground
-            };
             SoundManager::GetInstance().PlaySound("magic_attack_3_release");
             SpawnPlayerProjectile(
                 "assets/textures/player/magic_caster_v2/projectile_attack3_v2.json",
-                spawnPos, player->GetDirection(),
+                PlayerSkillOrigin(player), player->GetDirection(),
                 ms->attack3.damage,
                 MagicCasterSkillSet::WAVE_SPEED,
                 1.0f, // 1.0f matches exact animation length (5 frames * 0.2s)
@@ -1265,17 +1273,10 @@ void GameController::UpdateCombat(Player* player, float dt, bool updateEnemyCool
                             ns->attack1.damage);
         // Blade Rush: projectile spawns when animation ends
         if (ns->WantsBladeRush()) {
-            float brSpawnX = (player->GetDirection() == Direction::Right)
-                ? player->GetPosition().x + player->GetSize().x
-                : player->GetPosition().x;
-            Vector2 spawnPos = {
-                brSpawnX,
-                player->GetPosition().y - 32.0f  // keep the tallest K frame above the floor
-            };
             SoundManager::GetInstance().PlaySound("ninja_attack_2_release");
             SpawnPlayerProjectile(
                 "assets/textures/player/ninja_v2/projectile_attack2_v2.json",
-                spawnPos, player->GetDirection(),
+                PlayerSkillOrigin(player), player->GetDirection(),
                 ns->attack2.damage,
                 NinjaSkillSet::BLADE_RUSH_SPEED,
                 NinjaSkillSet::BLADE_RUSH_RANGE / NinjaSkillSet::BLADE_RUSH_SPEED,
@@ -1286,19 +1287,10 @@ void GameController::UpdateCombat(Player* player, float dt, bool updateEnemyCool
         UpdateNinjaTeleport(player, dt);
         // Shadow Clone projectile
         if (ns->WantsShadowClone()) {
-            float cloneSpawnX = (player->GetDirection() == Direction::Right)
-                ? player->GetPosition().x + player->GetSize().x
-                : player->GetPosition().x;
-            // Ninja H sprite at 0.5 scale is ~75px tall.
-            // Raise it so it doesn't clip below the ground block.
-            Vector2 spawnPos = {
-                cloneSpawnX,
-                player->GetPosition().y - 66.0f
-            };
             SoundManager::GetInstance().PlaySound("ninja_ultimate_release");
             SpawnPlayerProjectile(
                 "assets/textures/player/ninja_v2/projectile_ultimate_attack_v2.json",
-                spawnPos, player->GetDirection(),
+                PlayerSkillOrigin(player), player->GetDirection(),
                 ns->ultimate.damage,
                 NinjaSkillSet::CLONE_SPEED,
                 NinjaSkillSet::CLONE_ANIMATION_DURATION,
@@ -1327,7 +1319,11 @@ void GameController::UpdateCombat(Player* player, float dt, bool updateEnemyCool
         float attackRange = 0.0f;
         Vector2 attackCenter;
         Rectangle attackBox;
-        
+        // Bosses are far taller than their attack range, so a center-to-center
+        // radius cannot describe their reach; they use a hitbox instead.
+        bool useAttackBox = false;
+        Boss* attackingBoss = nullptr;
+
         if (entity->GetType() == EntityType::Enemy) {
             auto* enemy = static_cast<Enemy*>(entity.get());
             if (enemy->GetState() == EnemyState::Attack) {
@@ -1375,20 +1371,16 @@ void GameController::UpdateCombat(Player* player, float dt, bool updateEnemyCool
             }
         } else if (entity->GetType() == EntityType::Boss) {
             auto* boss = static_cast<Boss*>(entity.get());
-            BossState bs = boss->GetBossState();
-            if (bs == BossState::Skill1 || bs == BossState::Skill2 || bs == BossState::Skill3 || bs == BossState::Skill4) {
-                // Only deal direct body damage if it's a melee attack (range <= 150)
-                if (boss->GetAttackRange() <= 150.0f && boss->WantsMelee()) {
-                    isAttacking = true;
-                    attackDamage = boss->GetDamage();
-                    attackRange = boss->GetAttackRange();
-                    attackCenter = {
-                        boss->GetPosition().x + boss->GetSize().x * 0.5f,
-                        boss->GetPosition().y + boss->GetSize().y * 0.5f
-                    };
-                    boss->ResetMelee();
-                    SoundManager::GetInstance().PlaySound("boss_attack");
-                }
+            // Only melee bosses ever open a swing (ranged ones damage through
+            // projectiles), so the swing flag alone is the right gate. The old
+            // `GetAttackRange() <= 150` test silently excluded Boss1 (210) and
+            // Boss3 (245), which is why neither could ever land a body hit.
+            if (boss->IsMeleeActive() && !boss->HasMeleeHit(player->GetId())) {
+                isAttacking = true;
+                useAttackBox = true;
+                attackingBoss = boss;
+                attackDamage = boss->GetDamage();
+                attackBox = boss->GetMeleeHitBox();
             }
         } else if (entity->GetType() == EntityType::Projectile) {
             auto* proj = static_cast<Projectile*>(entity.get());
@@ -1436,8 +1428,19 @@ void GameController::UpdateCombat(Player* player, float dt, bool updateEnemyCool
         }
         
         if (!isAttacking) continue;
-        if (Distance(playerCenter, attackCenter) > attackRange) continue;
-        
+        if (useAttackBox) {
+            if (!RectOverlap(attackBox, player->GetBoundingBox())) continue;
+        } else if (Distance(playerCenter, attackCenter) > attackRange) {
+            continue;
+        }
+
+        if (attackingBoss) {
+            // Consume the swing per target, so it cannot hit the same player
+            // twice while the window is open but can still reach both in co-op.
+            attackingBoss->MarkMeleeHit(player->GetId());
+            SoundManager::GetInstance().PlaySound("boss_attack");
+        }
+
         // Invincibility from dash blocks all damage
         if (!player->IsInvincible()) {
             const int healthBeforeHit = player->GetHealth();
@@ -1754,6 +1757,7 @@ void GameController::RespawnPlayer(Player* player, bool restoreEncounter) {
     }
     player->SetPosition(respawn);
     player->SetVelocity({0.0f, 0.0f});
+    player->CancelCast();   // dying must not leave the skill lock held
     player->SetHealth(player->GetMaxHealth());
     player->SetActive(true);
     if (restoreEncounter) RestoreCheckpointEnemies();
@@ -2092,6 +2096,8 @@ void GameController::Update(float dt) {
     UpdatePlayerProjectiles(dt);
     UpdateEndgameCheckpoints();
     UpdateBossArenaPortals();
+    UpdateRandomEnemySpawns(dt);
+    UpdateBuffPickups(dt);
     m_particles.Update(dt);
     m_gameState->TickTimer(dt);
 
@@ -2173,6 +2179,9 @@ void GameController::Render() {
     View::Renderer::GetInstance().BeginFrame();
     View::GameView::GetInstance().Render(m_camera, m_particles.GetActive(), GetFrameTime());
     View::Renderer::GetInstance().EndFrameAndFlush();
+
+    RenderBuffPickups();
+    RenderBuffHud();
 
     if (m_localCoop && m_gameState) {
         auto drawPlayerMarker = [&](Player* localPlayer, const char* label, Color color,
@@ -2757,7 +2766,20 @@ bool GameController::FindNearestVisibleEnemyInCamera(Vector2 origin, Vector2& ta
     return found;
 }
 
-void GameController::SpawnPlayerProjectile(const char* atlasPath, Vector2 spawnPos,
+Vector2 GameController::PlayerSkillOrigin(const Player* player) {
+    // The player art is drawn about 2.3x the height of the physics box and is
+    // anchored at the feet, so the drawn torso sits above the box top. Skills
+    // launched from the box itself come out at the character's feet.
+    constexpr float CHEST_ABOVE_BOX_CENTER = 27.0f;
+    const Vector2 pos  = player->GetPosition();
+    const Vector2 size = player->GetSize();
+    const float edgeX = (player->GetDirection() == Direction::Right)
+        ? pos.x + size.x
+        : pos.x;
+    return { edgeX, pos.y + size.y * 0.5f - CHEST_ABOVE_BOX_CENTER };
+}
+
+void GameController::SpawnPlayerProjectile(const char* atlasPath, Vector2 spawnCenter,
                                             Direction dir, int damage,
                                             float speed, float lifetime,
                                             float scale, bool facesLeft,
@@ -2768,7 +2790,32 @@ void GameController::SpawnPlayerProjectile(const char* atlasPath, Vector2 spawnP
     if (hitboxSize.x <= 0.0f || hitboxSize.y <= 0.0f) {
         hitboxSize = {boxSize, boxSize};
     }
-    
+
+    // Entity position is the box's top-left; callers pass the center so the
+    // spawn point means the same thing regardless of the projectile's size.
+    Vector2 spawnPos = {
+        spawnCenter.x - hitboxSize.x * 0.5f,
+        spawnCenter.y - hitboxSize.y * 0.5f
+    };
+
+    // A tall hitbox centered on the caster's chest can reach below their feet
+    // and into the floor, and UpdatePlayerProjectiles despawns anything that
+    // overlaps a solid tile -- the projectile would die on its spawn frame,
+    // never drawing a single frame. Lift it clear before it goes live.
+    auto overlapsSolid = [&](Vector2 topLeft) {
+        const Rectangle box = {topLeft.x, topLeft.y, hitboxSize.x, hitboxSize.y};
+        for (const auto& tile : m_gameState->GetTiles(MapLayer::Main)) {
+            if (!tile.solid) continue;
+            const Rectangle tr = {(float)tile.x * TILE_SIZE, (float)tile.y * TILE_SIZE,
+                                  (float)TILE_SIZE, (float)TILE_SIZE};
+            if (RectOverlap(box, tr)) return true;
+        }
+        return false;
+    };
+    for (int lift = 0; lift < 12 && overlapsSolid(spawnPos); ++lift) {
+        spawnPos.y -= 8.0f;
+    }
+
     auto proj = std::make_unique<Projectile>(
         spawnPos, hitboxSize,
         ProjectileType::Magic,
@@ -2787,8 +2834,11 @@ void GameController::SpawnPlayerProjectile(const char* atlasPath, Vector2 spawnP
     // Force rotation to 0 to prevent double-flipping from the Projectile constructor
     proj->SetRotation(0.0f);
 
-    // Register visual with correct flip
-    View::EntityRenderer::GetInstance().RegisterAnimated(proj.get(), atlasPath, "default", {0, 0}, flipX);
+    // Register visual with correct flip. Skill sheets draw the effect in the middle
+    // of a large padded cell, so center the frame on the collision box; anchoring the
+    // frame corner instead pushes the visual half a frame away from what it damages.
+    View::EntityRenderer::GetInstance().RegisterAnimated(
+        proj.get(), atlasPath, "default", {0, 0}, flipX, /*centerOnBounds=*/true);
 
     m_playerProjectiles.push_back(std::move(proj));
 }
@@ -2928,6 +2978,222 @@ void GameController::UpdatePlayerProjectiles(float dt) {
                 return false;
             }),
         m_playerProjectiles.end());
+}
+
+bool GameController::FindRandomSpawnPoint(Vector2 playerPos, Vector2& outPos) const {
+    if (!m_gameState) return false;
+
+    // A spawn point is a solid tile with clear space above it, far enough from
+    // the player that the enemy is not seen popping into existence.
+    const auto& tiles = m_gameState->GetTiles(MapLayer::Main);
+    if (tiles.empty()) return false;
+
+    std::vector<const Tile*> solid;
+    solid.reserve(tiles.size());
+    for (const auto& t : tiles) {
+        if (!t.solid) continue;
+        const float wx = t.x * TILE_SIZE;
+        const float dist = std::abs(wx - playerPos.x);
+        if (dist < RANDOM_SPAWN_MIN_DISTANCE || dist > RANDOM_SPAWN_MAX_DISTANCE) continue;
+        solid.push_back(&t);
+    }
+    if (solid.empty()) return false;
+
+    auto isSolidAt = [&](int tx, int ty) {
+        for (const auto& t : tiles) {
+            if (t.solid && t.x == tx && t.y == ty) return true;
+        }
+        return false;
+    };
+
+    // Sample a handful of candidates rather than scanning every tile.
+    for (int attempt = 0; attempt < 24; ++attempt) {
+        const Tile* t = solid[static_cast<size_t>(rand()) % solid.size()];
+        // Needs two tiles of headroom for the enemy body.
+        if (isSolidAt(t->x, t->y - 1) || isSolidAt(t->x, t->y - 2)) continue;
+        outPos = { t->x * TILE_SIZE, (t->y - 2) * TILE_SIZE };
+        return true;
+    }
+    return false;
+}
+
+void GameController::UpdateRandomEnemySpawns(float dt) {
+    if (!m_gameState || IsInBossArena()) return;
+    Player* player = m_gameState->GetLocalPlayer();
+    if (!player || !player->IsAlive()) return;
+
+    // Drop ids that are gone so the cap tracks enemies actually alive.
+    m_randomSpawnIds.erase(
+        std::remove_if(m_randomSpawnIds.begin(), m_randomSpawnIds.end(),
+            [&](int id) {
+                for (const auto& e : m_gameState->GetAllEntities()) {
+                    if (e && e->GetId() == id) return !e->IsActive();
+                }
+                return true;   // entity no longer exists
+            }),
+        m_randomSpawnIds.end());
+
+    m_randomSpawnTimer -= dt;
+    if (m_randomSpawnTimer > 0.0f) return;
+
+    const float span = RANDOM_SPAWN_MAX_INTERVAL - RANDOM_SPAWN_MIN_INTERVAL;
+    m_randomSpawnTimer = RANDOM_SPAWN_MIN_INTERVAL
+                       + static_cast<float>(rand() % 1000) / 1000.0f * span;
+
+    if (static_cast<int>(m_randomSpawnIds.size()) >= RANDOM_SPAWN_MAX_ALIVE) return;
+
+    Vector2 spawnPos{};
+    if (!FindRandomSpawnPoint(player->GetPosition(), spawnPos)) return;
+
+    // Mostly melee, occasionally ranged; flying is left to hand-placed encounters.
+    const int roll = rand() % 100;
+    const EnemyType type = (roll < 70) ? EnemyType::Melee : EnemyType::Ranged;
+
+    auto enemy = EnemyFactory::CreateEnemy(spawnPos, type);
+    if (!enemy) return;
+    Enemy* raw = enemy.get();
+    m_gameState->AddEntity(std::move(enemy));
+    RegisterEnemyVisuals(raw);
+    m_randomSpawnIds.push_back(raw->GetId());
+}
+
+bool GameController::FindBuffSpawnPoint(Vector2 playerPos, Vector2& outPos) const {
+    if (!m_gameState) return false;
+    const auto& tiles = m_gameState->GetTiles(MapLayer::Main);
+    if (tiles.empty()) return false;
+
+    auto isSolidAt = [&](int tx, int ty) {
+        for (const auto& t : tiles) {
+            if (t.solid && t.x == tx && t.y == ty) return true;
+        }
+        return false;
+    };
+
+    // Reachable spot: standing room above a floor tile, inside the arena and
+    // close enough that going for it is a real decision, not a trek.
+    std::vector<const Tile*> floors;
+    for (const auto& t : tiles) {
+        if (!t.solid) continue;
+        const float wx = t.x * TILE_SIZE;
+        const float d = std::abs(wx - playerPos.x);
+        if (d < TILE_SIZE * 3.0f || d > TILE_SIZE * 16.0f) continue;
+        floors.push_back(&t);
+    }
+    if (floors.empty()) return false;
+
+    for (int attempt = 0; attempt < 24; ++attempt) {
+        const Tile* t = floors[static_cast<size_t>(rand()) % floors.size()];
+        if (isSolidAt(t->x, t->y - 1) || isSolidAt(t->x, t->y - 2)) continue;
+        outPos = { t->x * TILE_SIZE + TILE_SIZE * 0.25f,
+                   (t->y - 1) * TILE_SIZE + TILE_SIZE * 0.3f };
+        return true;
+    }
+    return false;
+}
+
+void GameController::CollectBuff(Player* player, BuffPickup* orb) {
+    if (!player || !orb) return;
+    const BuffDef& def = GetBuffDef(orb->GetBuffType());
+    player->ApplyBuff(orb->GetBuffType());
+    orb->SetActive(false);
+    SoundManager::GetInstance().PlaySound("item_pickup");
+    View::FloatingTextManager::GetInstance().Emit(
+        player->GetPosition(), def.name, def.color, 1.4f);
+}
+
+void GameController::UpdateBuffPickups(float dt) {
+    if (!m_gameState) return;
+
+    // Boons only exist during a boss fight.
+    if (!IsInBossArena()) {
+        if (!m_buffPickups.empty()) m_buffPickups.clear();
+        m_buffSpawnTimer = BUFF_SPAWN_INTERVAL;
+        return;
+    }
+
+    Player* player = m_gameState->GetLocalPlayer();
+    Player* second = m_localCoop ? m_gameState->GetSecondLocalPlayer() : nullptr;
+    if (!player) return;
+
+    for (auto& orb : m_buffPickups) {
+        if (!orb || !orb->IsActive()) continue;
+        orb->Update(dt);
+        if (player->IsAlive() && RectOverlap(orb->GetBoundingBox(), player->GetBoundingBox())) {
+            CollectBuff(player, orb.get());
+        } else if (second && second->IsAlive()
+                   && RectOverlap(orb->GetBoundingBox(), second->GetBoundingBox())) {
+            CollectBuff(second, orb.get());
+        }
+    }
+    m_buffPickups.erase(
+        std::remove_if(m_buffPickups.begin(), m_buffPickups.end(),
+                       [](const std::unique_ptr<BuffPickup>& o) { return !o || !o->IsActive(); }),
+        m_buffPickups.end());
+
+    m_buffSpawnTimer -= dt;
+    if (m_buffSpawnTimer > 0.0f) return;
+    m_buffSpawnTimer = BUFF_SPAWN_INTERVAL;
+
+    if (static_cast<int>(m_buffPickups.size()) >= BUFF_MAX_ON_FIELD) return;
+
+    Vector2 pos{};
+    if (!FindBuffSpawnPoint(player->GetPosition(), pos)) return;
+    m_buffPickups.push_back(std::make_unique<BuffPickup>(pos, RollBuff()));
+}
+
+void GameController::RenderBuffPickups() const {
+    if (m_buffPickups.empty()) return;
+
+    for (const auto& orb : m_buffPickups) {
+        if (!orb || !orb->IsActive()) continue;
+        const BuffDef& def = GetBuffDef(orb->GetBuffType());
+        const Rectangle box = orb->GetBoundingBox();
+        const Vector2 world = { box.x + box.width * 0.5f,
+                                box.y + box.height * 0.5f + orb->GetBobOffset() };
+        const Vector2 screen = GetWorldToScreen2D(world, m_camera);
+        const float radius = box.width * 0.5f * m_camera.zoom;
+
+        // Fade and shrink over the last couple of seconds so an orb about to
+        // expire is readable at a glance.
+        const float life = orb->GetLifeRatio();
+        const float fade = (life < 0.2f) ? life / 0.2f : 1.0f;
+
+        DrawCircleV(screen, radius * 1.5f, Fade(def.color, 0.18f * fade));
+        DrawCircleV(screen, radius, Fade(def.color, 0.85f * fade));
+        DrawCircleLinesV(screen, radius, Fade(WHITE, 0.9f * fade));
+
+        const int fs = 12;
+        const int tw = MeasureText(def.name, fs);
+        DrawText(def.name, static_cast<int>(screen.x - tw * 0.5f),
+                 static_cast<int>(screen.y - radius - fs - 4), fs, Fade(WHITE, fade));
+    }
+}
+
+void GameController::RenderBuffHud() const {
+    if (!m_gameState) return;
+    const Player* player = m_gameState->GetLocalPlayer();
+    if (!player) return;
+    const auto& buffs = player->GetBuffs();
+    if (buffs.empty()) return;
+
+    // Stacked under the health bar, one row per running boon with a drain bar.
+    const int x = 18;
+    int y = 96;
+    for (const auto& b : buffs) {
+        const BuffDef& def = GetBuffDef(b.type);
+        const float ratio = (b.duration > 0.0f) ? b.timer / b.duration : 0.0f;
+        const int w = 132, h = 16;
+
+        DrawRectangle(x, y, w, h, Color{10, 8, 22, 190});
+        DrawRectangle(x, y, static_cast<int>(w * ratio), h, Fade(def.color, 0.55f));
+        DrawRectangleLines(x, y, w, h, Fade(def.color, 0.9f));
+        DrawText(def.name, x + 6, y + 3, 11, WHITE);
+
+        const std::string secs = std::to_string(static_cast<int>(b.timer + 0.99f)) + "s";
+        DrawText(secs.c_str(), x + w - MeasureText(secs.c_str(), 11) - 6, y + 3, 11,
+                 Fade(WHITE, 0.85f));
+        y += h + 4;
+    }
 }
 
 void GameController::UpdateNinjaTeleport(Player* player, float dt) {

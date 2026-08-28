@@ -9,8 +9,10 @@
 #include "MagicCasterSkillSet.h"
 #include "NinjaSkillSet.h"
 #include "Utils/Types.h"
+#include "Systems/BuffSystem.h"
 #include <string>
 #include <memory>
+#include <vector>
 
 class Player : public Character {
 public:
@@ -93,6 +95,36 @@ public:
     bool IsAttacking() const;
     bool IsParrying()  const;
 
+    // ── Skill cast lock ──────────────────────────────────────────────
+    // Skills whose effect lands after a wind-up (ninja Blade Rush, fighter
+    // Ultimate, magic Wave...) hold this lock for the wind-up. While it is
+    // held, no other skill may start, so a cast cannot be silently replaced
+    // half-way through and lose its projectile.
+    void BeginCast(float duration);
+    void CancelCast();
+    bool IsCasting() const { return m_castTimer > 0.0f; }
+    float GetCastRemaining() const { return m_castTimer; }
+    float GetCastDuration()  const { return m_castDuration; }
+    float GetCastProgress()  const {
+        return m_castDuration > 0.0f ? 1.0f - m_castTimer / m_castDuration : 1.0f;
+    }
+    // True when the player may start any new skill this frame.
+    bool CanStartSkill() const { return !IsDashing() && !IsParrying() && !IsCasting(); }
+
+    // ── Boons (boss arena buffs) ─────────────────────────────────────
+    void ApplyBuff(BuffType type);
+    void ClearBuffs() { m_buffs.clear(); }
+    const std::vector<ActiveBuff>& GetBuffs() const { return m_buffs; }
+    bool HasBuff(BuffType type) const;
+    // Read back as multipliers/fractions so callers stay unaware of the table.
+    float GetSpeedMultiplier()       const;  // Haste
+    float GetDamageMultiplier()      const;  // Power
+    float GetDamageTakenMultiplier() const;  // Aegis
+    float GetCooldownRateMultiplier()const;  // Adrenaline
+    float GetLifestealFraction()     const;  // Bloodthirst
+    // Called by the controller when this player's attack lands.
+    void OnDamageDealt(int damage);
+
     // Damage with parry reduction support
     void TakeDamage(int damage) override;
 
@@ -105,6 +137,10 @@ public:
 
 private:
     void InitSkills();
+
+    float m_castTimer    = 0.0f;
+    float m_castDuration = 0.0f;
+    std::vector<ActiveBuff> m_buffs;
 };
 
 #endif

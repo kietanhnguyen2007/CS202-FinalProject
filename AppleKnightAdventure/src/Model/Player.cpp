@@ -75,8 +75,30 @@ void Player::Update(float deltaTime) {
     }
     Character::Update(deltaTime);
 
-    // Tick skill set
-    if (m_skills) m_skills->Update(deltaTime);
+    // Boons tick first: Adrenaline changes how fast the skill set below recovers.
+    for (auto& b : m_buffs) {
+        b.timer -= deltaTime;
+        if (b.type == BuffType::SecondWind && IsAlive()) {
+            b.tickAccumulator += deltaTime * GetBuffDef(BuffType::SecondWind).magnitude;
+            const int whole = static_cast<int>(b.tickAccumulator);
+            if (whole > 0) {
+                b.tickAccumulator -= whole;
+                m_health = std::min(m_maxHealth, m_health + whole);
+            }
+        }
+    }
+    m_buffs.erase(std::remove_if(m_buffs.begin(), m_buffs.end(),
+                                 [](const ActiveBuff& b) { return b.timer <= 0.0f; }),
+                  m_buffs.end());
+
+    // Tick skill set at normal speed -- charge and active windows must keep
+    // their authored timing. Adrenaline only drains the cooldowns, applied as a
+    // separate extra tick below.
+    if (m_skills) {
+        m_skills->Update(deltaTime);
+        const float extra = (GetCooldownRateMultiplier() - 1.0f) * deltaTime;
+        if (extra > 0.0f) m_skills->TickCooldowns(extra);
+    }
 
     // Tick dash cooldown
     if (m_dashCooldown > 0.0f) {
@@ -107,6 +129,12 @@ void Player::Update(float deltaTime) {
     if (m_hurtTimer > 0.0f) {
         m_hurtTimer -= deltaTime;
         if (m_hurtTimer < 0.0f) m_hurtTimer = 0.0f;
+    }
+
+    // Tick the skill cast lock
+    if (m_castTimer > 0.0f) {
+        m_castTimer -= deltaTime;
+        if (m_castTimer < 0.0f) m_castTimer = 0.0f;
     }
 
     // ---- State machine (priority: Dead > Hurt > Dash > Parry > Attack > Jump/Fall > Walk/Run > Idle) ----
@@ -143,6 +171,8 @@ void Player::TakeDamage(int damage) {
     if (IsParrying()) {
         damage = static_cast<int>(damage * PARRY_DAMAGE_MULT);
     }
+    // Aegis stacks multiplicatively with parry rather than replacing it.
+    damage = static_cast<int>(damage * GetDamageTakenMultiplier());
 
     Character::TakeDamage(damage);
 
@@ -184,6 +214,83 @@ void Player::DoUltimate(float animationDuration) {
 
 bool Player::IsAttacking() const {
     return m_attackTimer > 0.0f;
+}
+
+// ---------- Boons ----------
+
+void Player::ApplyBuff(BuffType type) {
+    const BuffDef& def = GetBuffDef(type);
+
+    // Instant boons resolve here and leave nothing running.
+    if (type == BuffType::Vigor) {
+        const int heal = static_cast<int>(m_maxHealth * def.magnitude);
+        m_health = std::min(m_maxHealth, m_health + heal);
+        return;
+    }
+    if (type == BuffType::Focus) {
+        // Cooldowns live in the skill set; ClearCooldowns is its job.
+        if (auto* k = GetKnightSkills())  k->ClearCooldowns();
+        if (auto* f = GetFighterSkills()) f->ClearCooldowns();
+        if (auto* m = GetMagicSkills())   m->ClearCooldowns();
+        if (auto* n = GetNinjaSkills())   n->ClearCooldowns();
+        return;
+    }
+
+    // Re-picking a running boon refreshes it instead of stacking.
+    for (auto& b : m_buffs) {
+        if (b.type == type) {
+            b.timer = def.duration;
+            b.duration = def.duration;
+            return;
+        }
+    }
+    m_buffs.push_back({type, def.duration, def.duration, 0.0f});
+}
+
+bool Player::HasBuff(BuffType type) const {
+    for (const auto& b : m_buffs) {
+        if (b.type == type) return true;
+    }
+    return false;
+}
+
+float Player::GetSpeedMultiplier() const {
+    return HasBuff(BuffType::Haste)
+        ? 1.0f + GetBuffDef(BuffType::Haste).magnitude : 1.0f;
+}
+float Player::GetDamageMultiplier() const {
+    return HasBuff(BuffType::Power)
+        ? 1.0f + GetBuffDef(BuffType::Power).magnitude : 1.0f;
+}
+float Player::GetDamageTakenMultiplier() const {
+    return HasBuff(BuffType::Aegis)
+        ? 1.0f - GetBuffDef(BuffType::Aegis).magnitude : 1.0f;
+}
+float Player::GetCooldownRateMultiplier() const {
+    return HasBuff(BuffType::Adrenaline)
+        ? 1.0f + GetBuffDef(BuffType::Adrenaline).magnitude : 1.0f;
+}
+float Player::GetLifestealFraction() const {
+    return HasBuff(BuffType::Bloodthirst)
+        ? GetBuffDef(BuffType::Bloodthirst).magnitude : 0.0f;
+}
+
+void Player::OnDamageDealt(int damage) {
+    const float steal = GetLifestealFraction();
+    if (steal <= 0.0f || damage <= 0 || !IsAlive()) return;
+    const int heal = std::max(1, static_cast<int>(damage * steal));
+    m_health = std::min(m_maxHealth, m_health + heal);
+}
+
+void Player::BeginCast(float duration) {
+    if (duration <= 0.0f) return;
+    m_castTimer    = duration;
+    m_castDuration = duration;
+}
+
+void Player::CancelCast() {
+    m_castTimer    = 0.0f;
+    m_castDuration = 0.0f;
 }
 
 // ---------- Sprint ----------

@@ -173,17 +173,17 @@ std::unique_ptr<GameState> LevelFactory::LoadLevel(const std::string& filepath,
         } else if (token == "boss1") {
             float tx = 0.0f, ty = 0.0f, sx = 0.0f, sy = 0.0f;
             file >> tx >> ty >> sx >> sy;
-            auto boss = std::make_unique<Boss1>(Vector2{tx * TILE_SIZE, ty * TILE_SIZE}, Vector2{TILE_SIZE * 0.85f * 1.75f, TILE_SIZE * 1.683f * 1.75f});
+            auto boss = std::make_unique<Boss1>(Vector2{tx * TILE_SIZE, ty * TILE_SIZE}, Vector2{BOSS_BODY_WIDTH, BOSS_BODY_HEIGHT});
             state->AddEntity(std::move(boss));
         } else if (token == "boss2") {
             float tx = 0.0f, ty = 0.0f, sx = 0.0f, sy = 0.0f;
             file >> tx >> ty >> sx >> sy;
-            auto boss = std::make_unique<Boss2>(Vector2{tx * TILE_SIZE, ty * TILE_SIZE}, Vector2{TILE_SIZE * 0.85f * 1.75f, TILE_SIZE * 1.683f * 1.75f});
+            auto boss = std::make_unique<Boss2>(Vector2{tx * TILE_SIZE, ty * TILE_SIZE}, Vector2{BOSS_BODY_WIDTH, BOSS_BODY_HEIGHT});
             state->AddEntity(std::move(boss));
         } else if (token == "boss3") {
             float tx = 0.0f, ty = 0.0f, sx = 0.0f, sy = 0.0f;
             file >> tx >> ty >> sx >> sy;
-            auto boss = std::make_unique<Boss3>(Vector2{tx * TILE_SIZE, ty * TILE_SIZE}, Vector2{TILE_SIZE * 0.85f * 1.75f, TILE_SIZE * 1.683f * 1.75f});
+            auto boss = std::make_unique<Boss3>(Vector2{tx * TILE_SIZE, ty * TILE_SIZE}, Vector2{BOSS_BODY_WIDTH, BOSS_BODY_HEIGHT});
             state->AddEntity(std::move(boss));
         } else if (token == "chest") {
             float tx = 0.0f;
@@ -617,19 +617,19 @@ std::unique_ptr<GameState> LevelFactory::LoadLDtkLevel(const std::string& filepa
 
             // ── Bosses (size distinguishes Boss1/2 from Boss3) ────
             } else if (eid == "Boss1") {
-                auto boss = std::make_unique<Boss1>(pos, Vector2{TILE_SIZE * 0.85f * 1.75f, TILE_SIZE * 1.683f * 1.75f});
+                auto boss = std::make_unique<Boss1>(pos, Vector2{BOSS_BODY_WIDTH, BOSS_BODY_HEIGHT});
                 float patrol = (float)GetEntityFieldInt(ei, "PatrolRight", (int)wx + 400);
                 if (patrol > wx) boss->SetDetectionRange(patrol - wx);
                 state->AddEntity(std::move(boss));
                 ++autoEnemies;
             } else if (eid == "Boss2") {
-                auto boss = std::make_unique<Boss2>(pos, Vector2{TILE_SIZE * 0.85f * 1.75f, TILE_SIZE * 1.683f * 1.75f});
+                auto boss = std::make_unique<Boss2>(pos, Vector2{BOSS_BODY_WIDTH, BOSS_BODY_HEIGHT});
                 float patrol = (float)GetEntityFieldInt(ei, "PatrolRight", (int)wx + 400);
                 if (patrol > wx) boss->SetDetectionRange(patrol - wx);
                 state->AddEntity(std::move(boss));
                 ++autoEnemies;
             } else if (eid == "Boss3") {
-                auto boss = std::make_unique<Boss3>(pos, Vector2{TILE_SIZE * 0.85f * 1.75f, TILE_SIZE * 1.683f * 1.75f});
+                auto boss = std::make_unique<Boss3>(pos, Vector2{BOSS_BODY_WIDTH, BOSS_BODY_HEIGHT});
                 float patrol = (float)GetEntityFieldInt(ei, "PatrolRight", (int)wx + 500);
                 if (patrol > wx) boss->SetDetectionRange(patrol - wx);
                 state->AddEntity(std::move(boss));

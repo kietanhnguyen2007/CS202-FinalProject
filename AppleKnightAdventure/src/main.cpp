@@ -42,6 +42,10 @@ __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
 #endif
 
 int main() {
+    // Present in step with the display. SetTargetFPS alone only sleeps between
+    // frames, so frames still land mid-refresh and tear; the 3D arena shows it
+    // most because the camera pans continuously.
+    SetConfigFlags(FLAG_VSYNC_HINT);
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Apple Knight Adventure");
     SetExitKey(0); // Disable ESC to quit so we can use it for Pause Menu
     SetWindowState(FLAG_WINDOW_RESIZABLE);
@@ -283,7 +287,10 @@ int main() {
 
     while (!WindowShouldClose()) {
         WindowManager::GetInstance().Update();
-        float dt = GetFrameTime();
+        // Clamp the step. An unbounded dt after a hitch (asset upload, window
+        // move, alt-tab) makes everything teleport for one frame, which reads
+        // as a much worse stutter than the hitch itself.
+        float dt = std::min(GetFrameTime(), MAX_FRAME_DELTA);
         SoundManager::GetInstance().Update(dt);
         AchievementManager::GetInstance().Update(dt);
         Survival3D::SurvivalRunService::GetInstance().Update(dt);

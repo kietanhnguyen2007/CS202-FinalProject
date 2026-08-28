@@ -271,7 +271,7 @@ void Boss3::UpdateState(float deltaTime, Vector2 playerPos) {
 
 void Boss3::ExecuteMeleeAttack(Vector2 playerPos) {
     Attack();
-    m_wantsMelee = true;
+    BeginMeleeSwing();
 
     // Phase 4 Attack 1: Melee + Ground Animate placed slightly offset towards facing direction
     if (m_currentPhase == BossPhase::Phase4 && m_gameState) {

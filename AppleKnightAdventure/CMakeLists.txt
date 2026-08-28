@@ -49,6 +49,9 @@ target_link_libraries(AppleKnightAdventure PRIVATE
 # Fix for MinGW 14.2.0 / UCRT stat64i32 linking error with older raylib binary
 if(MINGW)
     target_link_options(AppleKnightAdventure PRIVATE "-Wl,--defsym,stat64i32=_stat64i32")
+    # Bundle the GCC/C++ runtime into the executable so it launches without
+    # C:\msys64\...\bin on PATH (double-click, VS Code, PowerShell, other PCs).
+    target_link_options(AppleKnightAdventure PRIVATE -static -static-libgcc -static-libstdc++)
 endif()
 
 # 9. Keep runtime assets in sync even when only an LDtk/image/audio file changes.
@@ -81,4 +84,7 @@ if(WIN32)
         nlohmann_json::nlohmann_json
         ws2_32
     )
+    if(MINGW)
+        target_link_options(AegisRiftServer PRIVATE -static -static-libgcc -static-libstdc++)
+    endif()
 endif()

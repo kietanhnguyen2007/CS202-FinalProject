@@ -65,7 +65,8 @@ void EntityRenderer::ClearOnEntityRemovedCallback(uint32_t entityId) {
 
 bool EntityRenderer::RegisterAnimated(const Entity* entity, const std::string& atlasPath,
                                        const std::string& startClip,
-                                       Vector2 origin, bool flipX) {
+                                       Vector2 origin, bool flipX,
+                                       bool centerOnBounds) {
     if (!entity) return false;
     uint32_t id = static_cast<uint32_t>(entity->GetId());
 
@@ -81,6 +82,7 @@ bool EntityRenderer::RegisterAnimated(const Entity* entity, const std::string& a
     ad.origin = origin;
     ad.flipX = flipX;
     ad.visible = true;
+    ad.centerOnBounds = centerOnBounds;
     ad.animator.SetTexture(ad.atlas->GetTexture());
     for (const auto& clipName : ad.atlas->GetClipNames()) {
         auto clip = ad.atlas->GetClip(clipName);
@@ -195,14 +197,25 @@ void EntityRenderer::RenderAll() {
 
         scale2d.x *= entity->GetScale();
         scale2d.y *= entity->GetScale();
-        
+
+        // DrawTexturePro subtracts the origin from the destination position, so a
+        // half-frame origin centers the drawn sprite on the collision box. Without
+        // it the frame's top-left corner sits on the box corner and wide, mostly
+        // transparent skill frames render offset down and to the right of the hit.
+        Vector2 drawOrigin = ad.origin;
+        if (ad.centerOnBounds && src.width > 0.0f && src.height > 0.0f) {
+            const Vector2 size = entity->GetSize();
+            drawOrigin.x += (src.width  * scale2d.x - size.x) * 0.5f;
+            drawOrigin.y += (src.height * scale2d.y - size.y) * 0.5f;
+        }
+
         View::Renderer::GetInstance().SubmitSprite(
             ad.animator.GetTexture(),
             src,
             renderPosition,
             scale2d,
             entity->GetRotation(),
-            ad.origin,
+            drawOrigin,
             WHITE,
             View::Layer::World,
             entity->GetZIndex(),

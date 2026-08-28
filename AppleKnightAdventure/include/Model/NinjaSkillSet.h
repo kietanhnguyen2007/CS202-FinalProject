@@ -44,6 +44,8 @@ public:
     static constexpr float CLONE_SPEED       = 420.0f;
     static constexpr float CLONE_RANGE       = 600.0f;
     void Update(float deltaTime) override;
+    void TickCooldowns(float deltaTime) override;
+    void ClearCooldowns() override;
 
     bool TryAttack1();
     bool TryAttack2();

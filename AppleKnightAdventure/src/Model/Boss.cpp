@@ -43,11 +43,24 @@ void Boss::Update(float deltaTime) {
     }
 
     m_phaseTimer += deltaTime;
-    
+
     if (m_cooldownTimer > 0.0f) {
         m_cooldownTimer -= deltaTime;
     }
-    
+
+    if (m_jumpCooldown > 0.0f) {
+        m_jumpCooldown -= deltaTime;
+    }
+
+    if (m_meleeWindow > 0.0f) {
+        m_meleeWindow -= deltaTime;
+        if (m_meleeWindow <= 0.0f) {
+            m_meleeWindow = 0.0f;
+            m_wantsMelee = false;
+            m_meleeHitIds.clear();
+        }
+    }
+
     if (m_damageTimer > 0.0f) {
         m_damageTimer -= deltaTime;
         if (m_damageTimer <= 0.0f) {
@@ -69,8 +82,10 @@ void Boss::ChangeState(BossState newState) {
     m_activeTimer = 0.0f;
     m_skillFired = false;
     
-    if (newState != BossState::Walk) {
-        m_velocity.x = 0.0f; // Stop horizontal movement when not walking
+    // Stop horizontal movement when not walking -- but never mid-air, or a boss
+    // that changes state during a leap drops straight into the gap it is crossing.
+    if (newState != BossState::Walk && m_isOnGround) {
+        m_velocity.x = 0.0f;
     }
     
     if (newState == BossState::Hurt) {
@@ -186,6 +201,9 @@ void Boss::ResetToPhase1() {
     m_superArmor = false;
     m_comboStep = 0;
     m_wantsMelee = false;
+    m_meleeWindow = 0.0f;
+    m_meleeHitIds.clear();
+    m_jumpCooldown = 0.0f;
     m_recentDamage = 0;
     m_damageTimer = 0.0f;
     m_velocity = {0.0f, 0.0f};
@@ -193,17 +211,53 @@ void Boss::ResetToPhase1() {
     m_state = Character::State::Idle;
 }
 
-void Boss::TryJump() {
-    if (!m_isOnGround) return;
-    m_velocity.y = PLAYER_JUMP_FORCE * 0.85f; // boss nhảy thấp hơn player 1 chút
+void Boss::BeginMeleeSwing(float window) {
+    m_wantsMelee = true;
+    m_meleeWindow = window;
+    m_meleeHitIds.clear();
+}
+
+bool Boss::HasMeleeHit(int targetId) const {
+    return std::find(m_meleeHitIds.begin(), m_meleeHitIds.end(), targetId) != m_meleeHitIds.end();
+}
+
+Rectangle Boss::GetMeleeHitBox() const {
+    const Rectangle body = GetBoundingBox();
+    // m_attackRange is the range the AI engages at, measured center-to-center.
+    // The swing itself covers a shorter, body-relative distance in front.
+    float reach = m_attackRange * BOSS_MELEE_REACH_RATIO;
+    reach = std::clamp(reach, body.width, body.width * 3.0f);
+
+    // A little vertical slack so a player on a ledge or mid-jump beside the
+    // boss is still inside the swing.
+    const float pad = body.height * 0.2f;
+    Rectangle box;
+    box.y = body.y - pad;
+    box.height = body.height + pad * 2.0f;
+    box.width = body.width + reach;
+    box.x = (m_direction == Direction::Left) ? body.x - reach : body.x;
+    return box;
+}
+
+void Boss::TryJump(float forwardDirX, float strength) {
+    if (!m_isOnGround || m_jumpCooldown > 0.0f) return;
+    m_velocity.y = PLAYER_JUMP_FORCE * 0.85f * strength;
+    // Carry horizontal speed into the leap; without it the boss hops in place
+    // and can never cross a gap or reach a ledge beside it.
+    if (forwardDirX != 0.0f) {
+        m_velocity.x = forwardDirX * m_speed * BOSS_CHASE_SPEED_MULT;
+    }
     m_isOnGround = false;
+    m_jumpCooldown = BOSS_JUMP_COOLDOWN;
 }
 
 bool Boss::HasWallAhead(float dirX) const {
     if (!m_gameState) return false;
     float checkX = m_position.x + (dirX > 0 ? m_size.x + 8.0f : -8.0f);
-    float checkY = m_position.y + m_size.y * 0.5f;
-    return IsPointSolid({checkX, checkY});
+    // Probe at chest and at shin height: a one-tile step should not read as a
+    // wall the boss has to jump over, but a real wall should.
+    return IsPointSolid({checkX, m_position.y + m_size.y * 0.35f})
+        || IsPointSolid({checkX, m_position.y + m_size.y * 0.75f});
 }
 
 bool Boss::HasGroundAhead(float dirX) const {
@@ -213,30 +267,64 @@ bool Boss::HasGroundAhead(float dirX) const {
     return IsPointSolid({checkX, checkY});
 }
 
-void Boss::NavigateToPlayer(Vector2 playerPos, float deltaTime) {
-    float dx = playerPos.x - (m_position.x + m_size.x * 0.5f);
-    float dy = playerPos.y - (m_position.y + m_size.y * 0.5f);
-    float dirX = (dx > 0) ? 1.0f : -1.0f;
-    
-    m_direction = (dx > 0) ? Direction::Right : Direction::Left;
-    
-    bool wallAhead = HasWallAhead(dirX);
-    bool groundAhead = HasGroundAhead(dirX);
-    
-    if (wallAhead) {
-        // Bị chặn ngang → thử nhảy nếu player ở trên
-        if (dy < -TILE_SIZE * 0.5f) TryJump();
-        // Nếu không nhảy được thì đứng im chờ
-    } else if (!groundAhead) {
-        // Không có ground phía trước → drop xuống (bước xuống cliff)
-        // Chỉ bước xuống nếu player thực sự ở dưới
-        if (dy > TILE_SIZE * 0.5f) MoveX(dirX, deltaTime);
-        // Nếu player ngang hoặc trên → không nhảy xuống vực
-    } else {
-        // Đường thông → đi bình thường
-        MoveX(dirX, deltaTime);
-        // Nếu player ở platform cao hơn và gần tường → nhảy
-        if (dy < -TILE_SIZE * 1.5f && m_isOnGround) TryJump();
+bool Boss::CanLeapGap(float dirX) const {
+    if (!m_gameState) return false;
+    // Scan forward for a landing surface within the distance a jump covers.
+    const float footY = m_position.y + m_size.y + 8.0f;
+    const float edgeX = m_position.x + (dirX > 0 ? m_size.x : 0.0f);
+    const float maxLeap = TILE_SIZE * 4.0f;
+    for (float d = TILE_SIZE * 0.5f; d <= maxLeap; d += TILE_SIZE * 0.5f) {
+        if (IsPointSolid({edgeX + dirX * d, footY})) return true;
     }
+    return false;
+}
+
+void Boss::NavigateToPlayer(Vector2 playerPos, float deltaTime) {
+    const float dx = playerPos.x - (m_position.x + m_size.x * 0.5f);
+    const float dy = playerPos.y - (m_position.y + m_size.y * 0.5f);
+    const float dirX = (dx > 0) ? 1.0f : -1.0f;
+
+    m_direction = (dx > 0) ? Direction::Right : Direction::Left;
+
+    // Airborne: keep steering toward the player. The ground probes below are
+    // meaningless mid-jump, and without air control the boss loses all
+    // horizontal speed the moment it leaves the ground.
+    if (!m_isOnGround) {
+        m_velocity.x = dirX * m_speed * BOSS_CHASE_SPEED_MULT;
+        return;
+    }
+
+    const bool wallAhead = HasWallAhead(dirX);
+    const bool groundAhead = HasGroundAhead(dirX);
+    const bool playerAbove = dy < -TILE_SIZE * 0.75f;
+    const bool playerBelow = dy > TILE_SIZE * 0.75f;
+
+    // Close the gap faster when far away, so the boss actually pressures the
+    // player instead of trailing behind at walking pace.
+    const float chase = (std::abs(dx) > TILE_SIZE * 3.0f) ? BOSS_CHASE_SPEED_MULT : 1.0f;
+
+    if (wallAhead) {
+        // Blocked. Hop the obstacle rather than standing still: the ledge may
+        // be a single step, and the player is often standing on top of it.
+        TryJump(dirX);
+        m_velocity.x = 0.0f;
+        return;
+    }
+
+    if (!groundAhead) {
+        if (playerBelow) {
+            MoveX(dirX * chase, deltaTime);   // drop down after the player
+        } else if (CanLeapGap(dirX)) {
+            TryJump(dirX);                    // leap across to keep chasing
+        } else {
+            m_velocity.x = 0.0f;              // real drop with no landing
+        }
+        return;
+    }
+
+    MoveX(dirX * chase, deltaTime);
+
+    // Player is on higher ground with a clear path: jump up to their level.
+    if (playerAbove) TryJump(dirX);
 }
 

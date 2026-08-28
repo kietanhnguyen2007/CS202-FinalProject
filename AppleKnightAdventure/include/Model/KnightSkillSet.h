@@ -49,6 +49,8 @@ public:
     bool m_isParrying = false;
 
     void Update(float deltaTime) override;
+    void TickCooldowns(float deltaTime) override;
+    void ClearCooldowns() override;
 
     // Returns true if the skill was successfully started
     bool TryAttack1();
