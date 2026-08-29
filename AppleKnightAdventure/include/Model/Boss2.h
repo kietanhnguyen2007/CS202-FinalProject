@@ -5,6 +5,10 @@
 
 class Boss2 : public Boss {
 public:
+    // Fights at range: a clear line on the player is enough to engage, so it
+    // never needs to path all the way in before it can do something.
+    bool HasRangedAttack() const override { return true; }
+
     Boss2(Vector2 position, Vector2 size);
     
     void UpdateState(float deltaTime, Vector2 playerPos) override;

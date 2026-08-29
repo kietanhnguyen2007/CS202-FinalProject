@@ -24,8 +24,9 @@ constexpr int BOSS_MAX_HEALTH = 500;
 constexpr float BOSS_SPEED = 90.0f;
 // Boss collision box, shared by every spawn path so the body, the melee hitbox
 // and the sprite stay in proportion. BOSS_BODY_SCALE trims the oversized 1.75
-// art factor down to 75%; CharacterRenderer applies the same 0.75 to the sprite.
-constexpr float BOSS_BODY_SCALE = 0.75f;
+// art factor; CharacterRenderer applies the same factor to the sprite. 0.75 * 0.9
+// -- bosses read 10% smaller than before without touching any of the art.
+constexpr float BOSS_BODY_SCALE = 0.675f;
 constexpr float BOSS_BODY_WIDTH  = TILE_SIZE * 0.85f  * 1.75f * BOSS_BODY_SCALE;
 constexpr float BOSS_BODY_HEIGHT = TILE_SIZE * 1.683f * 1.75f * BOSS_BODY_SCALE;
 // How far a melee swing reaches past the body, as a fraction of the boss's
@@ -35,6 +36,22 @@ constexpr float BOSS_MELEE_REACH_RATIO = 0.55f;
 // and how long it must wait between jumps.
 constexpr float BOSS_CHASE_SPEED_MULT = 1.55f;
 constexpr float BOSS_JUMP_COOLDOWN = 0.55f;
+// While a melee boss waits out its attack cooldown it keeps walking in until it
+// is this deep inside its own attack range, so being hit never roots it.
+constexpr float BOSS_HUG_RANGE_RATIO = 0.45f;
+// Distance the caster boss drifts back to between skills.
+constexpr float BOSS2_PREFERRED_RANGE = 320.0f;
+// Navigation brain. A boss that has asked to walk but covered less than
+// BOSS_STUCK_DISTANCE for BOSS_STUCK_TIME is wedged, and commits to an unstick
+// shove for BOSS_UNSTICK_TIME. Reachability is re-answered on an interval
+// because the flood fill is the expensive part of the whole AI.
+constexpr float BOSS_STUCK_DISTANCE = 2.0f;    // px covered before it counts as moving
+constexpr float BOSS_STUCK_TIME     = 0.55f;   // seconds of no progress = wedged
+constexpr float BOSS_UNSTICK_TIME   = 0.7f;    // seconds committed to the shove
+constexpr float BOSS_NAV_RECHECK_INTERVAL = 0.35f;
+// How long the boss keeps backing away once it decides the player is holed up
+// somewhere it can neither reach nor shoot into.
+constexpr float BOSS_RETREAT_TIME   = 2.0f;
 constexpr int INVENTORY_MAX_SLOTS = 24;
 constexpr int NETWORK_PORT = 54000;
 constexpr size_t NETWORK_BUFFER_SIZE = 4096;
@@ -57,6 +74,20 @@ constexpr float RANDOM_SPAWN_MAX_DISTANCE = 1100.0f;
 // Boss-arena boons: how often an orb drops and how many may wait at once.
 constexpr float BUFF_SPAWN_INTERVAL = 10.0f;
 constexpr int   BUFF_MAX_ON_FIELD   = 2;
+
+// Boon draft: while a boss fight is running, the fight freezes every so often
+// and offers three boons picked with 1/2/3. The first draft comes as soon as
+// the arena is entered plus this delay, then it repeats.
+// Elemental reactions land ten times harder on a boss. A boss carries thousands
+// of HP against a mob's tens, so without this a reaction that shreds a mob is
+// invisible on a boss and the whole element system stops mattering in the fight
+// it was built for. Plain elemental hits and damage-over-time are untouched --
+// only the reaction payoff is scaled.
+constexpr float ELEMENTAL_REACTION_BOSS_MULT = 10.0f;
+
+constexpr float BUFF_OFFER_MIN_DELAY = 10.0f;
+constexpr float BUFF_OFFER_MAX_DELAY = 15.0f;
+constexpr int   BUFF_OFFER_COUNT     = 3;
 
 // Largest step the simulation will take. A hitch is absorbed as a slow frame
 // rather than a teleport.

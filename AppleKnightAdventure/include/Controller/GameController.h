@@ -12,6 +12,7 @@
 #include "Model/BuffPickup.h"
 #include "Systems/CollisionSystem.h"
 #include "Systems/ParticleSystem.h"
+#include "Systems/ElementalSystem.h"
 #include "Utils/Types.h"
 #include "raylib.h"
 #include <memory>
@@ -108,13 +109,15 @@ private:
     void SpawnPlayerProjectile(const char* atlasPath, Vector2 spawnCenter, Direction dir,
                                int damage, float speed, float lifetime,
                                float scale = 0.3f, bool facesLeft = true,
-                               Vector2 hitboxSize = {0.0f, 0.0f});
+                               Vector2 hitboxSize = {0.0f, 0.0f},
+                               DamageType element = DamageType::Physical);
     // Center of the drawn player sprite, and the facing edge of its body. Skill
     // effects should originate here rather than at a corner of the physics box.
     static Vector2 PlayerSkillOrigin(const Player* player);
     void SpawnLightningAt(Vector2 targetPos, int damage, float lifetime,
                           const char* atlasPath = "assets/textures/player/magic_caster_v2/projectile_attack1_v2.json",
-                          float rotation = 0.0f, float scale = 0.4f);
+                          float rotation = 0.0f, float scale = 0.4f,
+                          DamageType element = DamageType::Physical);
     void UpdatePlayerProjectiles(float dt);
     void UpdateNinjaTeleport(Player* player, float dt);
 
@@ -135,6 +138,31 @@ private:
     std::vector<std::unique_ptr<BuffPickup>> m_buffPickups;
     float m_buffSpawnTimer = 0.0f;
 
+    // Boss-arena boon draft: every 10-15s the fight freezes and three boons are
+    // offered, chosen with 1/2/3. Separate from the orb drops above -- the orbs
+    // are ambient, this is the guaranteed pick.
+    void UpdateBuffOffer(float dt);
+    void RenderBuffOffer() const;
+    void OpenBuffOffer();
+    void TakeBuffOffer(int index);
+    float NextBuffOfferDelay() const;
+    bool  IsBuffOfferOpen() const { return m_buffOfferOpen; }
+    std::vector<BuffType> m_buffOffer;
+    float m_buffOfferTimer  = 0.0f;
+    bool  m_buffOfferOpen   = false;
+    float m_buffOfferAnim   = 0.0f;
+
+    // ---- Elemental combat ----
+    // Single funnel for every hit that carries an element: resolves the
+    // reaction, applies the scaled damage and floats the readout. Returns the
+    // damage actually dealt.
+    int ApplyElementalHit(Entity* target, int baseDamage, DamageType element);
+    // Ticks auras, drains their damage-over-time and pushes the resulting slow
+    // onto each affected character.
+    void UpdateElementalEffects(float dt);
+    // Kills any aura on an entity that is leaving the world.
+    void ClearElementalState(Entity* entity);
+
     // Player skill projectile list (separate from pet projectiles)
     std::vector<std::unique_ptr<Projectile>> m_playerProjectiles;
 
@@ -145,6 +173,7 @@ private:
     LevelScoring m_scoring;
     CollisionSystem m_collision;
     ParticleSystem m_particles;
+    ElementalSystem m_elemental;
 
     Camera2D m_camera{};
     Vector2 m_respawnPoint{0.0f, 0.0f};

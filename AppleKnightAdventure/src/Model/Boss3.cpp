@@ -156,7 +156,16 @@ void Boss3::UpdateState(float deltaTime, Vector2 playerPos) {
     
     if (dist <= m_detectionRange) {
         m_direction = (dx > 0) ? Direction::Right : Direction::Left;
-        
+
+        // Nothing this boss can do about the player from here -- no path in and
+        // no line to shoot down. Back out of their reach instead of feeding
+        // them free damage.
+        if (IsRetreating()) {
+            ChangeState(BossState::Walk);
+            NavigateToPlayer(playerPos, deltaTime);
+            return;
+        }
+
         if (m_cooldownTimer <= 0.0f) {
             if (m_currentPhase == BossPhase::Phase1 || m_currentPhase == BossPhase::Phase2) {
                 // Phase 1 & Phase 2: Melee Only
@@ -257,6 +266,12 @@ void Boss3::UpdateState(float deltaTime, Vector2 playerPos) {
 
             } else {
                 if (dist > m_attackRange) {
+                    ChangeState(BossState::Walk);
+                    NavigateToPlayer(playerPos, deltaTime);
+                } else if (m_cooldownTimer > 0.0f
+                           && dist > m_attackRange * BOSS_HUG_RANGE_RATIO) {
+                    // Keep pressing the player between skills rather than
+                    // standing still while it soaks hits.
                     ChangeState(BossState::Walk);
                     NavigateToPlayer(playerPos, deltaTime);
                 } else {

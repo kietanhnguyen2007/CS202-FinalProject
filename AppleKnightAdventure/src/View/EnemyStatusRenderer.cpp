@@ -73,15 +73,22 @@ void EnemyStatusRenderer::Render(const Camera2D& camera) {
         drawIcon(texFire, flags.burn, "B", ORANGE);
         drawIcon(texWater, flags.wet, "W", SKYBLUE);
         drawIcon(texLightning, flags.shocked, "S", YELLOW);
+        // Void has no icon in the status atlas, so it falls back to a swatch.
+        drawIcon(nullptr, flags.corroded, "V", Color{180, 110, 255, 255});
     }
 }
 
-void EnemyStatusRenderer::SetStatus(uint32_t entityId, const Vector2& worldPos, bool burn, bool wet, bool shocked) {
+void EnemyStatusRenderer::SetStatus(uint32_t entityId, const Vector2& worldPos,
+                                    bool burn, bool wet, bool shocked, bool corroded) {
     auto& s = m_status[entityId];
-    s.burn = burn; s.wet = wet; s.shocked = shocked;
-    if (burn) FloatingTextManager::GetInstance().Emit(worldPos, "BURN", ORANGE, 0.8f);
-    if (wet) FloatingTextManager::GetInstance().Emit(worldPos, "WET", SKYBLUE, 0.8f);
-    if (shocked) FloatingTextManager::GetInstance().Emit(worldPos, "SHOCKED", YELLOW, 0.8f);
+    // Only announce the moment a status turns on. This is called once per frame
+    // for every affected entity, so announcing on the flag itself would bury the
+    // screen in text for as long as the aura lasts.
+    if (burn     && !s.burn)     FloatingTextManager::GetInstance().Emit(worldPos, "THIEU DOT", ORANGE, 0.8f);
+    if (wet      && !s.wet)      FloatingTextManager::GetInstance().Emit(worldPos, "UOT SUNG", SKYBLUE, 0.8f);
+    if (shocked  && !s.shocked)  FloatingTextManager::GetInstance().Emit(worldPos, "TE LIET", YELLOW, 0.8f);
+    if (corroded && !s.corroded) FloatingTextManager::GetInstance().Emit(worldPos, "HU HOA", PURPLE, 0.8f);
+    s.burn = burn; s.wet = wet; s.shocked = shocked; s.corroded = corroded;
 }
 
 void EnemyStatusRenderer::ClearStatus(uint32_t entityId) {

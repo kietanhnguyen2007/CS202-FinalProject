@@ -42,6 +42,23 @@ protected:
     bool m_isOnGround = false;
     float m_jumpCooldown = 0.0f;
 
+    // ---- Navigation brain ----
+    // The boss re-answers one question a few times a second: can I still get to
+    // the player, or hit them from here? If not, it stops feeding itself to a
+    // player wedged in a nook and backs off instead.
+    bool  m_playerReachable  = true;
+    float m_navRecheckTimer  = 0.0f;
+    // Stuck detection: how long the boss has been asking to move and not
+    // actually moving. Pressed into a corner this used to last forever.
+    Vector2 m_lastNavPos     = {0.0f, 0.0f};
+    float m_stuckTimer       = 0.0f;
+    // While > 0 the boss is committed to an unstick shove in m_unstickDirX,
+    // ignoring the player so it does not walk straight back into the corner.
+    float m_unstickTimer     = 0.0f;
+    float m_unstickDirX      = 0.0f;
+    // While > 0 the boss is backing away from an unreachable player.
+    float m_retreatTimer     = 0.0f;
+
 public:
     Boss(Vector2 position, Vector2 size, int bossType);
     virtual ~Boss() = default;
@@ -94,6 +111,23 @@ public:
     void TryJump(float forwardDirX = 0.0f, float strength = 1.0f);
     bool HasWallAhead(float dirX) const;
     bool HasGroundAhead(float dirX) const;
+
+    // ---- Navigation brain ----
+    // True when the boss has a ranged answer, i.e. line of sight is enough to
+    // engage and it never needs to physically reach the player. Melee bosses
+    // leave this false and must path all the way in.
+    virtual bool HasRangedAttack() const { return false; }
+    // Can the boss still do anything about the player from where it is -- walk
+    // to them, or shoot them? Refreshed a few times a second by UpdateAI.
+    bool CanEngagePlayer() const { return m_playerReachable; }
+    bool IsRetreating() const { return m_retreatTimer > 0.0f; }
+    // Flood fill over the tiles the boss's body actually fits through, asking
+    // whether any standing spot in melee range of the player is walkable to.
+    bool CanReachPlayer(Vector2 playerPos) const;
+    // Walks away from the player and gives up the chase for a few seconds.
+    void RetreatFromPlayer(Vector2 playerPos, float deltaTime);
+    // Ticks reachability, stuck detection and the retreat timer.
+    void UpdateNavigation(Vector2 playerPos, float deltaTime);
     // True when there is a gap ahead that solid ground resumes after, i.e. the
     // boss can clear it with a running jump instead of stopping at the edge.
     bool CanLeapGap(float dirX) const;
@@ -115,6 +149,14 @@ public:
     // Helper functions
     bool CheckLineOfSight(Vector2 start, Vector2 end) const;
     bool IsPointSolid(Vector2 point) const;
+
+private:
+    // Tile footprint of the boss body, in whole tiles.
+    int FootprintWidth() const;
+    int FootprintHeight() const;
+    // (tx, ty) is the cell the boss's FEET sit in; the body extends upward.
+    bool BodyFitsAt(int tx, int ty) const;
+    bool IsStandable(int tx, int ty) const;
 };
 
 #endif

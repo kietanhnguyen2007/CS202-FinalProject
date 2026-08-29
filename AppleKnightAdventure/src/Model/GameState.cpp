@@ -89,7 +89,8 @@ int GameState::GetTotalLevels() const { return m_totalLevels; }
 
 void GameState::AddTile(MapLayer layer, const Tile& tile) { 
     if(static_cast<int>(layer) >= 0 && static_cast<int>(layer) < static_cast<int>(MapLayer::Count)) {
-        m_tiles[static_cast<int>(layer)].push_back(tile); 
+        m_tiles[static_cast<int>(layer)].push_back(tile);
+        InvalidateSolidGrid();
     }
 }
 
@@ -103,6 +104,7 @@ void GameState::SetTileAt(MapLayer layer, int x, int y, int tileType, int tileId
             t.tileId = tileId;
             t.solid = solid;
             t.flipFlags = flipFlags;
+            InvalidateSolidGrid();
             return;
         }
     }
@@ -110,6 +112,7 @@ void GameState::SetTileAt(MapLayer layer, int x, int y, int tileType, int tileId
     Tile t;
     t.x = x; t.y = y; t.tileType = tileType; t.tileId = tileId; t.solid = solid; t.flipFlags = flipFlags;
     m_tiles[static_cast<int>(layer)].push_back(t);
+    InvalidateSolidGrid();
 }
 
 void GameState::RemoveTileAt(MapLayer layer, int x, int y) {
@@ -117,6 +120,40 @@ void GameState::RemoveTileAt(MapLayer layer, int x, int y) {
     auto& tiles = m_tiles[static_cast<int>(layer)];
     tiles.erase(std::remove_if(tiles.begin(), tiles.end(),
         [x, y](const Tile& t) { return t.x == x && t.y == y; }), tiles.end());
+    InvalidateSolidGrid();
+}
+
+void GameState::RebuildSolidGrid() const {
+    // Size from the map bounds, but grow to cover any tile authored outside
+    // them -- a level file can carry geometry past the nominal map size.
+    int w = std::max(0, m_mapWidth);
+    int h = std::max(0, m_mapHeight);
+    for (const auto& t : m_tiles[static_cast<int>(MapLayer::Main)]) {
+        if (t.x >= w) w = t.x + 1;
+        if (t.y >= h) h = t.y + 1;
+    }
+
+    m_solidGridWidth  = w;
+    m_solidGridHeight = h;
+    m_solidGrid.assign(static_cast<size_t>(w) * static_cast<size_t>(h), false);
+
+    for (const auto& t : m_tiles[static_cast<int>(MapLayer::Main)]) {
+        if (!t.solid) continue;
+        if (t.x < 0 || t.y < 0 || t.x >= w || t.y >= h) continue;
+        m_solidGrid[static_cast<size_t>(t.y) * static_cast<size_t>(w)
+                    + static_cast<size_t>(t.x)] = true;
+    }
+    m_solidGridDirty = false;
+}
+
+bool GameState::IsSolidAt(int tileX, int tileY) const {
+    if (m_solidGridDirty) RebuildSolidGrid();
+    if (tileX < 0 || tileY < 0
+        || tileX >= m_solidGridWidth || tileY >= m_solidGridHeight) {
+        return false;
+    }
+    return m_solidGrid[static_cast<size_t>(tileY) * static_cast<size_t>(m_solidGridWidth)
+                       + static_cast<size_t>(tileX)];
 }
 
 const std::vector<Tile>& GameState::GetTiles(MapLayer layer) const {
@@ -130,12 +167,14 @@ const std::vector<Tile>& GameState::GetTiles(MapLayer layer) const {
 void GameState::ClearTiles(MapLayer layer) {
     if(static_cast<int>(layer) >= 0 && static_cast<int>(layer) < static_cast<int>(MapLayer::Count)) {
         m_tiles[static_cast<int>(layer)].clear();
+        InvalidateSolidGrid();
     }
 }
 
 void GameState::ClearAllTiles() {
     for (int i = 0; i < static_cast<int>(MapLayer::Count); ++i) {
         m_tiles[i].clear();
+        InvalidateSolidGrid();
     }
 }
 
@@ -197,6 +236,7 @@ void GameState::ResizeMap(int newWidth, int newHeight) {
         tiles.erase(std::remove_if(tiles.begin(), tiles.end(),
             [this](const Tile& t) { return t.x >= m_mapWidth || t.y >= m_mapHeight; }), tiles.end());
     }
+    InvalidateSolidGrid();
 }
 
 void GameState::ClearMap() {
@@ -206,6 +246,7 @@ int GameState::GetMapWidth() const { return m_mapWidth; }
 int GameState::GetMapHeight() const { return m_mapHeight; }
 void GameState::SetMapSize(int width, int height) {
     m_mapWidth = width;
+    InvalidateSolidGrid();
     m_mapHeight = height;
 }
 
@@ -333,6 +374,7 @@ void GameState::Clear() {
     m_secondLocalPlayer.reset();
     for(int i = 0; i < static_cast<int>(MapLayer::Count); ++i) {
         m_tiles[i].clear();
+        InvalidateSolidGrid();
     }
     m_nextEntityId = 1;
     m_clearTime = 0.0f;

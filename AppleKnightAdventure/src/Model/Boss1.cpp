@@ -132,7 +132,16 @@ void Boss1::UpdateState(float deltaTime, Vector2 playerPos) {
     
     if (dist <= m_detectionRange) {
         m_direction = (dx > 0) ? Direction::Right : Direction::Left;
-        
+
+        // The player is holed up somewhere this boss can neither walk to nor
+        // swing into. Backing off beats standing in their range taking free
+        // hits while flailing at a wall.
+        if (IsRetreating()) {
+            ChangeState(BossState::Walk);
+            NavigateToPlayer(playerPos, deltaTime);
+            return;
+        }
+
         if (m_cooldownTimer <= 0.0f) {
             if (dist > 300.0f && CheckLineOfSight(GetCenter(), playerPos)) {
                 // Dash Attack
@@ -153,6 +162,11 @@ void Boss1::UpdateState(float deltaTime, Vector2 playerPos) {
         }
         
         if (dist > m_attackRange) {
+            ChangeState(BossState::Walk);
+            NavigateToPlayer(playerPos, deltaTime);
+        } else if (m_cooldownTimer > 0.0f && dist > m_attackRange * BOSS_HUG_RANGE_RATIO) {
+            // Between swings the boss keeps closing instead of planting itself.
+            // Taking damage never roots it -- it just keeps coming.
             ChangeState(BossState::Walk);
             NavigateToPlayer(playerPos, deltaTime);
         } else {

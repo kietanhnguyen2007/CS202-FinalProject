@@ -80,18 +80,23 @@ enum class SkillType {
     UltimateMagicCaster
 };
 
+// The four elements the Magic Caster's skills carry, plus plain physical hits
+// which never react with anything.
 enum class DamageType {
     Physical,
-    Fire,
-    Water,
-    Thunder
+    Fire,     // K -- Hoa
+    Water,    // U -- Thuy
+    Thunder,  // J -- Loi
+    Void      // H -- Hu khong
 };
 
+// The aura an element leaves on a target. A target holds one at a time.
 enum class StatusEffect {
     None,
-    Burn,
-    Wet,
-    Shocked
+    Burn,     // from Fire
+    Wet,      // from Water
+    Shocked,  // from Thunder
+    Corroded  // from Void
 };
 
 enum class GameMode {

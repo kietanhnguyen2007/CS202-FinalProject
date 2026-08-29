@@ -245,6 +245,18 @@ void Boss2::UpdateState(float deltaTime, Vector2 playerPos) {
                 }
                 
                 MoveX(dirX, deltaTime);
+            } else if (dist > BOSS2_PREFERRED_RANGE) {
+                // Drifts back into casting range between skills instead of
+                // standing still while the player free-hits it.
+                ChangeState(BossState::Walk);
+                float dirX = (dx > 0) ? 1.0f : -1.0f;
+                float checkX = m_position.x + (dirX > 0 ? m_size.x + 10.0f : -10.0f);
+                float checkY = m_position.y + m_size.y + 10.0f;
+                if (!IsPointSolid({checkX, checkY})) {
+                    ChangeState(BossState::Idle);
+                } else {
+                    MoveX(dirX, deltaTime);
+                }
             } else {
                 ChangeState(BossState::Idle);
             }

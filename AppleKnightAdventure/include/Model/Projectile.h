@@ -15,6 +15,7 @@ protected:
     int       m_ownerId;
 
     // Homing (dragon fireball)
+    DamageType m_element         = DamageType::Physical;
     bool      m_isHoming         = false;
     Vector2   m_homingTargetPos  = {0, 0}; // updated each frame by controller
     float     m_homingStrength   = 280.0f; // steering force
@@ -46,6 +47,11 @@ public:
     int       m_subType          = 0;
     int       GetSubType() const { return m_subType; }
     void      SetSubType(int subType) { m_subType = subType; }
+
+    // Element carried into the hit. Physical never reacts with anything, so
+    // every projectile that is not explicitly elemental behaves as before.
+    DamageType GetElement() const { return m_element; }
+    void SetElement(DamageType element) { m_element = element; }
 
     // Homing
     bool IsHoming() const { return m_isHoming; }

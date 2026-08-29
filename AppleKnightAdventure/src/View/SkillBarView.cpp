@@ -5,6 +5,7 @@
 #include "Model/KnightSkillSet.h"
 #include "Model/FighterSkillSet.h"
 #include "Model/MagicCasterSkillSet.h"
+#include "Systems/ElementalSystem.h"
 #include "Model/NinjaSkillSet.h"
 #include <algorithm>
 #include <cmath>
@@ -137,6 +138,12 @@ void SkillBarView::Update(float dt, const Player* player, const Player* secondPl
         CopySkill(1, "K", skills->attack2.cooldownMax, skills->attack2.cooldownTimer, skills->attack2.isCharging, skills->attack2.isActive);
         CopySkill(2, "U", skills->attack3.cooldownMax, skills->attack3.cooldownTimer, skills->attack3.isCharging, skills->attack3.isActive);
         CopySkill(3, "H", skills->ultimate.cooldownMax, skills->ultimate.cooldownTimer, skills->ultimate.isCharging, skills->ultimate.isActive);
+        // The Magic Caster is the only elemental class, so its slots carry the
+        // element colour on the ready ring.
+        m_skills[0].element = GetElementProfile(MagicCasterSkillSet::ATTACK1_ELEMENT).color;
+        m_skills[1].element = GetElementProfile(MagicCasterSkillSet::ATTACK2_ELEMENT).color;
+        m_skills[2].element = GetElementProfile(MagicCasterSkillSet::ATTACK3_ELEMENT).color;
+        m_skills[3].element = GetElementProfile(MagicCasterSkillSet::ULTIMATE_ELEMENT).color;
     } else if (auto* skills = player->GetNinjaSkills()) {
         CopySkill(0, "J", skills->attack1.cooldownMax, skills->attack1.cooldownTimer, skills->attack1.isCharging, skills->attack1.isActive);
         CopySkill(1, "K", skills->attack2.cooldownMax, skills->attack2.cooldownTimer, skills->attack2.isCharging, skills->attack2.isActive);
@@ -288,10 +295,18 @@ void SkillBarView::Render() {
             DrawCentered(cooldown, center, std::max(12, static_cast<int>(17*scale)), WHITE);
         }
 
-        Color ring = ready ? Color{255,205,87,255} : Color{100,88,125,255};
+        const bool hasElement = skill.element.a > 0;
+        Color ring = ready ? (hasElement ? skill.element : Color{255,205,87,255})
+                           : Color{100,88,125,255};
         if (skill.charging) ring = Color{90,210,255,255};
         if (skill.active) ring = Color{255,120,62,255};
         ::DrawRing(center, drawRadius + 1*scale, drawRadius + 4*scale, 0, 360, 48, ring);
+        // A faint outer halo in the element colour, so the element is readable
+        // even while the skill is on cooldown.
+        if (hasElement) {
+            ::DrawRing(center, drawRadius + 4.5f*scale, drawRadius + 6.5f*scale, 0, 360, 48,
+                       Fade(skill.element, ready ? 0.55f : 0.28f));
+        }
         if (skill.charging) {
             ::DrawRing(center, drawRadius + 5*scale, drawRadius + 8*scale,
                        -90, -90 + std::fmod(m_time * 240.0f, 360.0f), 32, Color{120,226,255,230});

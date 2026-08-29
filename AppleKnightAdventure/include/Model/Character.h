@@ -28,6 +28,7 @@ protected:
     int m_health;
     int m_maxHealth;
     float m_speed;
+    float m_speedScale = 1.0f;
     Direction m_direction;
     float m_attackCooldown;
     float m_attackTimer;
@@ -50,6 +51,13 @@ public:
 
     float GetSpeed() const;
     void SetSpeed(float speed);
+
+    // Multiplier applied on top of the base speed by status effects (a Wet or
+    // Shocked target moves slower). Kept separate from m_speed so a slow can be
+    // lifted without having to remember what the base value was.
+    float GetSpeedScale() const { return m_speedScale; }
+    void SetSpeedScale(float scale) { m_speedScale = scale; }
+    float EffectiveSpeed() const { return m_speed * m_speedScale; }
 
     Direction GetDirection() const;
     void SetDirection(Direction direction);

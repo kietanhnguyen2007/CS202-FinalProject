@@ -22,6 +22,7 @@ Color ElementalFX::GetTintForEntity(uint32_t entityId) const {
         case DamageType::Fire: return (Color){255,160,64,255};
         case DamageType::Water: return (Color){128,200,255,255};
         case DamageType::Thunder: return (Color){255,255,128,255};
+        case DamageType::Void: return (Color){190,140,255,255};
         default: return WHITE;
     }
 }

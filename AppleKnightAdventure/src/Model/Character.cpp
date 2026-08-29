@@ -78,13 +78,13 @@ void Character::SetState(State state) { m_state = state; }
 
 // Move sets BOTH axes - only call this for directional movement where Y is intentional
 void Character::Move(Vector2 dir, float /*deltaTime*/) {
-    m_velocity.x = dir.x * m_speed;
-    m_velocity.y = dir.y * m_speed;
+    m_velocity.x = dir.x * EffectiveSpeed();
+    m_velocity.y = dir.y * EffectiveSpeed();
 }
 
 // MoveX sets ONLY horizontal velocity, leaving gravity (vel.y) untouched
 void Character::MoveX(float dirX, float /*deltaTime*/) {
-    m_velocity.x = dirX * m_speed;
+    m_velocity.x = dirX * EffectiveSpeed();
 }
 
 float Character::GetAttackCooldown() const { return m_attackCooldown; }

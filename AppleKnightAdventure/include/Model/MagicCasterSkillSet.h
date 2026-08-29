@@ -12,6 +12,13 @@
 // Ranged attacks spawn projectiles; Lightning teleports projectile to target position.
 class MagicCasterSkillSet : public CharacterSkillSet {
 public:
+    // Element each skill carries. These drive the reaction table in
+    // ElementalSystem -- J sets up, K and H detonate hardest.
+    static constexpr DamageType ATTACK1_ELEMENT  = DamageType::Thunder; // J - Loi
+    static constexpr DamageType ATTACK2_ELEMENT  = DamageType::Fire;    // K - Hoa
+    static constexpr DamageType ATTACK3_ELEMENT  = DamageType::Water;   // U - Thuy
+    static constexpr DamageType ULTIMATE_ELEMENT = DamageType::Void;    // H - Hu khong
+
     // V2 animation lengths. Cooldowns and damage remain gameplay-controlled.
     static constexpr float ATTACK1_ANIMATION_DURATION  = 0.72f;
     static constexpr float ATTACK2_ANIMATION_DURATION  = 0.72f;

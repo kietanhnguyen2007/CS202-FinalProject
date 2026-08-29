@@ -40,6 +40,14 @@ protected:
     std::vector<std::unique_ptr<Entity>> m_entities;
     std::vector<std::unique_ptr<Entity>> m_newEntities; // Buffer for dynamically added entities
     std::vector<Tile> m_tiles[static_cast<int>(MapLayer::Count)];
+    // Solid-tile grid for the Main layer. Mutable so IsSolidAt() stays const;
+    // every mutation of m_tiles or the map size marks it dirty.
+    mutable std::vector<bool> m_solidGrid;
+    mutable int  m_solidGridWidth  = 0;
+    mutable int  m_solidGridHeight = 0;
+    mutable bool m_solidGridDirty  = true;
+    void RebuildSolidGrid() const;
+    void InvalidateSolidGrid() { m_solidGridDirty = true; }
     int m_currentLevel;
     int m_totalLevels;
     int m_mapWidth = 0;
@@ -78,6 +86,10 @@ public:
     void SetTileAt(MapLayer layer, int x, int y, int tileType, int tileId, bool solid, int flipFlags);
     void RemoveTileAt(MapLayer layer, int x, int y);
     const std::vector<Tile>& GetTiles(MapLayer layer) const;
+    // O(1) solid lookup on the Main layer, backed by a grid rebuilt lazily
+    // whenever tiles change. Scanning GetTiles() for this is O(tiles) per query,
+    // which anything doing a flood fill or a raycast cannot afford.
+    bool IsSolidAt(int tileX, int tileY) const;
     void ClearTiles(MapLayer layer);
     void ClearAllTiles();
 

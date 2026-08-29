@@ -17,6 +17,9 @@ struct GameplaySkillSlot {
     float timer = 0.0f;
     bool charging = false;
     bool active = false;
+    // Element the skill carries, for the ready ring. BLANK means the class has
+    // no elements and the slot keeps the default gold ring.
+    Color element = BLANK;
 };
 
 struct GameplaySkillIcon {
