@@ -16,6 +16,7 @@ protected:
 
     // Homing (dragon fireball)
     DamageType m_element         = DamageType::Physical;
+    int       m_remainingPierce  = 0;
     bool      m_isHoming         = false;
     Vector2   m_homingTargetPos  = {0, 0}; // updated each frame by controller
     float     m_homingStrength   = 280.0f; // steering force
@@ -52,6 +53,19 @@ public:
     // every projectile that is not explicitly elemental behaves as before.
     DamageType GetElement() const { return m_element; }
     void SetElement(DamageType element) { m_element = element; }
+
+    // How many extra targets this projectile passes through before it dies.
+    // Granted by the Gravity Lens core; zero restores the old behaviour of
+    // despawning on the first thing it touches.
+    int  GetRemainingPierce() const { return m_remainingPierce; }
+    void SetRemainingPierce(int count) { m_remainingPierce = count; }
+    // Spends one pierce. False when there is none left and the projectile
+    // should despawn.
+    bool ConsumePierce() {
+        if (m_remainingPierce <= 0) return false;
+        --m_remainingPierce;
+        return true;
+    }
 
     // Homing
     bool IsHoming() const { return m_isHoming; }

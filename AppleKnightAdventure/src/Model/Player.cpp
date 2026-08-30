@@ -169,6 +169,10 @@ void Player::TakeDamage(int damage) {
     if (m_isInvincible) return;  // Dash invincibility
 
     if (IsParrying()) {
+        // Bulwark Oath turns the Knight's parry from a reduction into a full
+        // block, which is the whole point of the core -- so it returns before
+        // the hurt flash rather than dealing zero and still flinching.
+        if (m_cores.ParryBlocksEverything()) return;
         damage = static_cast<int>(damage * PARRY_DAMAGE_MULT);
     }
     // Aegis stacks multiplicatively with parry rather than replacing it.
@@ -286,21 +290,72 @@ bool Player::HasBuff(BuffType type) const {
     return false;
 }
 
+// Boon and core bonuses multiply together: a boon is a short burst on top of
+// whatever the run has permanently accumulated.
 float Player::GetSpeedMultiplier() const {
-    return HasBuff(BuffType::Haste)
+    const float boon = HasBuff(BuffType::Haste)
         ? 1.0f + GetBuffDef(BuffType::Haste).magnitude : 1.0f;
+    return boon * m_cores.SpeedMultiplier();
 }
 float Player::GetDamageMultiplier() const {
-    return HasBuff(BuffType::Power)
+    const float boon = HasBuff(BuffType::Power)
         ? 1.0f + GetBuffDef(BuffType::Power).magnitude : 1.0f;
+    const float healthFraction = m_maxHealth > 0
+        ? static_cast<float>(m_health) / m_maxHealth : 1.0f;
+    return boon * m_cores.DamageMultiplier()
+         * m_cores.WoundedDamageMultiplier(healthFraction);
 }
 float Player::GetDamageTakenMultiplier() const {
-    return HasBuff(BuffType::Aegis)
+    const float boon = HasBuff(BuffType::Aegis)
         ? 1.0f - GetBuffDef(BuffType::Aegis).magnitude : 1.0f;
+    return boon * m_cores.DamageTakenMultiplier();
 }
 float Player::GetCooldownRateMultiplier() const {
-    return HasBuff(BuffType::Adrenaline)
+    const float boon = HasBuff(BuffType::Adrenaline)
         ? 1.0f + GetBuffDef(BuffType::Adrenaline).magnitude : 1.0f;
+    return boon * m_cores.CooldownRateMultiplier();
+}
+
+void Player::AcquireCore(CoreId id) {
+    const int before = m_cores.GetStack(id);
+    m_cores.Add(id);
+    if (m_cores.GetStack(id) == before) return;   // already maxed
+
+    // Cores that change the health pool take effect immediately. Max HP is
+    // recomputed from the class base so stacking never compounds on itself.
+    const CoreDefinition& def = GetCoreDef(id);
+    if (id == CoreId::VitalCore) {
+        m_maxHealth += static_cast<int>(def.magnitude);
+        m_health = std::min(m_maxHealth, m_health + static_cast<int>(def.magnitude));
+    } else if (id == CoreId::RiftEssence) {
+        const int gain = std::max(1, static_cast<int>(m_maxHealth * def.magnitude));
+        m_maxHealth += gain;
+        m_health += gain;
+    } else if (id == CoreId::GlassRift) {
+        // The health cost is paid now; current HP is clamped but never dropped
+        // to zero by the trade itself.
+        m_maxHealth = std::max(1, static_cast<int>(m_maxHealth * 0.75f));
+        m_health = std::max(1, std::min(m_health, m_maxHealth));
+    }
+
+    // Class-locked cores that rewrite a skill's own numbers. These are one-shot
+    // (maxStacks 1), so editing the skill data in place cannot compound.
+    else if (id == CoreId::IronLunge) {
+        if (auto* k = GetKnightSkills()) {
+            k->attack2.damage = static_cast<int>(k->attack2.damage * (1.0f + def.magnitude));
+            k->m_lungeSpeed  *= 1.25f;
+        }
+    } else if (id == CoreId::OverchargedOrb) {
+        if (auto* f = GetFighterSkills()) {
+            f->ultimate.damage = static_cast<int>(f->ultimate.damage * (1.0f + def.magnitude));
+        }
+    } else if (id == CoreId::ShadowStep) {
+        if (auto* n = GetNinjaSkills()) {
+            n->attack3.cooldownMax *= (1.0f - def.magnitude);
+            n->attack3.cooldownTimer = std::min(n->attack3.cooldownTimer,
+                                                n->attack3.cooldownMax);
+        }
+    }
 }
 float Player::GetLifestealFraction() const {
     return HasBuff(BuffType::Bloodthirst)

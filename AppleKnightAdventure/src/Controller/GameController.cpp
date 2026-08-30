@@ -492,6 +492,18 @@ void GameController::StartLevel(int levelNumber) {
     m_paused = false;
     m_returnToMenu = false;
     m_running = true;
+    // Overlays never survive a level change. The cores themselves travel with
+    // the player (see PlayerSaveState); only the pending-draft bookkeeping is
+    // per level, so an unclaimed draft cannot pop up in the next one.
+    m_coreDraftOpen = false;
+    m_coreDraftBoss = false;
+    m_coreOffer.clear();
+    m_pendingCoreDrafts = 0;
+    m_killsTowardCore = 0;
+    m_buffOfferOpen = false;
+    m_buffOffer.clear();
+    m_codexOpen = false;
+    m_hitStopTimer = 0.0f;
     m_enemyAttackCooldown = 0.0f;
     m_footstepTimer = 0.0f;
     m_knownBossPhases.clear();
@@ -1108,28 +1120,18 @@ void GameController::UpdateCombat(Player* player, float dt, bool updateEnemyCool
             // as this did before infusions existed.
             const DamageType swingElement = player->GetAttackElement();
 
-            // A target rotted by the Void aura takes more from every source,
-            // physical swings included. An elemental swing gets this inside
-            // ApplyElementalHit instead, so it is not applied twice.
-            const int damage = (swingElement != DamageType::Physical)
-                ? baseDamage
-                : static_cast<int>(
-                      baseDamage * m_elemental.GetDamageTakenMultiplier(
-                                       static_cast<int>(entity->GetId())));
+            // Every swing goes through the elemental funnel, physical included.
+            // A physical hit reacts with nothing and leaves no aura, so it
+            // behaves as it always did -- but it still picks up the Void
+            // vulnerability and the on-hit cores, which live in there.
+            const int damage = baseDamage;
 
             if (entity->GetType() == EntityType::Enemy) {
                 auto* enemy = static_cast<Enemy*>(entity);
                 if (!RectOverlap(attackBox, enemy->GetBoundingBox())) continue;
                 if (enemy->GetState() == EnemyState::Hurt || enemy->GetState() == EnemyState::Dead) continue;
 
-                int dealt = damage;
-                if (swingElement != DamageType::Physical) {
-                    dealt = ApplyElementalHit(enemy, damage, swingElement);
-                } else {
-                    enemy->TakeDamage(damage);
-                    View::FloatingTextManager::GetInstance().Emit(
-                        enemy->GetPosition(), "-" + std::to_string(damage), YELLOW, 1.0f);
-                }
+                const int dealt = ApplyElementalHit(enemy, damage, swingElement);
                 SoundManager::GetInstance().PlaySound("enemy_hurt");
                 View::ParticleRenderer::GetInstance().EmitBurst(enemy->GetPosition(), 8, WHITE);
                 View::GameView::GetInstance().Shake(3.0f, 0.15f);
@@ -1144,14 +1146,7 @@ void GameController::UpdateCombat(Player* player, float dt, bool updateEnemyCool
                 if (!RectOverlap(attackBox, boss->GetBoundingBox())) continue;
                 if (!boss->IsAlive() || boss->GetBossState() == BossState::Hurt || boss->GetBossState() == BossState::Die || boss->GetBossState() == BossState::Transition) continue;
 
-                int dealt = damage;
-                if (swingElement != DamageType::Physical) {
-                    dealt = ApplyElementalHit(boss, damage, swingElement);
-                } else {
-                    boss->TakeDamage(damage);
-                    View::FloatingTextManager::GetInstance().Emit(
-                        boss->GetPosition(), "-" + std::to_string(damage), YELLOW, 1.0f);
-                }
+                const int dealt = ApplyElementalHit(boss, damage, swingElement);
                 SoundManager::GetInstance().PlaySound("boss_hurt");
                 View::ParticleRenderer::GetInstance().EmitBurst(boss->GetPosition(), 16, WHITE);
                 View::GameView::GetInstance().Shake(4.0f, 0.2f);
@@ -1314,6 +1309,20 @@ void GameController::UpdateCombat(Player* player, float dt, bool updateEnemyCool
                 NinjaSkillSet::BLADE_RUSH_SPEED,
                 NinjaSkillSet::BLADE_RUSH_RANGE / NinjaSkillSet::BLADE_RUSH_SPEED,
                 0.3f, false); // Ninja K sprite faces right by default
+
+            // Twin Blades core: a second, slower blade trails the first so the
+            // pair sweeps a lane rather than landing as one bigger hit.
+            if (player->GetCores().BladeRushIsTwin()) {
+                Vector2 trailing = PlayerSkillOrigin(player);
+                trailing.y += TWIN_BLADE_OFFSET_Y;
+                SpawnPlayerProjectile(
+                    "assets/textures/player/ninja_v2/projectile_attack2_v2.json",
+                    trailing, player->GetDirection(),
+                    ns->attack2.damage,
+                    NinjaSkillSet::BLADE_RUSH_SPEED * TWIN_BLADE_SPEED_SCALE,
+                    NinjaSkillSet::BLADE_RUSH_RANGE / NinjaSkillSet::BLADE_RUSH_SPEED,
+                    0.3f, false);
+            }
             ns->ResetBladeRush();
         }
         // Teleport
@@ -1455,7 +1464,9 @@ void GameController::UpdateCombat(Player* player, float dt, bool updateEnemyCool
                 if (proj->GetDirection() != Direction::None && proj->GetSubType() != 3) {
                     proj->OnHit();
                 }
-                if (!player->IsAlive()) RespawnPlayer(player, !m_localCoop);
+                if (!player->IsAlive() && !TryRevive(player)) {
+                    RespawnPlayer(player, !m_localCoop);
+                }
             }
             continue; // Skip the regular attack check for Projectiles
         }
@@ -1486,11 +1497,34 @@ void GameController::UpdateCombat(Player* player, float dt, bool updateEnemyCool
         }
         m_enemyAttackCooldown = 0.4f;
 
-        if (!player->IsAlive()) {
+        if (!player->IsAlive() && !TryRevive(player)) {
             RespawnPlayer(player, !m_localCoop);
         }
         break;
     }
+}
+
+// Second Wind core: the one death per run that does not send the player back to
+// a checkpoint. Deliberately not wired into Player::TakeDamage -- falling out of
+// the world also routes through that, and surviving a pit without being moved
+// back onto solid ground would leave the player falling forever.
+bool GameController::TryRevive(Player* player) {
+    if (!player) return false;
+    CoreLoadout& cores = player->GetCores();
+    if (!cores.CanRevive()) return false;
+
+    cores.ConsumeRevive();
+    player->SetHealth(std::max(1, static_cast<int>(player->GetMaxHealth()
+                                                  * cores.ReviveHealthFraction())));
+    SoundManager::GetInstance().PlaySound("boss_phase");
+    View::FloatingTextManager::GetInstance().Emit(
+        player->GetPosition(), GetCoreDef(CoreId::SecondWind).name,
+        RarityColor(CoreRarity::Legendary), 2.0f);
+    View::ParticleRenderer::GetInstance().EmitBurst(
+        player->GetPosition(), 36, RarityColor(CoreRarity::Legendary));
+    View::GameView::GetInstance().Shake(9.0f, 0.35f);
+    RequestHitStop(HITSTOP_MAX);
+    return true;
 }
 
 void GameController::UpdateItems(Player* player, float dt) {
@@ -1721,6 +1755,7 @@ void GameController::OnEntityRemoved(Entity* entity) {
             View::ParticleRenderer::GetInstance().EmitBurst(entity->GetPosition(), 20, RED);
             View::GameView::GetInstance().Shake(5.0f, 0.3f);
             AchievementManager::GetInstance().OnEnemyDefeated(entity->GetType() == EntityType::Boss);
+            OnEnemyDefeatedForCores(entity->GetType() == EntityType::Boss);
         }
     }
     ClearElementalState(entity);
@@ -1916,17 +1951,23 @@ void GameController::SavePlayerState(Player* player) {
     m_savedPlayerState.apples      = player->GetInventory().GetApples();
     m_savedPlayerState.keys        = player->GetInventory().GetKeys();
     m_savedPlayerState.tookDamage  = m_runTookDamage;
+    m_savedPlayerState.maxHealth   = player->GetMaxHealth();
+    m_savedPlayerState.cores       = player->GetCores();
     m_hasSavedState = true;
 }
 
 void GameController::RestorePlayerState(Player* player) {
     if (!player || !m_hasSavedState) return;
+    // Max HP first: SetHealth clamps to it, so restoring a VitalCore-inflated
+    // health value against the class default pool would silently cut it down.
+    if (m_savedPlayerState.maxHealth > 0) player->SetMaxHealth(m_savedPlayerState.maxHealth);
     player->SetHealth(m_savedPlayerState.health);
     player->SetScore(m_savedPlayerState.score);
     player->SetSkillPoints(m_savedPlayerState.skillPoints);
     player->GetInventory().AddCoins(m_savedPlayerState.coins);
     player->GetInventory().AddApples(m_savedPlayerState.apples);
     player->GetInventory().AddKeys(m_savedPlayerState.keys);
+    player->GetCores() = m_savedPlayerState.cores;
     m_runTookDamage = m_savedPlayerState.tookDamage;
 }
 
@@ -2066,6 +2107,14 @@ void GameController::Update(float dt) {
     // before anything simulates and swallows the rest of the frame while open.
     UpdateBuffOffer(dt);
     if (m_buffOfferOpen) {
+        View::GameView::GetInstance().Update(dt);
+        return;
+    }
+
+    // Core draft does the same. Checked after the boon draft so the two can
+    // never be open at once.
+    UpdateCoreDraft(dt);
+    if (m_coreDraftOpen) {
         View::GameView::GetInstance().Update(dt);
         return;
     }
@@ -2253,7 +2302,9 @@ void GameController::Render() {
 
     RenderBuffPickups();
     RenderBuffHud();
+    RenderCoreHud();
     RenderBuffOffer();
+    RenderCoreDraft();
     RenderElementCodex();
 
     if (m_localCoop && m_gameState) {
@@ -2902,11 +2953,13 @@ void GameController::SpawnPlayerProjectile(const char* atlasPath, Vector2 spawnC
     // Callers that name an element (the Magic Caster's skills) keep it. Everyone
     // else inherits whatever infusion the player is running, so a Ninja shuriken
     // sets up the same reactions a Fireball does.
-    proj->SetElement(element != DamageType::Physical
-                         ? element
-                         : (m_gameState->GetLocalPlayer()
-                                ? m_gameState->GetLocalPlayer()->GetAttackElement()
-                                : DamageType::Physical));
+    if (Player* owner = m_gameState->GetLocalPlayer()) {
+        proj->SetElement(element != DamageType::Physical
+                             ? element : owner->GetAttackElement());
+        proj->SetRemainingPierce(owner->GetCores().ProjectilePierceBonus());
+    } else {
+        proj->SetElement(element);
+    }
 
     // If sprite naturally faces Left, flip when moving Right.
     // If sprite naturally faces Right, flip when moving Left.
@@ -3119,7 +3172,15 @@ int GameController::ApplyElementalHit(Entity* target, int baseDamage, DamageType
 
     const int id = static_cast<int>(target->GetId());
     const bool isBoss = target->GetType() == EntityType::Boss;
-    const DamagePacket packet = ElementalSystem::ElementalPacket(baseDamage, element);
+
+    const Player* owner = m_gameState->GetLocalPlayer();
+    const CoreLoadout* cores = owner ? &owner->GetCores() : nullptr;
+
+    DamagePacket packet = ElementalSystem::ElementalPacket(baseDamage, element);
+    // Lingering Aura core: the element sticks longer, widening the window to
+    // come back and detonate it.
+    if (cores) packet.effectDuration *= cores->AuraDurationMultiplier();
+
     const ReactionResult reaction = m_elemental.ApplyHit(id, packet);
 
     // Boss health pools are an order of magnitude above a normal enemy's, so a
@@ -3127,9 +3188,22 @@ int GameController::ApplyElementalHit(Entity* target, int baseDamage, DamageType
     // and only reactions -- are scaled up to match, which makes setting up an
     // element and detonating it the way a caster fights a boss.
     int dealt = std::max(1, reaction.finalDamage);
-    if (isBoss && reaction.Reacted()) {
-        dealt = static_cast<int>(dealt * ELEMENTAL_REACTION_BOSS_MULT);
+
+    if (reaction.Reacted()) {
+        if (cores) dealt = static_cast<int>(dealt * cores->ReactionMultiplier());
+        if (isBoss) dealt = static_cast<int>(dealt * ELEMENTAL_REACTION_BOSS_MULT);
     }
+
+    // Execution core: a wounded target takes more from everything.
+    const auto* victim = static_cast<const Character*>(target);
+    if (cores && victim->GetMaxHealth() > 0) {
+        const float healthFraction =
+            static_cast<float>(victim->GetHealth()) / victim->GetMaxHealth();
+        if (healthFraction <= cores->ExecutionHealthThreshold()) {
+            dealt = static_cast<int>(dealt * cores->ExecutionMultiplier());
+        }
+    }
+    dealt = std::max(1, dealt);
 
     if (target->GetType() == EntityType::Enemy) {
         static_cast<Enemy*>(target)->TakeDamage(dealt);
@@ -3139,9 +3213,24 @@ int GameController::ApplyElementalHit(Entity* target, int baseDamage, DamageType
         return 0;
     }
 
-    const Color elementColor = GetElementProfile(element).color;
+    // Physical hits keep the old yellow readout; elemental ones take the
+    // element's colour so the two are told apart at a glance.
+    const Color elementColor = (element == DamageType::Physical)
+        ? YELLOW : GetElementProfile(element).color;
     View::FloatingTextManager::GetInstance().Emit(
         target->GetPosition(), "-" + std::to_string(dealt), elementColor, 1.0f);
+
+    if (cores) {
+        // Ember Edge: a chance to set the target burning regardless of what the
+        // hit itself carried. Applied directly rather than as a hit, so it
+        // seeds an aura instead of triggering a second reaction.
+        const float chance = cores->EmberEdgeChance();
+        if (chance > 0.0f && target->IsActive()
+            && (rand() % 1000) < static_cast<int>(chance * 1000.0f)) {
+            m_elemental.ApplyStatusEffect(
+                id, StatusEffect::Burn, GetElementProfile(DamageType::Fire).auraDuration);
+        }
+    }
 
     if (reaction.Reacted()) {
         // A reaction is the moment worth reading, so it gets its own line
@@ -3158,9 +3247,27 @@ int GameController::ApplyElementalHit(Entity* target, int baseDamage, DamageType
                                             isBoss ? 0.40f : 0.25f);
         SoundManager::GetInstance().PlaySound("boss_phase");
         RequestHitStop(isBoss ? HITSTOP_REACTION_BOSS : HITSTOP_REACTION);
-        SplashReaction(target, dealt, reaction);
+        // Rift Conflux core scales both how far the reaction reaches and how
+        // much of it the neighbours take.
+        const float splashScale = cores ? cores->SplashScale() : 1.0f;
+        SplashDamage(target,
+                     static_cast<int>(dealt * ELEMENTAL_SPLASH_SHARE * splashScale),
+                     ELEMENTAL_SPLASH_RADIUS * splashScale, reaction.displayColor);
     } else if (dealt >= HITSTOP_HEAVY_THRESHOLD) {
         RequestHitStop(HITSTOP_HEAVY_HIT);
+    }
+
+    // Chain Spark core: every sixth landed hit arcs to nearby enemies.
+    if (owner && m_gameState->GetLocalPlayer()
+        && m_gameState->GetLocalPlayer()->GetCores().Has(CoreId::ChainSpark)) {
+        if (m_gameState->GetLocalPlayer()->GetCores().RegisterHitAndCheckChain()) {
+            const Color sparkColor{255, 235, 110, 255};
+            SplashDamage(target,
+                         static_cast<int>(dealt * GetCoreDef(CoreId::ChainSpark).magnitude),
+                         CHAIN_SPARK_RADIUS, sparkColor);
+            View::ParticleRenderer::GetInstance().EmitBurst(
+                target->GetPosition(), 14, sparkColor);
+        }
     }
 
     // Tint the sprite with whatever aura it is left carrying -- which is not
@@ -3190,19 +3297,17 @@ int GameController::ApplyElementalHit(Entity* target, int baseDamage, DamageType
 // A reaction throws off enough energy to catch whoever is standing next to the
 // target. Splash never reacts on its own -- it deals a share of the damage and
 // leaves auras alone -- so a packed room cannot chain into a recursive blowup.
-void GameController::SplashReaction(Entity* epicenter, int reactionDamage,
-                                    const ReactionResult& reaction) {
-    if (!epicenter || !m_gameState || reactionDamage <= 0) return;
+void GameController::SplashDamage(Entity* epicenter, int splashDamage,
+                                  float radius, Color color) {
+    if (!epicenter || !m_gameState || splashDamage <= 0 || radius <= 0.0f) return;
 
-    const int splash = std::max(1, static_cast<int>(reactionDamage * ELEMENTAL_SPLASH_SHARE));
+    const int splash = std::max(1, splashDamage);
     const Rectangle hub = epicenter->GetBoundingBox();
     const Vector2 center = {hub.x + hub.width * 0.5f, hub.y + hub.height * 0.5f};
 
     // Broad phase over the splash square, then an exact radius test inside it.
-    const Rectangle splashBox = {center.x - ELEMENTAL_SPLASH_RADIUS,
-                                 center.y - ELEMENTAL_SPLASH_RADIUS,
-                                 ELEMENTAL_SPLASH_RADIUS * 2.0f,
-                                 ELEMENTAL_SPLASH_RADIUS * 2.0f};
+    const Rectangle splashBox = {center.x - radius, center.y - radius,
+                                 radius * 2.0f, radius * 2.0f};
     for (Entity* entity : QueryEntitiesInRect(splashBox)) {
         if (entity == epicenter) continue;
 
@@ -3211,7 +3316,7 @@ void GameController::SplashReaction(Entity* epicenter, int reactionDamage,
 
         const Rectangle box = entity->GetBoundingBox();
         const Vector2 other = {box.x + box.width * 0.5f, box.y + box.height * 0.5f};
-        if (Distance(center, other) > ELEMENTAL_SPLASH_RADIUS) continue;
+        if (Distance(center, other) > radius) continue;
 
         if (type == EntityType::Enemy) {
             auto* enemy = static_cast<Enemy*>(entity);
@@ -3228,9 +3333,8 @@ void GameController::SplashReaction(Entity* epicenter, int reactionDamage,
 
         View::FloatingTextManager::GetInstance().Emit(
             entity->GetPosition(), "-" + std::to_string(splash),
-            Fade(reaction.displayColor, 0.85f), 0.8f);
-        View::ParticleRenderer::GetInstance().EmitBurst(
-            entity->GetPosition(), 8, reaction.displayColor);
+            Fade(color, 0.85f), 0.8f);
+        View::ParticleRenderer::GetInstance().EmitBurst(entity->GetPosition(), 8, color);
     }
 }
 
@@ -3355,12 +3459,19 @@ void GameController::UpdatePlayerProjectiles(float dt) {
                 if (enemy->GetState() == EnemyState::Dead) continue;
                 if (!RectOverlap(proj->GetBoundingBox(), enemy->GetBoundingBox())) continue;
 
+                // Each target is hit at most once, so a piercing shot cannot
+                // tick the same enemy every frame while passing through it.
+                if (proj->HasHitEntity(enemy->GetId())) continue;
+                proj->MarkHitEntity(enemy->GetId());
+
                 ApplyElementalHit(enemy, proj->GetDamage(), proj->GetElement());
                 SoundManager::GetInstance().PlaySound("enemy_hurt");
                 View::ParticleRenderer::GetInstance().EmitBurst(enemy->GetPosition(), 8, ORANGE);
                 View::GameView::GetInstance().Shake(3.0f, 0.15f);
                 if (!enemy->IsActive()) OnEntityRemoved(enemy);
 
+                // Gravity Lens: carry on through if there is pierce left.
+                if (proj->ConsumePierce()) continue;
                 proj->OnHit();
                 break;
             } else if (e->GetType() == EntityType::Boss) {
@@ -3368,12 +3479,16 @@ void GameController::UpdatePlayerProjectiles(float dt) {
                 if (!boss->IsAlive() || boss->GetBossState() == BossState::Die || boss->GetBossState() == BossState::Transition) continue;
                 if (!RectOverlap(proj->GetBoundingBox(), boss->GetBoundingBox())) continue;
 
+                if (proj->HasHitEntity(boss->GetId())) continue;
+                proj->MarkHitEntity(boss->GetId());
+
                 ApplyElementalHit(boss, proj->GetDamage(), proj->GetElement());
                 SoundManager::GetInstance().PlaySound("boss_hurt");
                 View::ParticleRenderer::GetInstance().EmitBurst(boss->GetPosition(), 8, ORANGE);
                 View::GameView::GetInstance().Shake(3.0f, 0.15f);
                 if (!boss->IsActive()) OnEntityRemoved(boss);
 
+                if (proj->ConsumePierce()) continue;
                 proj->OnHit();
                 break;
             }
@@ -3518,7 +3633,7 @@ void GameController::UpdateBuffPickups(float dt) {
     if (!m_gameState) return;
 
     // Boons only exist during a boss fight.
-    if (!IsInBossArena()) {
+    if (!IsBossFightActive()) {
         if (!m_buffPickups.empty()) m_buffPickups.clear();
         m_buffSpawnTimer = BUFF_SPAWN_INTERVAL;
         return;
@@ -3588,6 +3703,239 @@ void GameController::RenderBuffPickups() const {
 // guaranteed reward -- the orbs above are ambient on top of it.
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Core draft. Survival3D hands out an upgrade choice every wave; the campaign
+// has no waves, so a draft is earned by clearing a run of enemies and by
+// killing a boss. What is picked is kept for the rest of the run.
+// ---------------------------------------------------------------------------
+
+void GameController::OnEnemyDefeatedForCores(bool wasBoss) {
+    if (wasBoss) {
+        // A boss is worth a draft on its own, rolled at boss rarity.
+        ++m_pendingCoreDrafts;
+        m_coreDraftBoss = true;
+        return;
+    }
+    if (++m_killsTowardCore >= CORE_DRAFT_KILL_INTERVAL) {
+        m_killsTowardCore = 0;
+        ++m_pendingCoreDrafts;
+    }
+}
+
+void GameController::OpenCoreDraft(bool bossReward) {
+    Player* player = m_gameState ? m_gameState->GetLocalPlayer() : nullptr;
+    if (!player) return;
+
+    const int classLock = static_cast<int>(player->GetCharacterClass());
+    m_coreOffer = player->GetCores().RollDraft(CORE_DRAFT_COUNT, bossReward, classLock);
+    if (m_coreOffer.empty()) {
+        // Everything is maxed out -- nothing to offer, so do not freeze the game
+        // on an empty panel.
+        m_pendingCoreDrafts = 0;
+        return;
+    }
+
+    m_coreDraftOpen = true;
+    m_coreDraftAnim = 0.0f;
+    m_gameState->SetTimerRunning(false);
+    SoundManager::GetInstance().PlaySound("boss_phase");
+}
+
+void GameController::TakeCoreOffer(int index) {
+    if (!m_coreDraftOpen) return;
+    if (index < 0 || index >= static_cast<int>(m_coreOffer.size())) return;
+
+    const CoreId chosen = m_coreOffer[index];
+    const CoreDefinition& def = GetCoreDef(chosen);
+
+    auto grant = [&](Player* p) {
+        if (!p) return;
+        // The draft is rolled for player one's class, so in co-op a class-locked
+        // core must not be handed to a partner of a different class -- its
+        // effect reaches into a skill set they do not have.
+        if (def.classLock >= 0
+            && def.classLock != static_cast<int>(p->GetCharacterClass())) {
+            return;
+        }
+        p->AcquireCore(chosen);
+        View::FloatingTextManager::GetInstance().Emit(
+            p->GetPosition(), def.name, RarityColor(def.rarity), 1.8f);
+    };
+    grant(m_gameState->GetLocalPlayer());
+    if (m_localCoop) grant(m_gameState->GetSecondLocalPlayer());
+
+    m_coreDraftOpen = false;
+    m_coreDraftBoss = false;
+    m_coreOffer.clear();
+    if (m_pendingCoreDrafts > 0) --m_pendingCoreDrafts;
+    m_gameState->SetTimerRunning(true);
+    SoundManager::GetInstance().PlaySound("item_pickup");
+}
+
+void GameController::UpdateCoreDraft(float dt) {
+    if (!m_gameState) return;
+
+    if (m_coreDraftOpen) {
+        m_coreDraftAnim += dt;
+        if (IsKeyPressed(KEY_X) || IsKeyPressed(KEY_ONE)   || IsKeyPressed(KEY_KP_1)) {
+            TakeCoreOffer(0);
+        } else if (IsKeyPressed(KEY_Y) || IsKeyPressed(KEY_TWO)   || IsKeyPressed(KEY_KP_2)) {
+            TakeCoreOffer(1);
+        } else if (IsKeyPressed(KEY_Z) || IsKeyPressed(KEY_THREE) || IsKeyPressed(KEY_KP_3)) {
+            TakeCoreOffer(2);
+        }
+        return;
+    }
+
+    if (m_pendingCoreDrafts <= 0) return;
+
+    // Held back until the player is alive and nothing else owns the screen, so
+    // a draft never opens over a death or another overlay.
+    const Player* player = m_gameState->GetLocalPlayer();
+    if (!player || !player->IsAlive()) return;
+    if (m_buffOfferOpen || m_codexOpen || m_paused) return;
+
+    OpenCoreDraft(m_coreDraftBoss);
+}
+
+void GameController::RenderCoreDraft() const {
+    if (!m_coreDraftOpen || m_coreOffer.empty()) return;
+
+    const int sw = GetScreenWidth();
+    const int sh = GetScreenHeight();
+
+    const float fade = std::min(1.0f, m_coreDraftAnim / 0.18f);
+    DrawRectangle(0, 0, sw, sh, Fade(Color{5, 4, 14, 255}, 0.80f * fade));
+
+    const char* title = m_coreDraftBoss ? "LOI BOSS - CHON MOT" : "CHON MOT LOI";
+    const int titleSize = 34;
+    DrawText(title, (sw - MeasureText(title, titleSize)) / 2,
+             static_cast<int>(sh * 0.18f), titleSize,
+             Fade(m_coreDraftBoss ? Color{255, 190, 75, 255} : WHITE, fade));
+
+    const char* hint = "Nhan X / Y / Z de chon    -    giu den het man";
+    DrawText(hint, (sw - MeasureText(hint, 16)) / 2,
+             static_cast<int>(sh * 0.18f) + titleSize + 10, 16,
+             Fade(Color{190, 190, 210, 255}, fade));
+
+    const int count = static_cast<int>(m_coreOffer.size());
+    const int cardW = 250, cardH = 238, gap = 26;
+    const int totalW = count * cardW + (count - 1) * gap;
+    const int startX = (sw - totalW) / 2;
+    const int cardY  = static_cast<int>(sh * 0.36f);
+
+    const Player* player = m_gameState ? m_gameState->GetLocalPlayer() : nullptr;
+
+    static const char* kKeys[] = {"X", "Y", "Z"};
+    for (int i = 0; i < count; ++i) {
+        const CoreDefinition& def = GetCoreDef(m_coreOffer[i]);
+        const Color accent = RarityColor(def.rarity);
+        const int x = startX + i * (cardW + gap);
+
+        const float appear = std::clamp((m_coreDraftAnim - i * 0.07f) / 0.22f, 0.0f, 1.0f);
+        const int y = cardY + static_cast<int>((1.0f - appear) * 28.0f);
+        const float a = appear * fade;
+
+        DrawRectangle(x, y, cardW, cardH, Fade(Color{13, 11, 28, 255}, 0.96f * a));
+        DrawRectangleLinesEx({(float)x, (float)y, (float)cardW, (float)cardH},
+                             2.0f, Fade(accent, a));
+        DrawRectangle(x, y, cardW, 7, Fade(accent, a));
+        // Legendary cards get an outer glow so the good pull is unmistakable.
+        if (def.rarity == CoreRarity::Legendary) {
+            DrawRectangleLinesEx({(float)x - 3, (float)y - 3,
+                                  (float)cardW + 6, (float)cardH + 6},
+                                 1.0f, Fade(accent, 0.45f * a));
+        }
+
+        // Key badge.
+        DrawCircle(x + 32, y + 44, 20.0f, Fade(accent, 0.20f * a));
+        DrawCircleLines(x + 32, y + 44, 20.0f, Fade(accent, a));
+        DrawText(kKeys[i], x + 32 - MeasureText(kKeys[i], 22) / 2, y + 33, 22,
+                 Fade(WHITE, a));
+
+        // Rarity label above the name.
+        DrawText(RarityName(def.rarity), x + 62, y + 26, 12, Fade(accent, a));
+        DrawText(def.name, x + 62, y + 42, 19, Fade(WHITE, a));
+
+        // Description, wrapped by hand at the card width.
+        const int descSize = 14;
+        std::string desc = def.description;
+        int lineY = y + 92;
+        while (!desc.empty()) {
+            size_t cut = desc.size();
+            while (cut > 0 && MeasureText(desc.substr(0, cut).c_str(), descSize) > cardW - 32) {
+                const size_t space = desc.rfind(' ', cut - 1);
+                if (space == std::string::npos) { --cut; break; }
+                cut = space;
+            }
+            DrawText(desc.substr(0, cut).c_str(), x + 16, lineY, descSize,
+                     Fade(Color{205, 205, 225, 255}, a));
+            lineY += descSize + 5;
+            desc = (cut < desc.size()) ? desc.substr(cut + 1) : std::string();
+        }
+
+        // Stack readout, so a repeat offer reads as an upgrade not a duplicate.
+        if (player && def.maxStacks > 1) {
+            const int held = player->GetCores().GetStack(def.id);
+            const std::string stack = "Dang co " + std::to_string(held)
+                                    + " / " + std::to_string(def.maxStacks);
+            DrawText(stack.c_str(), x + 16, y + cardH - 28, 13, Fade(accent, a));
+        }
+    }
+}
+
+// Compact list of the cores held this run, under the boon bars.
+void GameController::RenderCoreHud() const {
+    if (!m_gameState) return;
+    const Player* player = m_gameState->GetLocalPlayer();
+    if (!player || player->GetCores().Empty()) return;
+
+    const auto& cores = player->GetCores();
+    const int x = 18;
+    // Sits below the boon rows, which grow downward from y = 96.
+    int y = 96 + static_cast<int>(player->GetBuffs().size()) * 20 + 6;
+
+    for (CoreId id : cores.Owned()) {
+        const CoreDefinition& def = GetCoreDef(id);
+        const Color accent = RarityColor(def.rarity);
+        const int stack = cores.GetStack(id);
+
+        const std::string label = (stack > 1)
+            ? std::string(def.name) + " x" + std::to_string(stack)
+            : std::string(def.name);
+        const int w = std::max(132, MeasureText(label.c_str(), 11) + 16);
+
+        DrawRectangle(x, y, w, 15, Color{10, 8, 22, 175});
+        DrawRectangle(x, y, 3, 15, accent);
+        DrawText(label.c_str(), x + 8, y + 2, 11, Fade(WHITE, 0.92f));
+        y += 17;
+    }
+}
+
+bool GameController::IsBossFightActive() const {
+    if (!m_gameState) return false;
+    const Player* player = m_gameState->GetLocalPlayer();
+    if (!player || !player->IsAlive()) return false;
+
+    const Rectangle pb = player->GetBoundingBox();
+    const Vector2 playerCenter = {pb.x + pb.width * 0.5f, pb.y + pb.height * 0.5f};
+
+    for (const auto& entity : m_gameState->GetAllEntities()) {
+        if (!entity || !entity->IsActive()) continue;
+        if (entity->GetType() != EntityType::Boss) continue;
+
+        const auto* boss = static_cast<const Boss*>(entity.get());
+        if (!boss->IsAlive()) continue;
+
+        // Distance-gated so the timer does not run while the player is still
+        // making their way across the level toward the arena.
+        const Rectangle bb = boss->GetBoundingBox();
+        const Vector2 bossCenter = {bb.x + bb.width * 0.5f, bb.y + bb.height * 0.5f};
+        if (Distance(playerCenter, bossCenter) <= BOSS_FIGHT_ENGAGE_RANGE) return true;
+    }
+    return false;
+}
+
 float GameController::NextBuffOfferDelay() const {
     const float span = BUFF_OFFER_MAX_DELAY - BUFF_OFFER_MIN_DELAY;
     return BUFF_OFFER_MIN_DELAY + (static_cast<float>(rand() % 1001) / 1000.0f) * span;
@@ -3646,8 +3994,9 @@ void GameController::TakeBuffOffer(int index) {
 void GameController::UpdateBuffOffer(float dt) {
     if (!m_gameState) return;
 
-    // Only ever runs inside a boss arena; leaving one cancels a pending draft.
-    if (!IsInBossArena()) {
+    // Only runs while a boss fight is live; the boss dying or the player
+    // walking away cancels a pending draft.
+    if (!IsBossFightActive()) {
         if (m_buffOfferOpen) {
             m_buffOfferOpen = false;
             m_buffOffer.clear();
@@ -3659,9 +4008,15 @@ void GameController::UpdateBuffOffer(float dt) {
 
     if (m_buffOfferOpen) {
         m_buffOfferAnim += dt;
-        if (IsKeyPressed(KEY_ONE)   || IsKeyPressed(KEY_KP_1)) TakeBuffOffer(0);
-        else if (IsKeyPressed(KEY_TWO)   || IsKeyPressed(KEY_KP_2)) TakeBuffOffer(1);
-        else if (IsKeyPressed(KEY_THREE) || IsKeyPressed(KEY_KP_3)) TakeBuffOffer(2);
+        // X / Y / Z are the labelled keys; the number row still works as a
+        // fallback for anyone who reached for it out of habit.
+        if (IsKeyPressed(KEY_X) || IsKeyPressed(KEY_ONE)   || IsKeyPressed(KEY_KP_1)) {
+            TakeBuffOffer(0);
+        } else if (IsKeyPressed(KEY_Y) || IsKeyPressed(KEY_TWO)   || IsKeyPressed(KEY_KP_2)) {
+            TakeBuffOffer(1);
+        } else if (IsKeyPressed(KEY_Z) || IsKeyPressed(KEY_THREE) || IsKeyPressed(KEY_KP_3)) {
+            TakeBuffOffer(2);
+        }
         return;
     }
 
@@ -3688,7 +4043,7 @@ void GameController::RenderBuffOffer() const {
     DrawText(title, (sw - MeasureText(title, titleSize)) / 2,
              static_cast<int>(sh * 0.22f), titleSize, Fade(WHITE, fade));
 
-    const char* hint = "Nhan 1 / 2 / 3 de chon    -    C: bang phan ung nguyen to";
+    const char* hint = "Nhan X / Y / Z de chon    -    C: bang phan ung nguyen to";
     const int hintSize = 16;
     DrawText(hint, (sw - MeasureText(hint, hintSize)) / 2,
              static_cast<int>(sh * 0.22f) + titleSize + 10, hintSize,
@@ -3716,7 +4071,8 @@ void GameController::RenderBuffOffer() const {
         DrawRectangle(x, y, cardW, 6, Fade(def.color, a));
 
         // Key badge.
-        const std::string key = std::to_string(i + 1);
+        static const char* kOfferKeys[] = {"X", "Y", "Z"};
+        const std::string key = (i < 3) ? kOfferKeys[i] : std::to_string(i + 1);
         DrawCircle(x + 30, y + 40, 19.0f, Fade(def.color, 0.22f * a));
         DrawCircleLines(x + 30, y + 40, 19.0f, Fade(def.color, a));
         DrawText(key.c_str(), x + 30 - MeasureText(key.c_str(), 22) / 2, y + 29, 22,

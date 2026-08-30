@@ -13,6 +13,7 @@
 #include "Systems/CollisionSystem.h"
 #include "Systems/ParticleSystem.h"
 #include "Systems/ElementalSystem.h"
+#include "Systems/CoreSystem.h"
 #include "Utils/Types.h"
 #include "raylib.h"
 #include <memory>
@@ -40,6 +41,10 @@ struct PlayerSaveState {
     int   apples      = 0;
     int   keys        = 0;
     bool  tookDamage  = false;
+    // Cores are earned for the whole run, so they have to survive the round
+    // trip into a boss arena and back -- StartLevel builds a brand new Player.
+    int   maxHealth   = 0;
+    CoreLoadout cores;
 };
 
 class GameController {
@@ -126,6 +131,11 @@ private:
     void UpdateRandomEnemySpawns(float dt);
     bool FindRandomSpawnPoint(Vector2 playerPos, Vector2& outPos) const;
     bool IsInBossArena() const { return m_previousLevelId != -1; }
+    // True while the player is actually engaged with a live boss, whichever way
+    // they got to it. The boon systems key off this rather than IsInBossArena()
+    // -- a boss placed directly in a campaign level is just as much a boss
+    // fight as one behind an arena portal, and only the portal sets that flag.
+    bool IsBossFightActive() const;
 
     // Boss-arena boons: an orb drops every few seconds, the player picks which
     // one to run for. Owned here rather than in GameState so the rest of the
@@ -151,6 +161,28 @@ private:
     float m_buffOfferTimer  = 0.0f;
     bool  m_buffOfferOpen   = false;
     float m_buffOfferAnim   = 0.0f;
+
+    // ---- Core draft (run-long upgrades) ----
+    // The campaign counterpart of the Survival3D upgrade screen. A draft is
+    // earned by clearing enemies and by killing a boss, and what is picked is
+    // kept for the rest of the run rather than expiring like a boon.
+    void OpenCoreDraft(bool bossReward);
+    void UpdateCoreDraft(float dt);
+    void RenderCoreDraft() const;
+    void RenderCoreHud() const;
+    void TakeCoreOffer(int index);
+    void OnEnemyDefeatedForCores(bool wasBoss);
+    // Spends the Second Wind core if the player has one. True when the death
+    // was cancelled and no respawn should happen.
+    bool TryRevive(Player* player);
+    std::vector<CoreId> m_coreOffer;
+    bool  m_coreDraftOpen    = false;
+    bool  m_coreDraftBoss    = false;
+    float m_coreDraftAnim    = 0.0f;
+    int   m_killsTowardCore  = 0;
+    // Drafts earned but not yet shown, so two kills in one frame cannot lose a
+    // draft and a draft is never opened on top of another overlay.
+    int   m_pendingCoreDrafts = 0;
 
     // ---- Spatial broad phase ----
     // The quadtree in CollisionSystem was built but never fed. Combat queries
@@ -185,9 +217,10 @@ private:
     // reaction, applies the scaled damage and floats the readout. Returns the
     // damage actually dealt.
     int ApplyElementalHit(Entity* target, int baseDamage, DamageType element);
-    // Collateral damage from a reaction to everything standing near the target.
-    void SplashReaction(Entity* epicenter, int reactionDamage,
-                        const ReactionResult& reaction);
+    // Collateral damage to everything standing near the target. Shared by
+    // elemental reactions and the Chain Spark core. Never applies an aura, so
+    // it can never chain into itself.
+    void SplashDamage(Entity* epicenter, int splashDamage, float radius, Color color);
     // Ticks auras, drains their damage-over-time and pushes the resulting slow
     // onto each affected character.
     void UpdateElementalEffects(float dt);

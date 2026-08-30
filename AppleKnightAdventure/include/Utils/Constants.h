@@ -101,6 +101,20 @@ constexpr float HITSTOP_HEAVY_HIT       = 0.045f;
 // stutter the whole fight.
 constexpr int   HITSTOP_HEAVY_THRESHOLD = 40;
 
+// Core draft: how many ordinary kills earn a draft, and how many cores are
+// offered each time. A boss kill always earns one on its own, at boss rarity.
+constexpr float CHAIN_SPARK_RADIUS     = 150.0f;
+// Twin Blades: the second blade is offset and slower so the two read as a pair
+// sweeping a lane, not as one blade drawn twice.
+constexpr float TWIN_BLADE_OFFSET_Y    = 18.0f;
+constexpr float TWIN_BLADE_SPEED_SCALE = 0.78f;
+constexpr int CORE_DRAFT_KILL_INTERVAL = 8;
+constexpr int CORE_DRAFT_COUNT         = 3;
+
+// How close the player must be to a living boss for the fight to count as
+// engaged, which is what starts the boon timers.
+constexpr float BOSS_FIGHT_ENGAGE_RANGE = 900.0f;
+
 constexpr float BUFF_OFFER_MIN_DELAY = 10.0f;
 constexpr float BUFF_OFFER_MAX_DELAY = 15.0f;
 constexpr int   BUFF_OFFER_COUNT     = 3;

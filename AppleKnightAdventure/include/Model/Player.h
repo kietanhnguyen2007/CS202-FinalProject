@@ -10,6 +10,7 @@
 #include "NinjaSkillSet.h"
 #include "Utils/Types.h"
 #include "Systems/BuffSystem.h"
+#include "Systems/CoreSystem.h"
 #include <string>
 #include <memory>
 #include <vector>
@@ -125,6 +126,15 @@ public:
     // Element the player's ordinary attacks currently carry. Physical when no
     // infusion is running, which is the default and behaves exactly as before.
     DamageType GetAttackElement()    const;
+
+    // ── Cores (run-long upgrades) ────────────────────────────────────
+    // Boons above are timers that expire; cores are kept for the whole run and
+    // stack. Their modifiers are folded into the getters above, so callers do
+    // not need to know which of the two a bonus came from.
+    CoreLoadout&       GetCores()       { return m_cores; }
+    const CoreLoadout& GetCores() const { return m_cores; }
+    // Applies a drafted core, including any immediate effect it has on health.
+    void AcquireCore(CoreId id);
     // Called by the controller when this player's attack lands.
     void OnDamageDealt(int damage);
 
@@ -144,6 +154,7 @@ private:
     float m_castTimer    = 0.0f;
     float m_castDuration = 0.0f;
     std::vector<ActiveBuff> m_buffs;
+    CoreLoadout m_cores;
 };
 
 #endif
