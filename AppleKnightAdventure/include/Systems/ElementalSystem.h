@@ -64,6 +64,19 @@ const ElementProfile& GetElementProfile(DamageType type);
 const char* StatusEffectName(StatusEffect effect);
 Color StatusEffectColor(StatusEffect effect);
 
+// One row of the reaction table, exposed so the in-game codex quotes exactly
+// the numbers the simulation runs on instead of a copy that can drift.
+struct ReactionEntry {
+    StatusEffect existing;
+    DamageType   incoming;
+    float        multiplier;
+    StatusEffect result;
+    float        resultDuration;
+    const char*  name;
+    Color        color;
+};
+const std::vector<ReactionEntry>& ReactionTable();
+
 class ElementalSystem {
 protected:
     std::unordered_map<int, std::vector<StatusEffectInstance>> m_entityEffects;

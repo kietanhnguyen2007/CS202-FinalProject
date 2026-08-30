@@ -556,7 +556,11 @@ void GameController::StartLevel(int levelNumber) {
     if (levelNumber == 1 && path.find("tutorial.ldtk") != std::string::npos) {
         m_camera.target.y = mapHeight * 0.5f;
     }
-    m_collision.SetWorldBounds({0.0f, 0.0f, mapWidth, mapHeight});
+    // Padded generously: the quadtree drops anything that does not overlap its
+    // root, and entities legitimately sit outside the nominal map -- knocked
+    // back past an edge, or falling below the floor before they despawn.
+    const float pad = TILE_SIZE * 8.0f;
+    m_collision.SetWorldBounds({-pad, -pad, mapWidth + pad * 2.0f, mapHeight + pad * 2.0f});
 
     bool containsBoss = false;
     for (const auto& entity : m_gameState->GetAllEntities()) {
@@ -1095,51 +1099,70 @@ void GameController::UpdateCombat(Player* player, float dt, bool updateEnemyCool
         // Power and Bloodthirst boons apply to every skill uniformly, so they
         // are handled once here rather than at each skill's call site.
         baseDamage = static_cast<int>(baseDamage * player->GetDamageMultiplier());
-        for (auto& entity : m_gameState->GetAllEntities()) {
-            if (!entity || !entity->IsActive()) continue;
+        // Broad phase first: only entities whose box overlaps the swing are
+        // considered, instead of every entity in the level.
+        for (Entity* entity : QueryEntitiesInRect(attackBox)) {
+
+            // Element the player's swings currently carry. Physical with no
+            // infusion running, which reacts with nothing and behaves exactly
+            // as this did before infusions existed.
+            const DamageType swingElement = player->GetAttackElement();
 
             // A target rotted by the Void aura takes more from every source,
-            // physical swings included.
-            const int damage = static_cast<int>(
-                baseDamage * m_elemental.GetDamageTakenMultiplier(
-                                 static_cast<int>(entity->GetId())));
+            // physical swings included. An elemental swing gets this inside
+            // ApplyElementalHit instead, so it is not applied twice.
+            const int damage = (swingElement != DamageType::Physical)
+                ? baseDamage
+                : static_cast<int>(
+                      baseDamage * m_elemental.GetDamageTakenMultiplier(
+                                       static_cast<int>(entity->GetId())));
 
             if (entity->GetType() == EntityType::Enemy) {
-                auto* enemy = static_cast<Enemy*>(entity.get());
+                auto* enemy = static_cast<Enemy*>(entity);
                 if (!RectOverlap(attackBox, enemy->GetBoundingBox())) continue;
                 if (enemy->GetState() == EnemyState::Hurt || enemy->GetState() == EnemyState::Dead) continue;
 
-                enemy->TakeDamage(damage);
+                int dealt = damage;
+                if (swingElement != DamageType::Physical) {
+                    dealt = ApplyElementalHit(enemy, damage, swingElement);
+                } else {
+                    enemy->TakeDamage(damage);
+                    View::FloatingTextManager::GetInstance().Emit(
+                        enemy->GetPosition(), "-" + std::to_string(damage), YELLOW, 1.0f);
+                }
                 SoundManager::GetInstance().PlaySound("enemy_hurt");
-                View::FloatingTextManager::GetInstance().Emit(
-                    enemy->GetPosition(), "-" + std::to_string(damage), YELLOW, 1.0f);
                 View::ParticleRenderer::GetInstance().EmitBurst(enemy->GetPosition(), 8, WHITE);
                 View::GameView::GetInstance().Shake(3.0f, 0.15f);
 
-                player->OnDamageDealt(damage);
+                player->OnDamageDealt(dealt);
 
 
                 if (!enemy->IsActive()) OnEntityRemoved(enemy);
-            } 
+            }
             else if (entity->GetType() == EntityType::Boss) {
-                auto* boss = static_cast<Boss*>(entity.get());
+                auto* boss = static_cast<Boss*>(entity);
                 if (!RectOverlap(attackBox, boss->GetBoundingBox())) continue;
                 if (!boss->IsAlive() || boss->GetBossState() == BossState::Hurt || boss->GetBossState() == BossState::Die || boss->GetBossState() == BossState::Transition) continue;
 
-                boss->TakeDamage(damage);
+                int dealt = damage;
+                if (swingElement != DamageType::Physical) {
+                    dealt = ApplyElementalHit(boss, damage, swingElement);
+                } else {
+                    boss->TakeDamage(damage);
+                    View::FloatingTextManager::GetInstance().Emit(
+                        boss->GetPosition(), "-" + std::to_string(damage), YELLOW, 1.0f);
+                }
                 SoundManager::GetInstance().PlaySound("boss_hurt");
-                View::FloatingTextManager::GetInstance().Emit(
-                    boss->GetPosition(), "-" + std::to_string(damage), YELLOW, 1.0f);
                 View::ParticleRenderer::GetInstance().EmitBurst(boss->GetPosition(), 16, WHITE);
                 View::GameView::GetInstance().Shake(4.0f, 0.2f);
-                
-                player->OnDamageDealt(damage);
 
-                
+                player->OnDamageDealt(dealt);
+
+
                 if (!boss->IsActive()) OnEntityRemoved(boss);
             }
             else if (entity->GetType() == EntityType::FakeWall) {
-                auto* wall = static_cast<FakeWall*>(entity.get());
+                auto* wall = static_cast<FakeWall*>(entity);
                 if (!RectOverlap(attackBox, wall->GetBoundingBox())) continue;
                 if (wall->IsDestroyed()) continue;
 
@@ -1931,6 +1954,18 @@ void GameController::Update(float dt) {
         View::MinimapView::GetInstance().ToggleVisible();
         SoundManager::GetInstance().PlaySound("ui_confirm");
     }
+
+    // Reaction reference. Freezes the game like the pause menu does, so it can
+    // be read mid-fight without dying to it.
+    if (!m_paused && !m_buffOfferOpen && IsKeyPressed(KEY_C)) {
+        m_codexOpen = !m_codexOpen;
+        m_gameState->SetTimerRunning(!m_codexOpen);
+        SoundManager::GetInstance().PlaySound("ui_confirm");
+    }
+    if (m_codexOpen) {
+        View::GameView::GetInstance().Update(dt);
+        return;
+    }
     View::MinimapView::GetInstance().Update(
         dt, m_gameState.get(), m_gameState->GetLocalPlayer(),
         m_localCoop ? m_gameState->GetSecondLocalPlayer() : nullptr);
@@ -2035,6 +2070,17 @@ void GameController::Update(float dt) {
         return;
     }
 
+    // Hit-stop. The simulation holds on the contact frame while the view keeps
+    // animating, so particles and floating text still play over the frozen
+    // world and the pause reads as impact rather than as a dropped frame.
+    if (m_hitStopTimer > 0.0f) {
+        m_hitStopTimer -= dt;
+        // GameView::Update drives the floating text and camera shake, so those
+        // keep playing over the held frame.
+        View::GameView::GetInstance().Update(dt);
+        return;
+    }
+
     if (!View::UIStateManager::GetInstance().IsOverlayActive()) {
         HandlePlayerInput(m_gameState->GetLocalPlayer(), playerOneCmd, dt);
         UpdateInteractions(m_gameState->GetLocalPlayer(), playerOneCmd);
@@ -2104,6 +2150,11 @@ void GameController::Update(float dt) {
     if (secondPlayer && secondPlayer->IsActive()) {
         ResolveTileCollisions(secondPlayer, dt);
     }
+
+    // Everything has finished moving for this frame, and no entity is removed
+    // until after combat -- the one window where a cached spatial index is
+    // both accurate and safe.
+    RebuildSpatialIndex();
 
     UpdateCombat(player, dt, true);
     if (secondPlayer) UpdateCombat(secondPlayer, dt, false);
@@ -2203,6 +2254,7 @@ void GameController::Render() {
     RenderBuffPickups();
     RenderBuffHud();
     RenderBuffOffer();
+    RenderElementCodex();
 
     if (m_localCoop && m_gameState) {
         auto drawPlayerMarker = [&](Player* localPlayer, const char* label, Color color,
@@ -2847,7 +2899,14 @@ void GameController::SpawnPlayerProjectile(const char* atlasPath, Vector2 spawnC
     float vx = (dir == Direction::Right) ? speed : -speed;
     proj->SetVelocity({vx, 0.0f});
     proj->SetScale(scale);
-    proj->SetElement(element);
+    // Callers that name an element (the Magic Caster's skills) keep it. Everyone
+    // else inherits whatever infusion the player is running, so a Ninja shuriken
+    // sets up the same reactions a Fireball does.
+    proj->SetElement(element != DamageType::Physical
+                         ? element
+                         : (m_gameState->GetLocalPlayer()
+                                ? m_gameState->GetLocalPlayer()->GetAttackElement()
+                                : DamageType::Physical));
 
     // If sprite naturally faces Left, flip when moving Right.
     // If sprite naturally faces Right, flip when moving Left.
@@ -2895,10 +2954,9 @@ void GameController::SpawnLightningAt(Vector2 targetPos, int damage, float lifet
     // We use a logical 60x60 hitbox centered on the intended target, 
     // rather than the visual projectile's bounding box which might be offset.
     Rectangle hitBox = { targetPos.x - 30.0f, targetPos.y - 30.0f, 60.0f, 60.0f };
-    for (auto& e : m_gameState->GetAllEntities()) {
-        if (!e || !e->IsActive()) continue;
+    for (Entity* e : QueryEntitiesInRect(hitBox)) {
         if (e->GetType() == EntityType::Enemy) {
-            auto* enemy = static_cast<Enemy*>(e.get());
+            auto* enemy = static_cast<Enemy*>(e);
             if (enemy->GetState() == EnemyState::Dead) continue;
             if (!RectOverlap(hitBox, enemy->GetBoundingBox())) continue;
             ApplyElementalHit(enemy, damage, element);
@@ -2907,7 +2965,7 @@ void GameController::SpawnLightningAt(Vector2 targetPos, int damage, float lifet
             View::GameView::GetInstance().Shake(4.0f, 0.2f);
             if (!enemy->IsActive()) OnEntityRemoved(enemy);
         } else if (e->GetType() == EntityType::Boss) {
-            auto* boss = static_cast<Boss*>(e.get());
+            auto* boss = static_cast<Boss*>(e);
             if (!boss->IsAlive() || boss->GetBossState() == BossState::Die || boss->GetBossState() == BossState::Transition) continue;
             if (!RectOverlap(hitBox, boss->GetBoundingBox())) continue;
             ApplyElementalHit(boss, damage, element);
@@ -2919,6 +2977,137 @@ void GameController::SpawnLightningAt(Vector2 targetPos, int damage, float lifet
     }
 
     m_playerProjectiles.push_back(std::move(proj));
+}
+
+void GameController::RebuildSpatialIndex() {
+    if (!m_gameState) return;
+    std::vector<Entity*> live;
+    live.reserve(m_gameState->GetAllEntities().size());
+    for (const auto& e : m_gameState->GetAllEntities()) {
+        if (e && e->IsActive()) live.push_back(e.get());
+    }
+    m_collision.Rebuild(live);
+}
+
+std::vector<Entity*> GameController::QueryEntitiesInRect(Rectangle range) const {
+    std::vector<Entity*> result;
+    for (Entity* e : m_collision.QueryRange(range)) {
+        if (!e || !e->IsActive()) continue;
+        // A node can hold the same entity in more than one leaf.
+        if (std::find(result.begin(), result.end(), e) != result.end()) continue;
+        result.push_back(e);
+    }
+    return result;
+}
+
+// The reaction reference, opened with C. Reads the live table so it can never
+// disagree with what the simulation actually does.
+void GameController::RenderElementCodex() const {
+    if (!m_codexOpen) return;
+
+    const int sw = GetScreenWidth();
+    const int sh = GetScreenHeight();
+    DrawRectangle(0, 0, sw, sh, Color{6, 5, 16, 232});
+
+    const int panelW = std::min(940, sw - 60);
+    const int panelH = std::min(620, sh - 60);
+    const int px = (sw - panelW) / 2;
+    const int py = (sh - panelH) / 2;
+
+    DrawRectangle(px, py, panelW, panelH, Color{14, 12, 30, 245});
+    DrawRectangleLinesEx({(float)px, (float)py, (float)panelW, (float)panelH},
+                         2.0f, Color{120, 110, 190, 255});
+
+    const char* title = "PHAN UNG NGUYEN TO";
+    DrawText(title, px + (panelW - MeasureText(title, 28)) / 2, py + 18, 28, WHITE);
+    const char* hint = "C de dong";
+    DrawText(hint, px + panelW - MeasureText(hint, 14) - 18, py + 26, 14,
+             Color{170, 170, 195, 255});
+
+    // Element legend: which key casts which element, and the aura it leaves.
+    int y = py + 62;
+    struct LegendRow { const char* key; DamageType element; };
+    static const LegendRow legend[] = {
+        {"J", DamageType::Thunder},
+        {"K", DamageType::Fire},
+        {"U", DamageType::Water},
+        {"H", DamageType::Void},
+    };
+    const int legendW = (panelW - 40) / 4;
+    for (int i = 0; i < 4; ++i) {
+        const ElementProfile& p = GetElementProfile(legend[i].element);
+        const int x = px + 20 + i * legendW;
+        DrawRectangle(x, y, legendW - 10, 54, Fade(p.color, 0.14f));
+        DrawRectangleLinesEx({(float)x, (float)y, (float)legendW - 10, 54.0f},
+                             1.0f, Fade(p.color, 0.8f));
+        DrawText(legend[i].key, x + 10, y + 8, 20, WHITE);
+        DrawText(p.name, x + 34, y + 10, 17, p.color);
+        const std::string aura = std::string(StatusEffectName(p.aura)) + "  "
+                               + std::to_string(static_cast<int>(p.auraDuration)) + "s";
+        DrawText(aura.c_str(), x + 10, y + 33, 13, Color{200, 200, 220, 255});
+    }
+
+    // The table itself, two columns of six rows.
+    y += 74;
+    DrawText("Aura san co  +  Nguyen to danh vao  =  Phan ung",
+             px + 20, y, 15, Color{175, 175, 200, 255});
+    y += 24;
+
+    const auto& rows = ReactionTable();
+    const int rowH = 34;
+    const int colW = (panelW - 40) / 2;
+    for (size_t i = 0; i < rows.size(); ++i) {
+        const auto& r = rows[i];
+        const int col = static_cast<int>(i) % 2;
+        const int line = static_cast<int>(i) / 2;
+        const int x = px + 20 + col * colW;
+        const int ry = y + line * rowH;
+
+        DrawRectangle(x, ry, colW - 12, rowH - 4, Color{20, 17, 40, 220});
+        DrawRectangle(x, ry, 3, rowH - 4, r.color);
+
+        // "Aura + Element"
+        const Color auraColor = StatusEffectColor(r.existing);
+        const ElementProfile& inc = GetElementProfile(r.incoming);
+        int tx = x + 12;
+        DrawText(StatusEffectName(r.existing), tx, ry + 8, 14, auraColor);
+        tx += MeasureText(StatusEffectName(r.existing), 14) + 6;
+        DrawText("+", tx, ry + 8, 14, Color{150, 150, 170, 255});
+        tx += 12;
+        DrawText(inc.name, tx, ry + 8, 14, inc.color);
+
+        // Reaction name and multiplier, right-aligned.
+        char mult[16];
+        std::snprintf(mult, sizeof(mult), "x%.1f", r.multiplier);
+        const int multW = MeasureText(mult, 15);
+        DrawText(mult, x + colW - 24 - multW, ry + 7, 15, WHITE);
+        const int nameW = MeasureText(r.name, 14);
+        DrawText(r.name, x + colW - 34 - multW - nameW, ry + 8, 14, r.color);
+    }
+
+    // Footer: the parts of the system that are not in the table.
+    const int footY = py + panelH - 66;
+    DrawText("Cung nguyen to danh lai: chi lam moi thoi gian, khong phan ung",
+             px + 20, footY, 13, Color{165, 165, 190, 255});
+    char splash[128];
+    std::snprintf(splash, sizeof(splash),
+                  "Phan ung ban %d%% sat thuong sang quai trong ban kinh %dpx",
+                  static_cast<int>(ELEMENTAL_SPLASH_SHARE * 100.0f),
+                  static_cast<int>(ELEMENTAL_SPLASH_RADIUS));
+    DrawText(splash, px + 20, footY + 18, 13, Color{165, 165, 190, 255});
+    char bossLine[128];
+    std::snprintf(bossLine, sizeof(bossLine),
+                  "Danh boss: phan ung x%d.  Hu Hoa: +%d%% sat thuong phai chiu",
+                  static_cast<int>(ELEMENTAL_REACTION_BOSS_MULT),
+                  static_cast<int>((ElementalSystem::CORRODE_VULNERABILITY - 1.0f) * 100.0f));
+    DrawText(bossLine, px + 20, footY + 36, 13, Color{225, 190, 120, 255});
+}
+
+// Longest request wins, so a small hit landing during a big one's freeze can
+// never cut it short.
+void GameController::RequestHitStop(float seconds) {
+    if (seconds <= 0.0f) return;
+    m_hitStopTimer = std::max(m_hitStopTimer, std::min(seconds, HITSTOP_MAX));
 }
 
 // Every elemental hit lands here: the reaction is resolved against whatever
@@ -2968,6 +3157,10 @@ int GameController::ApplyElementalHit(Entity* target, int baseDamage, DamageType
         View::GameView::GetInstance().Shake(isBoss ? 11.0f : 6.0f,
                                             isBoss ? 0.40f : 0.25f);
         SoundManager::GetInstance().PlaySound("boss_phase");
+        RequestHitStop(isBoss ? HITSTOP_REACTION_BOSS : HITSTOP_REACTION);
+        SplashReaction(target, dealt, reaction);
+    } else if (dealt >= HITSTOP_HEAVY_THRESHOLD) {
+        RequestHitStop(HITSTOP_HEAVY_HIT);
     }
 
     // Tint the sprite with whatever aura it is left carrying -- which is not
@@ -2994,6 +3187,53 @@ int GameController::ApplyElementalHit(Entity* target, int baseDamage, DamageType
     return dealt;
 }
 
+// A reaction throws off enough energy to catch whoever is standing next to the
+// target. Splash never reacts on its own -- it deals a share of the damage and
+// leaves auras alone -- so a packed room cannot chain into a recursive blowup.
+void GameController::SplashReaction(Entity* epicenter, int reactionDamage,
+                                    const ReactionResult& reaction) {
+    if (!epicenter || !m_gameState || reactionDamage <= 0) return;
+
+    const int splash = std::max(1, static_cast<int>(reactionDamage * ELEMENTAL_SPLASH_SHARE));
+    const Rectangle hub = epicenter->GetBoundingBox();
+    const Vector2 center = {hub.x + hub.width * 0.5f, hub.y + hub.height * 0.5f};
+
+    // Broad phase over the splash square, then an exact radius test inside it.
+    const Rectangle splashBox = {center.x - ELEMENTAL_SPLASH_RADIUS,
+                                 center.y - ELEMENTAL_SPLASH_RADIUS,
+                                 ELEMENTAL_SPLASH_RADIUS * 2.0f,
+                                 ELEMENTAL_SPLASH_RADIUS * 2.0f};
+    for (Entity* entity : QueryEntitiesInRect(splashBox)) {
+        if (entity == epicenter) continue;
+
+        const EntityType type = entity->GetType();
+        if (type != EntityType::Enemy && type != EntityType::Boss) continue;
+
+        const Rectangle box = entity->GetBoundingBox();
+        const Vector2 other = {box.x + box.width * 0.5f, box.y + box.height * 0.5f};
+        if (Distance(center, other) > ELEMENTAL_SPLASH_RADIUS) continue;
+
+        if (type == EntityType::Enemy) {
+            auto* enemy = static_cast<Enemy*>(entity);
+            if (enemy->GetState() == EnemyState::Dead) continue;
+            enemy->TakeDamage(splash);
+            if (!enemy->IsActive()) OnEntityRemoved(enemy);
+        } else {
+            auto* boss = static_cast<Boss*>(entity);
+            if (!boss->IsAlive() || boss->GetBossState() == BossState::Die
+                || boss->GetBossState() == BossState::Transition) continue;
+            boss->TakeDamage(splash);
+            if (!boss->IsActive()) OnEntityRemoved(boss);
+        }
+
+        View::FloatingTextManager::GetInstance().Emit(
+            entity->GetPosition(), "-" + std::to_string(splash),
+            Fade(reaction.displayColor, 0.85f), 0.8f);
+        View::ParticleRenderer::GetInstance().EmitBurst(
+            entity->GetPosition(), 8, reaction.displayColor);
+    }
+}
+
 // Ticks every aura, applies the damage-over-time they accrued and pushes the
 // resulting slow onto each affected character.
 void GameController::UpdateElementalEffects(float dt) {
@@ -3001,6 +3241,20 @@ void GameController::UpdateElementalEffects(float dt) {
 
     m_elemental.Update(dt);
     const auto tickDamage = m_elemental.DrainTickDamage();
+
+    // An infused player is tinted with the element they are carrying, so the
+    // buff is readable on the character and not only in the boon list.
+    auto tintInfusion = [](Player* p) {
+        if (!p) return;
+        const DamageType element = p->GetAttackElement();
+        if (element == DamageType::Physical) {
+            View::ElementalFX::GetInstance().ClearElementTint(p->GetId());
+        } else {
+            View::ElementalFX::GetInstance().SetElementTint(p->GetId(), element);
+        }
+    };
+    tintInfusion(m_gameState->GetLocalPlayer());
+    if (m_localCoop) tintInfusion(m_gameState->GetSecondLocalPlayer());
 
     for (auto& entity : m_gameState->GetAllEntities()) {
         if (!entity || !entity->IsActive()) continue;
@@ -3434,7 +3688,7 @@ void GameController::RenderBuffOffer() const {
     DrawText(title, (sw - MeasureText(title, titleSize)) / 2,
              static_cast<int>(sh * 0.22f), titleSize, Fade(WHITE, fade));
 
-    const char* hint = "Nhan 1 / 2 / 3 de chon";
+    const char* hint = "Nhan 1 / 2 / 3 de chon    -    C: bang phan ung nguyen to";
     const int hintSize = 16;
     DrawText(hint, (sw - MeasureText(hint, hintSize)) / 2,
              static_cast<int>(sh * 0.22f) + titleSize + 10, hintSize,

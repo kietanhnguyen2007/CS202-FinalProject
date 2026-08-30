@@ -28,6 +28,17 @@ const std::vector<BuffDef>& BuffDefs() {
          Color{190, 160, 255, 255}, 10.0f, 0.40f, 12},
         {BuffType::Bloodthirst, "Bloodthirst", "Heal for 15% of damage dealt",
          Color{235,  90, 120, 255}, 12.0f, 0.15f, 10},
+        // Infusions. magnitude is unused -- the element is carried by the type
+        // itself. Weighted a little lower each so the four of them together do
+        // not crowd out the stat boons in a three-card draft.
+        {BuffType::InfuseFire,    "Hoa Phu",  "Attacks deal Fire for 14s",
+         Color{255, 120,  48, 255}, 14.0f, 0.0f, 8},
+        {BuffType::InfuseWater,   "Thuy Phu", "Attacks deal Water for 14s",
+         Color{ 90, 180, 255, 255}, 14.0f, 0.0f, 8},
+        {BuffType::InfuseThunder, "Loi Phu",  "Attacks deal Thunder for 14s",
+         Color{255, 235, 110, 255}, 14.0f, 0.0f, 8},
+        {BuffType::InfuseVoid,    "Hu Phu",   "Attacks deal Void for 14s",
+         Color{180, 110, 255, 255}, 14.0f, 0.0f, 6},
     };
     return defs;
 }

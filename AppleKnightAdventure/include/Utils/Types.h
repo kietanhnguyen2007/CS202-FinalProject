@@ -36,6 +36,13 @@ enum class BuffType {
     Power,        // deal more damage
     Aegis,        // take less damage
     Bloodthirst,  // heal for a share of damage dealt
+    // Elemental infusions: the player's ordinary attacks start carrying an
+    // element, so any class -- not just the Magic Caster -- can set up and
+    // detonate the reaction table for as long as the infusion lasts.
+    InfuseFire,
+    InfuseWater,
+    InfuseThunder,
+    InfuseVoid,
     Count
 };
 

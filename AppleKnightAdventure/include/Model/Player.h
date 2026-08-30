@@ -122,6 +122,9 @@ public:
     float GetDamageTakenMultiplier() const;  // Aegis
     float GetCooldownRateMultiplier()const;  // Adrenaline
     float GetLifestealFraction()     const;  // Bloodthirst
+    // Element the player's ordinary attacks currently carry. Physical when no
+    // infusion is running, which is the default and behaves exactly as before.
+    DamageType GetAttackElement()    const;
     // Called by the controller when this player's attack lands.
     void OnDamageDealt(int damage);
 

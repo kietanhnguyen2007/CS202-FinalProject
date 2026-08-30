@@ -218,8 +218,40 @@ bool Player::IsAttacking() const {
 
 // ---------- Boons ----------
 
+// Maps an infusion boon to the element it grants. Not an infusion -> Physical.
+static DamageType InfusionElement(BuffType type) {
+    switch (type) {
+        case BuffType::InfuseFire:    return DamageType::Fire;
+        case BuffType::InfuseWater:   return DamageType::Water;
+        case BuffType::InfuseThunder: return DamageType::Thunder;
+        case BuffType::InfuseVoid:    return DamageType::Void;
+        default:                      return DamageType::Physical;
+    }
+}
+
+DamageType Player::GetAttackElement() const {
+    for (const auto& b : m_buffs) {
+        const DamageType element = InfusionElement(b.type);
+        if (element != DamageType::Physical) return element;
+    }
+    return DamageType::Physical;
+}
+
 void Player::ApplyBuff(BuffType type) {
     const BuffDef& def = GetBuffDef(type);
+
+    // Only one infusion runs at a time -- taking a second one swaps the
+    // element rather than layering two, which the aura model cannot express
+    // anyway since a target carries a single aura.
+    if (InfusionElement(type) != DamageType::Physical) {
+        m_buffs.erase(
+            std::remove_if(m_buffs.begin(), m_buffs.end(),
+                [type](const ActiveBuff& b) {
+                    return b.type != type
+                        && InfusionElement(b.type) != DamageType::Physical;
+                }),
+            m_buffs.end());
+    }
 
     // Instant boons resolve here and leave nothing running.
     if (type == BuffType::Vigor) {

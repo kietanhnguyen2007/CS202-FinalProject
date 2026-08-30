@@ -152,11 +152,42 @@ private:
     bool  m_buffOfferOpen   = false;
     float m_buffOfferAnim   = 0.0f;
 
+    // ---- Spatial broad phase ----
+    // The quadtree in CollisionSystem was built but never fed. Combat queries
+    // now go through it instead of sweeping every entity in the level.
+    // Entities move every frame, so the tree is rebuilt once per frame, right
+    // before combat runs -- entity removals all happen after that point, so no
+    // query can ever see a pointer that has since been freed.
+    void RebuildSpatialIndex();
+    // Deduplicated: an entity straddling a node boundary is stored in several
+    // leaves, and a melee swing must never hit the same target twice.
+    // Returns by value on purpose -- a reaction's splash queries again from
+    // inside a loop over an earlier result, and a shared scratch buffer would
+    // be rewritten mid-iteration.
+    std::vector<Entity*> QueryEntitiesInRect(Rectangle range) const;
+
+    // ---- Elemental codex ----
+    // A player has no way to discover a twelve-row reaction table by flailing
+    // at enemies, so C opens a reference built from the live table.
+    void RenderElementCodex() const;
+    bool m_codexOpen = false;
+
+    // ---- Impact feedback ----
+    // Hit-stop: the simulation holds for a few dozen milliseconds on a heavy
+    // hit so the moment of contact reads. Ported from the Survival3D mode,
+    // which already had it. Rendering keeps running, so the frozen frame is
+    // still drawn and the pause looks deliberate rather than like a stall.
+    void RequestHitStop(float seconds);
+    float m_hitStopTimer = 0.0f;
+
     // ---- Elemental combat ----
     // Single funnel for every hit that carries an element: resolves the
     // reaction, applies the scaled damage and floats the readout. Returns the
     // damage actually dealt.
     int ApplyElementalHit(Entity* target, int baseDamage, DamageType element);
+    // Collateral damage from a reaction to everything standing near the target.
+    void SplashReaction(Entity* epicenter, int reactionDamage,
+                        const ReactionResult& reaction);
     // Ticks auras, drains their damage-over-time and pushes the resulting slow
     // onto each affected character.
     void UpdateElementalEffects(float dt);

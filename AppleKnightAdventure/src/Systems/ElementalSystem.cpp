@@ -87,6 +87,21 @@ const ReactionRule kReactions[] = {
 
 } // namespace
 
+const std::vector<ReactionEntry>& ReactionTable() {
+    // Built once from the same kReactions the simulation reads, so the codex
+    // can never quote a multiplier the game does not actually use.
+    static const std::vector<ReactionEntry> table = [] {
+        std::vector<ReactionEntry> rows;
+        rows.reserve(sizeof(kReactions) / sizeof(kReactions[0]));
+        for (const auto& r : kReactions) {
+            rows.push_back({r.existing, r.incoming, r.multiplier,
+                            r.result, r.resultDuration, r.name, r.color});
+        }
+        return rows;
+    }();
+    return table;
+}
+
 const ElementProfile& GetElementProfile(DamageType type) {
     for (const auto& p : kProfiles) {
         if (p.element == type) return p;

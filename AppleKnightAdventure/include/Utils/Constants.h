@@ -85,6 +85,22 @@ constexpr int   BUFF_MAX_ON_FIELD   = 2;
 // only the reaction payoff is scaled.
 constexpr float ELEMENTAL_REACTION_BOSS_MULT = 10.0f;
 
+// A reaction splashes onto everything else standing this close to the target.
+// Splash damage is a share of the reaction, and it does not re-react -- it is
+// collateral, not a chain that could recurse.
+constexpr float ELEMENTAL_SPLASH_RADIUS = 96.0f;
+constexpr float ELEMENTAL_SPLASH_SHARE  = 0.45f;
+
+// Hit-stop windows, in seconds. Long enough to read, short enough that input
+// never feels swallowed.
+constexpr float HITSTOP_MAX             = 0.14f;
+constexpr float HITSTOP_REACTION        = 0.075f;
+constexpr float HITSTOP_REACTION_BOSS   = 0.11f;
+constexpr float HITSTOP_HEAVY_HIT       = 0.045f;
+// A normal hit only freezes if it is at least this big, so chip damage does not
+// stutter the whole fight.
+constexpr int   HITSTOP_HEAVY_THRESHOLD = 40;
+
 constexpr float BUFF_OFFER_MIN_DELAY = 10.0f;
 constexpr float BUFF_OFFER_MAX_DELAY = 15.0f;
 constexpr int   BUFF_OFFER_COUNT     = 3;
