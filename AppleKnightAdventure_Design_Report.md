@@ -479,3 +479,26 @@ GameController ..> AchievementManager : progress
 
 Figure 3 presents systems as controller-owned or process-level collaborators rather than autonomous engines. The controller supplies ordering and the entity collection; the systems supply focused algorithms or state.
 
+## 6.2 Adventure frame pipeline
+
+The Adventure update pipeline is explicitly staged:
+
+1. bind the view to the current entity collection and handle quit, result, and overlay gates;
+2. clamp the delta and poll one or two player input commands;
+3. update minimap and modal states;
+4. handle player input and interactions when no UI overlay blocks gameplay;
+5. apply gravity and advance `GameState`;
+6. register visuals for newly active entities and update enemy AI;
+7. resolve tile movement;
+8. rebuild the spatial index after movement;
+9. resolve combat, items, pets, projectiles, checkpoints, portals, random spawns, buffs, elements, particles, and timer;
+10. update camera, HUD, skill bar, and completion state.
+
+The order protects invariants. The quadtree is accurate when combat begins. Newly spawned visuals are registered after state advancement. Hit-stop and draft overlays pause simulation but continue presentation updates so the frame reads as intentional feedback rather than a frozen application.
+
+## 6.3 Collision and spatial indexing
+
+`CollisionSystem` wraps a `Quadtree` and exposes build, query, and collision operations. The quadtree recursively subdivides rectangular bounds, but it descends only when an entity's complete hitbox fits inside one child. An entity crossing a split line remains in the current node, so it is stored exactly once rather than copied into several descendants. Queries test entities held by every visited internal node before descending. A hard depth limit of ten prevents coincident or nearly identical hitboxes from causing unbounded subdivision; controller-side deduplication remains defensive rather than compensating for deliberate multi-node insertion.
+
+The controller rebuilds the tree once after all relevant movement and before combat. This is simpler and safer than incrementally updating individual nodes while entities move and disappear. Tile collision is handled separately through `GameState::IsSolidAt` and controller resolution code, matching the different data shapes: a grid for static tile solidity and a quadtree for dynamic entity bounds.
+
