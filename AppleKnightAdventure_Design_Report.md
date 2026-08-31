@@ -1353,3 +1353,32 @@ The Model family owns state, the Controller family sequences use cases, and the 
 
 `GameView` is a partial Facade over world render helpers. `SaveManager` is a persistence Facade over a wide JSON schema. “Partial” is important for accuracy: callers still reach specialized views and renderers, and they call individual save operations directly.
 
+## 11.14 Labels intentionally not applied
+
+- **Observer:** The runtime has direct animator callbacks and controller-to-view updates, but no general Subject and Observer collaboration representing project state. Observer is not claimed.
+- **Builder:** `MapBuilderController` edits maps; its name is not evidence of the GoF Builder pattern.
+- **Factory Method:** Creation uses static Simple Factories, not subclass-overridden creator methods.
+- **Flyweight:** Shared atlases reduce duplication, but formal intrinsic and extrinsic state roles are not defined.
+- **Mediator:** Controllers coordinate flows, but collaborators are not decoupled through a formal Mediator protocol.
+- **GoF State:** Enum-based FSMs do not use polymorphic state objects.
+
+# 12. Design Reasoning and Consequences
+
+## 12.1 Decision matrix
+
+| Design decision | Reason in this project | Resulting benefit | Consequence to manage |
+|---|---|---|---|
+| `unique_ptr` world/entity ownership | One level or session should be the sole state owner | Deterministic cleanup and safe ownership transfer | Raw view pointers must be detached before owner destruction |
+| Shared atlas and clip ownership | Many entities use the same immutable resources | Avoid duplicate GPU and metadata loads | Resource release must occur while graphics context exists |
+| Controller-defined update order | Real-time systems have ordering dependencies | One traceable frame pipeline | Controller is the integration point for many concerns |
+| New-entity buffer | Spawns occur while the entity vector is iterated | Prevent iterator invalidation | Spawned entities join at a defined later point |
+| Solid grid plus quadtree | Tiles and moving entities have different query shapes | Fast static lookup and scalable dynamic broad phase | Index invalidation and rebuild timing are correctness rules |
+| Command history | Editor operations need replayable inverses | Uniform undo and redo | Each command captures sufficient prior state |
+| Composite transaction | One paste gesture creates many commands | User-level atomic undo | Child order and reverse undo order must remain stable |
+| Level-source Adapter target | Legacy text and LDtk JSON must feed the same runtime/editor model | Controllers load either source through one operation | Each adapter must preserve format-specific defaults, coordinates, and fallback rules |
+| Worker decode and main GPU upload | CPU file work can be parallel; OpenGL work cannot | Responsive loading with safe graphics calls | Queues, mutexes, joining, and main-thread draining are required |
+| Fixed-step Survival simulation | Combat timing should not depend on display frame variation | Stable action, collision, and event timing | Catch-up must be capped under long stalls |
+| Temp and backup save | Partial writes should not destroy progress | Recoverable local state | Multiple filesystem paths and migration defaults are handled |
+| Local-first run submission | Network availability must not gate rewards or gameplay | Offline play and durable retries | Idempotency, queue state, and validation status are persisted |
+| Explicit server process | Ranking and validation have a different trust boundary | Client remains playable without backend | Client and server share a versioned payload contract |
+
