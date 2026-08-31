@@ -168,3 +168,21 @@ assistant then proposed a per-clip `scale` multiplier stored in `AnimationClip`
 plus a per-clip ground-origin point, so the renderer anchors on the feet and scales
 around that anchor.
 
+**Outcome**
+The second answer was correct and shipped as `GetCurrentClipScale()` and
+`GetCurrentGroundOrigin()` in `Animator`, consumed by `CharacterRenderer::RenderAll`.
+Recorded here because the first answer was accepted, tested, and then reverted.
+
+---
+
+## K-06 · LDtk level loader
+**Date:** 2026-07-24 → 2026-07-26
+**Related commits:** `feat: integrate LDtk level editor (full MVC)`, `fix: compile errors with nlohmann json and stat64i32 on MinGW 14`, `fix: adjust LDtk entity position scaling for correct rendering`
+
+**Prompt**
+> We want to author maps in LDtk instead of a custom text format. Given a `.ldtk`
+> JSON file, write a loader that reads: level pixel size, the `Collision` IntGrid
+> layer into a solid map, the `Tiles`/`BG_Tiles` tile layers, and the `Entities`
+> layer where each entity identifier maps to one of our game classes. Use
+> nlohmann/json. Assume the game renders at 64px tiles while LDtk authors at 16px.
+
