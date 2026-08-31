@@ -331,3 +331,25 @@ we had before.
 **Date:** 2026-08-03 → 2026-08-05
 **Related commits:** `Create Map 1 and Portal to transition to Boss Area`, `Create world2.ldtk`, `Implement entity merging and enhance teleport portal alignment in GameState and LevelFactory`
 
+**Prompt**
+> I need two kinds of portal. A *local* portal teleports the player to its partner
+> in the same level, paired by a colour id set in LDtk. A *boss arena* portal moves
+> the player into a separate arena room and back afterwards, restoring their state.
+> Portals are authored in LDtk with a `PortalType`, `ColorId` and `TargetLevelId`
+> field. How should the pairing and the state save/restore work?
+
+**AI response (summary)**
+Recommended a two-stage load: create all portals first, then run a pairing pass that
+links portals sharing a `ColorId`, since a portal's partner may be parsed after it.
+For the arena, snapshot the player's health, max health, score, skill points,
+inventory and cores into a struct before the transition and restore afterwards,
+restoring max health before current health so a `SetHealth` clamp cannot silently
+truncate a buffed pool.
+
+**Outcome**
+Adopted. The max-health-before-health ordering detail was correct and non-obvious —
+we had exactly that bug with the VitalCore before applying it, and the comment
+explaining it is still in `RestorePlayerState`.
+
+---
+
