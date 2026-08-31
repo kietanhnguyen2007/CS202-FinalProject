@@ -69,6 +69,22 @@ Rectangle ItemPickupBox(const Entity& item) {
     return box;
 }
 
+Rectangle CheckpointInteractionBox(const Checkpoint& checkpoint) {
+    const Vector2 position = checkpoint.GetPosition();
+
+    // Checkpoint frames are 64x64 while the model hitbox is intentionally
+    // small.  The pole is drawn near the middle of that padded frame and its
+    // base is four tiles below the authored top-left position.  Use the visible
+    // pole footprint for interaction so a player standing beside its base can
+    // activate it without changing physics or respawn coordinates.
+    return {
+        position.x + TILE_SIZE * 0.5f,
+        position.y,
+        TILE_SIZE * 2.0f,
+        TILE_SIZE * 4.0f
+    };
+}
+
 bool LineIntersectsRect(Vector2 start, Vector2 end, const Rectangle& rect) {
     const float dx = end.x - start.x;
     const float dy = end.y - start.y;
@@ -173,9 +189,10 @@ std::string GameController::GetLevelPath(int levelNumber) const {
         return "assets/levels/tutorial.ldtk";
     }
     
-    // Map Level 2 -> lvl1.ldtk, Level 3 -> lvl2.ldtk, ...
+    // Keep gameplay level numbers aligned with LDtk filenames so the map being
+    // edited is always the map loaded by the game (Level 2 -> lvl2.ldtk, etc.).
     if (levelNumber >= 2 && levelNumber <= 6) {
-        std::string path = "assets/levels/lvl" + std::to_string(levelNumber - 1) + ".ldtk";
+        std::string path = "assets/levels/lvl" + std::to_string(levelNumber) + ".ldtk";
         if (std::filesystem::exists(path)) return path;
     }
     
@@ -271,15 +288,12 @@ void GameController::RegisterChestVisuals(Chest* chest) {
 
 void GameController::RegisterCheckpointVisuals(Checkpoint* checkpoint) {
     if (!checkpoint) return;
-    
-    if (checkpoint->IsEndGame()) {
-        Vector2 pos = checkpoint->GetPosition();
-        pos.y -= TILE_SIZE; // Nâng lên 1 tile
-        checkpoint->SetPosition(pos);
-    }
-    
+
+    // Keep the gameplay transform exactly where LDtk authored it.  A renderer
+    // must never move the model because interaction and completion checks use
+    // this same position for the checkpoint hitbox.
     // Endgame checkpoint: always start as uncaptured (hidden flag pole).
-    // The flag_out -> captured transition is driven by UpdateEndgameCheckpoints().
+    // The flag_out -> captured transition starts only after the player presses F.
     // Regular checkpoint: uncaptured until activated, then flag_out.
     View::EntityRenderer::GetInstance().RegisterAnimated(
         checkpoint, "assets/textures/objects/checkpoint_uncaptured.json", "default");
@@ -1597,10 +1611,20 @@ void GameController::UpdateInteractions(Player* player, const InputCommand& cmd)
     for (auto& entity : m_gameState->GetAllEntities()) {
         if (!entity || !entity->IsActive()) continue;
 
+        // Use a small two-dimensional interaction margin.  Checkpoint artwork
+        // is larger than its gameplay hitbox, so requiring exact vertical
+        // overlap makes the lower/upper visible portions unresponsive.
         Rectangle expanded = playerBox;
         expanded.x -= TILE_SIZE * 0.5f;
+        expanded.y -= TILE_SIZE * 0.5f;
         expanded.width += TILE_SIZE;
-        if (!RectOverlap(expanded, entity->GetBoundingBox())) continue;
+        expanded.height += TILE_SIZE;
+        Rectangle interactionTarget = entity->GetBoundingBox();
+        if (entity->GetType() == EntityType::Checkpoint) {
+            interactionTarget = CheckpointInteractionBox(
+                *static_cast<const Checkpoint*>(entity.get()));
+        }
+        if (!RectOverlap(expanded, interactionTarget)) continue;
 
         if (entity->GetType() == EntityType::Signboard) {
             auto* signboard = static_cast<Signboard*>(entity.get());
@@ -1657,21 +1681,33 @@ void GameController::UpdateInteractions(Player* player, const InputCommand& cmd)
 
         if (entity->GetType() == EntityType::Checkpoint) {
             auto* checkpoint = static_cast<Checkpoint*>(entity.get());
-            if (checkpoint->IsEndGame() || checkpoint->IsActivated()) continue;
+            if (checkpoint->IsActivated()) continue;
 
             uint32_t newUid = static_cast<uint32_t>(checkpoint->GetId());
-            if (checkpoint->GetPosition().x >= m_respawnPoint.x) {
-                m_activeCheckpointUid = newUid;
-                checkpoint->Activate();
-                SoundManager::GetInstance().PlaySound("checkpoint_activate");
-                m_respawnPoint = checkpoint->GetPosition();
-                CaptureCheckpointEnemies(checkpoint->GetPosition().x);
+            checkpoint->Activate();
+            SoundManager::GetInstance().PlaySound("checkpoint_activate");
 
-                // Switch visual: uncaptured -> flag_out animation
-                View::EntityRenderer::GetInstance().Unregister(newUid);
-                View::EntityRenderer::GetInstance().RegisterAnimated(
-                    checkpoint, "assets/textures/objects/checkpoint_flag_out.json", "flag_out");
+            if (checkpoint->IsEndGame()) {
+                // IsLevelComplete observes this activated state later in the
+                // same update.  No enemy-count or passive collision gate is
+                // involved: reaching the finish and pressing F is sufficient.
+                View::ParticleRenderer::GetInstance().EmitBurst(
+                    checkpoint->GetPosition(), 36, GOLD);
+                View::GameView::GetInstance().Shake(7.0f, 0.45f);
+                return;
             }
+
+            // A map may loop back to the left or move vertically.  The most
+            // recently interacted checkpoint is the respawn point regardless
+            // of its X coordinate.
+            m_activeCheckpointUid = newUid;
+            m_respawnPoint = checkpoint->GetPosition();
+            CaptureCheckpointEnemies(checkpoint->GetPosition().x);
+
+            // Switch visual: uncaptured -> flag_out animation
+            View::EntityRenderer::GetInstance().Unregister(newUid);
+            View::EntityRenderer::GetInstance().RegisterAnimated(
+                checkpoint, "assets/textures/objects/checkpoint_flag_out.json", "flag_out");
             return;
         }
 
@@ -2470,21 +2506,11 @@ void GameController::UpdateItemPhysics(float dt) {
 }
 
 // ============================================================
-// Endgame Checkpoint — Viewport-triggered flag animation
+// Endgame Checkpoint — interaction-triggered flag animation
 // ============================================================
 
 void GameController::UpdateEndgameCheckpoints() {
     if (!m_gameState) return;
-
-    // Camera viewport in world space
-    float halfW = (SCREEN_WIDTH  * 0.5f) / m_camera.zoom;
-    float halfH = (SCREEN_HEIGHT * 0.5f) / m_camera.zoom;
-    Rectangle viewport = {
-        m_camera.target.x - halfW,
-        m_camera.target.y - halfH,
-        halfW * 2.0f,
-        halfH * 2.0f
-    };
 
     float dt = GetFrameTime();
 
@@ -2492,6 +2518,7 @@ void GameController::UpdateEndgameCheckpoints() {
         if (!entity || entity->GetType() != EntityType::Checkpoint || !entity->IsActive()) continue;
         auto* cp = static_cast<Checkpoint*>(entity.get());
         if (!cp->IsEndGame()) continue;
+        if (!cp->IsActivated()) continue;
 
         int  id  = cp->GetId();
         uint32_t uid = static_cast<uint32_t>(id);
@@ -2500,15 +2527,12 @@ void GameController::UpdateEndgameCheckpoints() {
         bool captured  = (m_endgameFlagCapturedIds.find(id)  != m_endgameFlagCapturedIds.end());
 
         if (!revealed) {
-            // Phase 1 — wait until the checkpoint enters the player's viewport
-            if (RectOverlap(cp->GetBoundingBox(), viewport)) {
-                // Trigger flag-raise animation
-                View::EntityRenderer::GetInstance().Unregister(uid);
-                View::EntityRenderer::GetInstance().RegisterAnimated(
-                    cp, "assets/textures/objects/checkpoint_flag_out.json", "flag_out");
-                m_endgameFlagRevealedIds.insert(id);
-                m_flagOutTimers[id] = 0.0f;
-            }
+            // Phase 1 — pressing F activated the finish; raise its flag.
+            View::EntityRenderer::GetInstance().Unregister(uid);
+            View::EntityRenderer::GetInstance().RegisterAnimated(
+                cp, "assets/textures/objects/checkpoint_flag_out.json", "flag_out");
+            m_endgameFlagRevealedIds.insert(id);
+            m_flagOutTimers[id] = 0.0f;
         } else if (!captured) {
             // Phase 2 — flag_out is playing; count down and then switch to captured loop
             m_flagOutTimers[id] += dt;

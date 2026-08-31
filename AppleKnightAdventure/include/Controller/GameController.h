@@ -88,7 +88,7 @@ private:
     void UpdateInteractions(Player* player, const struct InputCommand& cmd);
     void UpdateItems(Player* player, float dt);
     void UpdateItemPhysics(float dt);           // gravity + tile collision for coin scatter
-    void UpdateEndgameCheckpoints();            // viewport reveal + flag animation state machine
+    void UpdateEndgameCheckpoints();            // F-triggered finish flag animation state machine
     void UpdatePets(float dt, const struct InputCommand& cmd);
     void UpdateProjectiles(float dt);
     void SpawnPet(PetType type);
@@ -282,7 +282,7 @@ private:
     Vector2          m_exitSpawnPos    = {0.0f, 0.0f};// position near entry portal
     PlayerSaveState  m_savedPlayerState;              // HP/score/inventory snapshot
     bool             m_hasSavedState   = false;       // true when snapshot is valid
-    uint32_t         m_activeCheckpointUid = 0;       // track highest checkpoint activated
+    uint32_t         m_activeCheckpointUid = 0;       // most recently activated respawn checkpoint
     std::set<int>    m_checkpointRespawnEnemyIds;     // enemies after the active checkpoint
     std::set<int>    m_countedDefeatedEnemyIds;       // prevents score farming after respawn
 };

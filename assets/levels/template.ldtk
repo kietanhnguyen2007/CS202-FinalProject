@@ -1735,7 +1735,7 @@
 			"__cHei": 10,
 			"identifier": "Thumb_knight",
 			"uid": 7,
-			"relPath": "../textures/player/knight/idle.png",
+			"relPath": "../textures/player/knight_v2/idle_v2.png",
 			"embedAtlas": null,
 			"pxWid": 585,
 			"pxHei": 149,

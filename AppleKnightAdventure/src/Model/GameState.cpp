@@ -1,7 +1,6 @@
 #include "Model/GameState.h"
 #include "Model/Chest.h"
 #include "Model/Checkpoint.h"
-#include "Model/Character.h"
 #include "Model/LevelCompleteCup.h"
 #include <algorithm>
 
@@ -302,39 +301,21 @@ void GameState::PlayerInteract() {
 
 bool GameState::IsLevelComplete() const {
     if (!m_localPlayer) return false;
-    
-    bool enemiesAlive = false;
-    bool touchingEndCheckpoint = false;
-    bool hasCompletionCup = false;
-    Rectangle playerBox = m_localPlayer->GetBoundingBox();
 
     for (const auto& entity : m_entities) {
-        if (!entity) continue;
+        if (!entity || !entity->IsActive()) continue;
         if (entity->GetType() == EntityType::LevelCompleteCup) {
-            hasCompletionCup = true;
             const auto* cup = static_cast<const LevelCompleteCup*>(entity.get());
             if (cup->IsActivated()) return true;
-        }
-        if (entity->GetType() == EntityType::Enemy) {
-            Character* character = static_cast<Character*>(entity.get());
-            if (character->IsAlive()) {
-                enemiesAlive = true;
-            }
         } else if (entity->GetType() == EntityType::Checkpoint) {
-            Checkpoint* cp = static_cast<Checkpoint*>(entity.get());
-            if (cp->IsEndGame()) {
-                Rectangle checkpointBox = cp->GetBoundingBox();
-                if (CheckCollisionRecs(playerBox, checkpointBox)) {
-                    touchingEndCheckpoint = true;
-                } else if (m_secondLocalPlayer &&
-                           CheckCollisionRecs(m_secondLocalPlayer->GetBoundingBox(), checkpointBox)) {
-                    touchingEndCheckpoint = true;
-                }
-            }
+            const auto* cp = static_cast<const Checkpoint*>(entity.get());
+            if (cp->IsEndGame() && cp->IsActivated()) return true;
         }
     }
-    if (hasCompletionCup) return false;
-    return (!enemiesAlive && touchingEndCheckpoint);
+
+    // Completion is an explicit interaction. Merely touching a finish marker,
+    // entering its viewport, or clearing every enemy must not end the level.
+    return false;
 }
 
 void GameState::MergeNewEntities() {
