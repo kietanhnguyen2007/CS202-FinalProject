@@ -1143,3 +1143,33 @@ The replacement protocol is:
 
 This protocol ensures the application does not intentionally truncate the only valid save before a complete new document exists. The version field gives readers a schema decision point.
 
+## 10.4 Local-first Survival run service
+
+`SurvivalRunService::BeginRun` creates a stable run ID and associates it with character and balance version. `FinalizeRun` validates the result record, asks `SaveManager` to record it, grants the local coin reward once, marks that reward as claimed, creates a JSON payload, and enqueues a `PendingSurvivalSubmission` whose idempotency key is the run ID. It saves after local state changes. The saved queue is a **Persistent Outbox**: transport begins only after the completion is durable, and a retry can survive process restart.
+
+The service main-thread `Update`:
+
+- consumes worker results;
+- updates validation and ranked state after success or rejection;
+- increases retry count and calculates exponential backoff for retryable failure;
+- finds due pending submissions and sends jobs to the worker;
+- requests leaderboard refresh when appropriate.
+
+The worker owns blocking HTTP work. Mutexes, a condition variable, job and result deques, and explicit stop and join logic implement a one-worker **Producer-Consumer** collaboration. The main thread produces transport jobs and consumes transport results; the worker consumes jobs and produces results. Main-thread code remains the only code mutating `SaveManager`.
+
+The shipped `assets/survival3d/config/services.json` currently sets the remote service to disabled. The default runtime is therefore local-first and retains queued submissions; the C++ backend remains an optional separately launched executable.
+
+## 10.5 Backend boundary
+
+The separately built backend routes:
+
+- `GET /health`;
+- `POST /v1/auth/guest`;
+- `GET /v1/players/me`;
+- `POST /v1/runs/{runId}/complete`;
+- `GET /v1/leaderboards/score`.
+
+`SurvivalServerCore` validates player and run input, requires an idempotency key, returns an existing result for a repeated submission, persists accepted results, and builds filtered and limited leaderboard output. It recomputes the ranked score from trusted run metrics instead of trusting the submitted client score. The leaderboard retains one best validated run per player and orders entries by score, wave, and survival time. Server JSON persistence writes a temporary file and uses a backup and restore sequence.
+
+The service is optional by design. Adventure and Survival gameplay do not depend on network availability. A completed run is locally durable before synchronization, and a retry reuses the same semantic identity instead of paying the reward or creating the server record twice.
+
