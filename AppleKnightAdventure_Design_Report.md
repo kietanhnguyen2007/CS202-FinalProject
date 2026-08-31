@@ -364,3 +364,16 @@ The new-entity buffer is a real-time safety device. Entities can spawn projectil
 
 Tiles are separated by render and semantic layer. The main layer feeds collision. `IsSolidAt` uses a cached boolean grid rebuilt only after tile mutations, providing constant-time queries for physics, raycasts, and fill-like operations rather than repeatedly scanning the tile vector.
 
+## 5.3 Entity and Character responsibilities
+
+`Entity` defines identity, transform/bounds, type, active state, velocity, update, and collision-facing access. Concrete non-character entities include items, projectiles, checkpoints, chests, fake walls, teleport portals, trigger zones, signs, tutorial guides, and the level-complete cup. They share world ownership and registration rules even though their behavior differs.
+
+`Character` adds health, movement, direction, animation/gameplay state, damage, and alive/dead semantics. `Player`, `Enemy`, `Pet`, and `Boss` specialize it:
+
+- `Player` combines inventory, coins/keys/apples, character class, skill cooldowns, active buffs, and a run-long `CoreLoadout`.
+- `Enemy` adds enemy archetype, detection/attack/patrol behavior, and combat state.
+- `Pet` follows and assists its owner, with projectiles managed by the controller.
+- `Boss` adds common phase, navigation, world-query, and update-template behavior.
+
+The hierarchy lets `GameState` own a heterogeneous `vector<unique_ptr<Entity>>` and lets render/collision registration dispatch on `EntityType`. This is a practical form of runtime polymorphism for a small game engine.
+
