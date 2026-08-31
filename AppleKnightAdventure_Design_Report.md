@@ -999,3 +999,25 @@ The wave loop follows a clear state progression:
 
 `WaveRule` and `BalanceConfig` keep important balance values together. Runtime configuration has a version string stored with run results, allowing the backend and saved history to know which balance rules produced a score.
 
+## 9.3 Fixed-step simulation
+
+`Update(frameDt)` handles immediate UI/input phases and accumulates elapsed time for gameplay. While the accumulator is at least `kFixedDt`, equal to 1/60 second, it executes one fixed update and subtracts the step. At most six ticks are processed per render frame; if the application is still behind, the remainder is dropped.
+
+This separates simulation frequency from render frequency. Collision windows, attack timing, invulnerability, enemy decisions, projectiles, and animation events observe a stable step even when display frames vary. Discarded catch-up time is counted in `m_droppedTicks` for telemetry. Camera and selected presentation effects can still use frame time for smooth rendering.
+
+Within each fixed tick the controller advances authored action time, applies collision-swept root motion, dispatches animation-frame gameplay events, resolves combo transitions and cooldowns, updates the player and wave director, then advances enemies, projectiles, and scored run time during combat. One-frame input requests are cleared last. The visible order is part of deterministic combat behavior.
+
+## 9.4 Animation graph and events
+
+The Survival animation graph is intentionally independent of raylib model types. `StateMachine` stores an enum `State` and evaluates `TransitionRequest` values with:
+
+- actor-role validation;
+- terminal and locked-state rules;
+- stale sequence rejection;
+- reason priorities such as death, phase change, hit reaction, gameplay, natural completion, and locomotion;
+- canonical ordering when several requests compete.
+
+`SubmitBest` sorts fresh requests and accepts the highest valid transition. `CompleteCurrent` returns an action state to idle or locomotion. This is a strong deterministic FSM implementation, but not the GoF State pattern because behavior is not distributed among polymorphic state objects.
+
+`AnimationEvents` adds authored frame tracks. `EventCursor` emits occurrences while advancing absolute frames, including wrap behavior. Combo definitions and `ComboBuffer` determine chain steps and timing. Gameplay can align damage and cues with animation frames without deriving combat timing from a render-only model.
+
