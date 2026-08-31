@@ -1173,3 +1173,5 @@ The separately built backend routes:
 
 The service is optional by design. Adventure and Survival gameplay do not depend on network availability. A completed run is locally durable before synchronization, and a retry reuses the same semantic identity instead of paying the reward or creating the server record twice.
 
+# 11. Applied Design Patterns
+
