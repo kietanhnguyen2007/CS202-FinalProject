@@ -2281,22 +2281,6 @@
 					"gridTiles": [],
 					"entityInstances": [
 						{
-							"__identifier": "SpawnSolo",
-							"__grid": [66,168],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": { "tilesetUid": 7, "x": 0, "y": 0, "w": 116, "h": 149 },
-							"__smartColor": "#00FF00",
-							"iid": "4bfbd560-6fc0-11f1-91ff-21f875fbbb3d",
-							"width": 16,
-							"height": 32,
-							"defUid": 28,
-							"px": [1056,2688],
-							"fieldInstances": [],
-							"__worldX": 496,
-							"__worldY": 944
-						},
-						{
 							"__identifier": "Portal",
 							"__grid": [29,43],
 							"__pivot": [0,0],
@@ -3989,19 +3973,19 @@
 						},
 						{
 							"__identifier": "SpawnSolo",
-							"__grid": [49,165],
+							"__grid": [66,167],
 							"__pivot": [0,0],
 							"__tags": [],
 							"__tile": { "tilesetUid": 7, "x": 0, "y": 0, "w": 116, "h": 149 },
 							"__smartColor": "#00FF00",
-							"iid": "63163010-96d0-11f1-9448-5bd622e82ca2",
+							"iid": "977107b0-96d0-11f1-b0e7-efc58be1f446",
 							"width": 16,
 							"height": 32,
 							"defUid": 28,
-							"px": [784,2640],
+							"px": [1056,2672],
 							"fieldInstances": [],
-							"__worldX": 224,
-							"__worldY": 896
+							"__worldX": 496,
+							"__worldY": 928
 						}
 					]
 				},
