@@ -1277,3 +1277,32 @@ A pasted region changes many cells but represents one user intent. Composite pre
 
 Composite is structurally separate from Command. Command makes an operation an object with execute and undo behavior. Composite makes individual command objects and groups substitutable through the same interface. The two patterns cooperate but solve different problems.
 
+## 11.7 Object Pool
+
+### Participants
+
+- **Reusable object:** `Particle`.
+- **Pool:** `ObjectPool<Particle>`.
+- **Client:** `ParticleSystem`.
+
+### Reasoning
+
+Particles are numerous, short-lived, and emitted during combat. Repeated heap allocation can create frame-time variation. The pool owns a preallocated vector of objects plus usage flags. `Acquire` returns an available object or grows the pool; `Release` marks it reusable. `ParticleSystem` keeps only active borrowed pointers.
+
+The pattern is applied in real hot paths, not merely provided as a generic template. Reset-on-acquire ensures a reused 2D particle behaves like a fresh logical instance. Survival3D applies the same bounded-storage idea to fixed enemy and projectile slots, VFX instances, and the view particle pool, using free indices and handles to avoid combat-time allocation.
+
+## 11.8 Template Method
+
+### Participants
+
+- **Abstract class:** `Boss`.
+- **Template method:** `Boss::UpdateAI`.
+- **Primitive operation and hook:** `UpdateState`.
+- **Concrete classes:** `Boss1`, `Boss2`, and `Boss3`.
+
+### Reasoning
+
+All bosses must obey common liveness, world binding, and navigation preparation. Phase-specific behavior differs. Keeping the skeleton in `Boss` prevents subclasses from forgetting common setup while still allowing distinct state machines and attacks.
+
+The method is a genuine Template Method because the base fixes algorithm order and calls a virtual step. The mere existence of an entity base class would not by itself constitute this pattern.
+
