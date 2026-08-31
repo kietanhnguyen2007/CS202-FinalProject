@@ -1306,3 +1306,38 @@ All bosses must obey common liveness, world binding, and navigation preparation.
 
 The method is a genuine Template Method because the base fixes algorithm order and calls a virtual step. The mere existence of an entity base class would not by itself constitute this pattern.
 
+## 11.9 Strategy
+
+### Participants
+
+- **Strategy interface:** `CharacterSkillSet`.
+- **Concrete strategies:** Knight, Fighter, Magic Caster, and Ninja skill sets.
+- **Context:** `Player`.
+
+### Reasoning
+
+Character selection changes skill timing and behavior but should not change the common `Player` ownership and lifecycle. The player creates one concrete strategy and calls common update and cooldown operations polymorphically.
+
+The implementation is classified as partial because several semantic skill actions are not exposed solely through the base interface; concrete checks remain in consumers. Nevertheless, ownership and common lifecycle are genuinely strategy-based.
+
+## 11.10 Finite state machines
+
+The project contains several explicit FSMs:
+
+- Survival top-level `Phase` controls the run lifecycle.
+- Survival `Animation::StateMachine` controls transition legality and priority.
+- `PlayerAnimation` and `EnemyAnimation` select presentation states.
+- Adventure player, enemy, and boss enums coordinate movement, attacks, damage, and death.
+- The compatibility end-checkpoint path models uncaptured, flag-out, and captured presentation phases after explicit interaction; authored finish markers normally load as `LevelCompleteCup` objects.
+- The application shell's mutually exclusive booleans form an application-mode FSM.
+
+These designs make state transitions inspectable and deterministic. They are not labeled GoF State because there is no abstract `State` object with concrete state classes receiving a Context.
+
+## 11.11 Persistent Outbox and Producer-Consumer
+
+`SurvivalRunService` uses two cooperating integration patterns. The Persistent Outbox is the saved `PendingSurvivalSubmission` collection. A run and its payload are written locally before transport; the item remains until success or terminal rejection and carries retry count and next-attempt time.
+
+The main thread and service worker form a Producer-Consumer pair. The main thread is the only owner of save mutation. It pushes immutable transport jobs, the worker performs blocking HTTP and pushes results, and the main thread applies those results later. A condition variable avoids polling while the worker is idle.
+
+These patterns explain why the service can update in the global application loop even while Survival3D is not the active screen and why a network outage does not block or erase completion.
+
