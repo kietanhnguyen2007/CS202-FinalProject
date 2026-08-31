@@ -900,3 +900,16 @@ That ownership boundary also governs alignment fixes. Registering a checkpoint v
 
 `GameController` registers visuals after level loading and after dynamically spawned entities become active. It unregisters removed entities. `StartLevel` and `Shutdown` clear every registration before releasing owners. This explicit bridge is the reason Adventure can keep a polymorphic model without placing raylib texture objects in domain classes.
 
+## 8.6 UI coordination
+
+The UI stack is split between screen-specific views and `UIStateManager`:
+
+- `HUDView` and `SkillBarView` are active non-modal gameplay layers.
+- `MenuView` and `ResultView` are modal layers in active flows.
+- `UIStateManager` keeps a stack of modal `UILayer` values, renders non-modal layers first, dims lower content, and renders stacked modals in order.
+- `OptionsView`, `PrepareView`, `ShopView`, and `MapBuilderView` are coordinated by their screen loops.
+
+`UILayer::Inventory` and `UIStateManager::RenderLayer` contain an `InventoryView` path, but the application has no active `Init`, `Open`, or inventory snapshot call. `InteractPrompt` is also present in layer/render code, but no active call loads it or invokes `Show`. Both are compiled presentation extensions rather than active Adventure overlays. The report includes them in source coverage without claiming a live Observer, inventory, or prompt flow.
+
+The stack centralizes z-order and the rule that modal overlays block gameplay input. `GameController` checks `IsOverlayActive` before applying player input. Presentation views keep their own animation/resource state, while controllers supply selection and domain state.
+
