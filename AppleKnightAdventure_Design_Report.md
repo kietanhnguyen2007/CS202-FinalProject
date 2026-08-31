@@ -1406,3 +1406,15 @@ Format choice is an application concern, while parsing rules belong to the forma
 
 The adapters deliberately converge early on the `GameState` domain representation. Once import completes, command history and editor rendering operate on that model; playtest serializes a temporary `.lvl` snapshot and `GameController` loads a fresh `GameState` through the same schema and runtime types. The editor does not retain an LDtk-specific parallel model. This is why import can be a bounded feature instead of a second editor architecture.
 
+## 12.6 Why rendering is buffered but not called batching
+
+The renderer accepts commands into preallocated layered buffers, sorts by layer and depth, and exposes statistics. This solves ordering and allocation-budget problems. The current flush still issues one raylib texture draw per sprite, so calling it GPU batching would imply a draw-call reduction mechanism that is not present.
+
+Precise terminology keeps the design reasoning connected to implementation: the value is command buffering and ordering, while asset sharing supplies resource reuse.
+
+## 12.7 Why persistence is local authority
+
+Coins, unlocked characters, settings, Adventure results, and Survival rewards must remain available without a service. Therefore `SaveManager` is authoritative for immediate client experience. The server adds ranking and validation rather than becoming a mandatory database for the game loop.
+
+Idempotency connects the two authorities safely. The local run ID is also the server submission identity. A retry can be recognized as the same logical completion, and a claimed-reward set prevents the client from granting the same reward more than once.
+
