@@ -1031,3 +1031,19 @@ Storage is bounded and data-oriented. The controller preallocates slots for up t
 
 Upgrades are value descriptors selected at phase boundaries and applied to player/combat state. They are data-driven choices within the Survival run lifecycle, not instances of the Strategy pattern.
 
+## 9.6 VFX and runtime IK
+
+The VFX subsystem separates immutable package definitions from runtime instances. A package describes layers, envelopes, playback, components, and capabilities. `VfxRuntime::Runtime` registers packages by stable hashed ID, spawns a handle with parameters, advances fixed-capacity instances, resolves layers against current backend capabilities, and produces bounded frame samples. It does not upload GPU resources, play audio, allocate without bound, or mutate gameplay. `SurvivalView` translates the samples into geometry, glow, trails, sound, and particles.
+
+The controller communicates combat presentation through `CombatFeedbackState`: a monotonically increasing serial, semantic cue, origin, direction, radius, and intensity. The view notices each unseen serial and maps it to an authored VFX package. This is explicit state handoff and polling, not Observer. Reduced-motion and high-contrast settings alter the view's rendering budget and colors without changing combat rules.
+
+Runtime IK operates on small math/data structures rather than renderer-owned models. Foot IK receives ground rays and smooths contact and offset state. Aim and hand-target calculations produce presentation targets. `SurvivalController` owns gameplay-facing state; `SurvivalView` applies results to rendered models. Graphics objects never become the authoritative combat model.
+
+## 9.7 SurvivalView
+
+`SurvivalView` owns animated model assets, playback state, weapon/skill models, blade trails, particle pools, arena rendering, and all screen overlays for the mode. Its public `Render(const SurvivalController&)` reads controller state without taking ownership. Startup asset loading is incremental so model and texture uploads occur on the render thread.
+
+The view renders character selection, arena, player/enemies, skill geometry and VFX, HUD, upgrade choice, run result, records, and performance diagnostics. Accessibility values from the save model affect high contrast, reduced motion, and UI scale.
+
+The controller-view boundary remains clear at the ownership level: simulation data belongs to the controller; GPU/model data belongs to the view.
+
