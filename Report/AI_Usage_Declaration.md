@@ -479,3 +479,23 @@ prop at grid row `gy` with the solid tile at `gy+1`; all 60 mid checkpoints and 
 renderer anchored its art to the *top* of the collision box, leaving the pedestal
 hanging in the air in the tutorial too.
 
+**Outcome**
+Three changes taken: `CheckpointEnd` now builds a `LevelCompleteCup` at load time,
+dropped so its base lands on the tile the flag stood on (`MakeGroundedCup` in
+`LevelFactory.cpp`); `TutorialRenderer` now anchors the trophy to the bottom of its
+box; and the tutorial statue was moved down one row in `tutorial.ldtk`. The
+assistant also flagged that this makes the endgame-checkpoint code path unreachable
+— we chose to keep it, since the `.lvl` map-builder format can still produce one.
+
+---
+
+## T-09 · Bug: invisible, frozen player after Second Wind
+**Date:** 2026-08-31
+**Related commits:** fix applied to `GameController::TryRevive`
+
+**Prompt**
+> In level 3, while I was fighting near a checkpoint and a core appeared, my
+> character suddenly went invisible and stopped moving. Skills still fire, I can
+> still see the projectiles, but the character does not move and is not drawn
+> anywhere. Why?
+
