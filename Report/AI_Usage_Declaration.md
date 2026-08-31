@@ -469,3 +469,13 @@ still plays.
 > positions. Then make the end-of-level checkpoint in every map a golden trophy like
 > the one in the tutorial. Read the asset and `.ldtk` files to do it.
 
+**AI response (summary)**
+Rather than eyeballing it, the assistant wrote throwaway tools that parse the
+`.ldtk` files with the project's own nlohmann/json and re-render each map offline
+using the game's exact tile draw rules, then reported: the project's convention is a
+prop at grid row `gy` with the solid tile at `gy+1`; all 60 mid checkpoints and all
+5 endgame checkpoints in the playable levels already satisfied it; the tutorial's
+`Checkpoint_Statue` was authored half a tile high and floated 32px; and the trophy
+renderer anchored its art to the *top* of the collision box, leaving the pedestal
+hanging in the air in the tutorial too.
+
