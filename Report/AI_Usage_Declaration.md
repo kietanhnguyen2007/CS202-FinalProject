@@ -152,3 +152,19 @@ why `BossState::Transition` is tested explicitly in the projectile collision cod
 **Date:** 2026-08-04 → 2026-08-05
 **Related commits:** `Add scale multiplier to AnimationClip and normalize oversized frames in CharacterRenderer`, `Implement hit tracking for projectiles and adjust boss cooldowns and scaling in CharacterRenderer`
 
+**Prompt**
+> Boss hurt and ultimate animations come from sheets with much larger frames than
+> the idle sheet (the artist padded them for the effect). When those clips play, the
+> boss visually doubles in size and no longer lines up with its collision box. I do
+> not want to re-export the art. How do I normalize this in the renderer?
+
+**AI response (summary)**
+First answer: scale every frame so its width matches the idle frame width. That was
+wrong for us — the padding is not symmetric, so width-matching made the boss sink
+into the floor.
+
+Second prompt from us clarified that the sprites are anchored at the feet. The
+assistant then proposed a per-clip `scale` multiplier stored in `AnimationClip`
+plus a per-clip ground-origin point, so the renderer anchors on the feet and scales
+around that anchor.
+
