@@ -524,3 +524,18 @@ for the same missing invariant; none had it.
 **Prompt**
 > Make the Magic Caster's fire skill able to break fake walls.
 
+**AI response (summary)**
+Found that fake walls only ever took damage inside the melee hit-box lambda, and the
+Magic Caster's whole kit is projectiles, so that class could never open a secret at
+all (see T-04). Added a fake-wall pass to the player-projectile update, gated on the
+projectile carrying `DamageType::Fire`, and placed it **before** the solid-tile sweep —
+the level 3 fake wall sits on a solid collision tile, so checking after would kill the
+shot on the exact tile it is meant to clear.
+
+**Outcome**
+Applied. The assistant noted the consequence that a Ninja shuriken under Infuse Fire
+also breaks walls, since projectiles inherit the active infusion (T-05), and left the
+choice to us; we kept it, as it is consistent with the elemental design.
+
+---
+
