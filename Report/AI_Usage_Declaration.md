@@ -295,3 +295,18 @@ behaviour change so the refactor could be verified by playing every level.
 > `static_cast` or `dynamic_cast` for type dispatch, given this is a course project
 > graded on OOP.
 
+**AI response (summary)**
+Recommended an `EntityType` enum tag with `static_cast` at the dispatch sites — RTTI
+lookups in a per-frame loop over hundreds of entities are measurably slower, and the
+enum also serializes directly into the save format. Suggested keeping virtual
+`Update` for polymorphic behaviour so the design still demonstrates inheritance.
+
+**Outcome**
+Adopted. This is the `EntityType` / `GetType()` pattern used throughout the codebase.
+
+---
+
+## T-02 · Character state auto-inference
+**Date:** 2026-06-12
+**Related commits:** `add Character::State enum with auto-inference for Player/Enemy`
+
