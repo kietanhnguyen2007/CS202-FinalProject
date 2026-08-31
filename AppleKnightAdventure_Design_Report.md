@@ -929,3 +929,73 @@ GPU resource shutdown is intentionally explicit across `GameView`, individual UI
 
 # 9. Survival3D Architecture
 
+## 9.1 Survival class diagram
+
+```mermaid
+%% id: survival_runtime
+classDiagram
+direction LR
+
+class SurvivalController {
+  <<Simulation owner>>
+  -Phase m_phase
+  -PlayerState m_player
+  -vector~EnemyState~ m_enemies
+  -vector~ProjectileState~ m_projectiles
+  -StateMachine m_playerGraph
+  -vector~StateMachine~ m_enemyGraphs
+  +Start()
+  +Update(frameDt)
+  +FixedUpdate(dt)
+  +FinalizeRun(victory)
+}
+class SurvivalView {
+  <<3D View>>
+  +Render(controller)
+  +RenderArena()
+  +RenderHUD()
+  +RenderResult()
+}
+class StateMachine {
+  <<Deterministic FSM>>
+  +Submit(request)
+  +SubmitBest(requests)
+  +CompleteCurrent()
+}
+class EventCursor {
+  +Start(frame)
+  +Advance(frame)
+}
+class ComboBuffer
+class RuntimeIK
+class VfxRuntime {
+  +Spawn(package, params)
+  +Update(dt)
+  +SampleFrame()
+}
+class SurvivalRunService
+
+SurvivalController ..> SurvivalView : const projection
+SurvivalController *-- StateMachine : animation
+SurvivalController *-- EventCursor : frame events
+SurvivalController *-- ComboBuffer
+SurvivalController ..> RuntimeIK : target state
+SurvivalView *-- VfxRuntime : visual instances
+SurvivalController ..> SurvivalRunService : run lifecycle
+```
+
+Figure 9 shows Survival3D as a mode-specific subsystem rather than an extension of the 2D entity hierarchy. It uses value-oriented `PlayerState`, `EnemyState`, and `ProjectileState` structures owned by `SurvivalController`, while `SurvivalView` renders a const projection of controller state.
+
+## 9.2 Phase model
+
+`Phase` defines the top-level run lifecycle: character selection, pre-wave countdown, combat, wave clear, upgrade choice, run failed, and run victory. `SurvivalController::SetPhase` is the transition funnel. Entering a terminal result phase finalizes the run exactly once.
+
+The wave loop follows a clear state progression:
+
+1. `PreWave` displays a countdown and prepares the next spawn set.
+2. `Combat` advances enemies, player combat, projectiles, events, and win/loss conditions.
+3. `WaveClear` waits briefly and then opens an upgrade choice or begins the next wave.
+4. Boss rules select stronger archetypes at configured intervals; the run reaches victory after the final configured wave.
+
+`WaveRule` and `BalanceConfig` keep important balance values together. Runtime configuration has a version string stored with run results, allowing the backend and saved history to know which balance rules produced a score.
+
