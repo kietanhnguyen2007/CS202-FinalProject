@@ -409,3 +409,21 @@ classes with almost no per-class code.
 
 ---
 
+## T-06 · Save data and level unlocking
+**Date:** 2026-08-31
+**Related commits:** `Update SaveManager.cpp`, `Edit Static Saving and Update Checkpoint Trigger`
+
+**Prompt**
+> `SaveManager` writes a single `save.json` holding player name, coins, unlocked
+> characters, per-level high score / best stars / best time, achievements, lifetime
+> stats and leaderboards. Two problems: a partially corrupted file currently throws
+> and wipes everything, and level unlocking reads the save in a way that lets a
+> hand-edited file expose later levels. Suggest fixes.
+
+**AI response (summary)**
+For loading, parse each section defensively — wrap each per-key conversion in its
+own try/catch and skip only the malformed entry rather than aborting the whole load.
+For unlocking, do not trust a set of "unlocked" ids from the file; derive unlock
+state by walking levels in order and stopping at the first one with no recorded
+score and no stars, so a non-sequential save cannot skip ahead.
+
