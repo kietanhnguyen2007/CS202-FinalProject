@@ -1388,3 +1388,21 @@ Adventure benefits from a polymorphic entity hierarchy because many heterogeneou
 
 The shared boundary is higher-level: both modes use the shell, save repository, achievements, audio, display services, and explicit controller-view lifecycles. This is reuse through stable services, not through one oversized gameplay base class.
 
+## 12.3 Why views observe without owning
+
+Copying all entity state into a separate presentation graph each frame would add translation cost and synchronization logic. Non-owning pointers let 2D renderers inspect live entity state directly, while entity IDs key animation and render records. The project compensates for lifetime risk with explicit registration, unregistration, and detach-before-destroy sequences.
+
+Survival3D chooses a different variation: `SurvivalView::Render` receives a const controller reference and queries value-state accessors. Both designs preserve the core rule that a view never controls gameplay lifetime.
+
+## 12.4 Why editor and gameplay reuse one world model
+
+The editor could have introduced editor-only tile and entity types and converted them only at export time. Instead, it owns a real `GameState`, constructs real entities, saves through `LevelFactory`, and playtests through `GameController`. A map that renders in the editor is therefore close to the representation that gameplay will load.
+
+This reuse makes cross-surface lifecycle handling important. Adventure clears render registrations on exit; the editor forces re-registration when resuming. The coupling is explicit and tied to the value of validating real runtime content.
+
+## 12.5 Why level adaptation sits behind LevelFactory
+
+Format choice is an application concern, while parsing rules belong to the format boundary. `LevelFactory` therefore remains the stable entry used by gameplay and the editor but delegates translation through `ILevelSourceAdapter`. This preserves existing client code and keeps one place for extension selection without returning the parser switch to controller code.
+
+The adapters deliberately converge early on the `GameState` domain representation. Once import completes, command history and editor rendering operate on that model; playtest serializes a temporary `.lvl` snapshot and `GameController` loads a fresh `GameState` through the same schema and runtime types. The editor does not retain an LDtk-specific parallel model. This is why import can be a bounded feature instead of a second editor architecture.
+
