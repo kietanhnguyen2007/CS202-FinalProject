@@ -132,3 +132,22 @@ Views intentionally do not own gameplay entities. `GameView` stores pointers to 
 
 Shared ownership is reserved for reusable presentation resources. `AssetManager` caches `shared_ptr<TextureAtlas>` objects, atlases share animation clips, and animators hold shared clips. This is a good fit because the same immutable atlas/clip can be referenced by many render instances, and destroying one entity must not unload a resource still in use elsewhere.
 
+## 3.3 Separation by lifecycle
+
+The modules are separated less by abstract layer purity than by lifecycle:
+
+- The application shell owns the window and chooses exactly one active surface.
+- A controller owns or coordinates the state required for one surface.
+- A model survives as long as its gameplay session or saved profile.
+- A view owns GPU-facing resources and survives while the OpenGL context exists.
+- A worker owns only CPU/network work and hands results to the main thread.
+- The backend process owns server validation and its own durable JSON store.
+
+This lifecycle view explains the shutdown order in `main.cpp:447-479`: detach gameplay/editor references, release view textures, stop the run service, clear shared atlases and audio, then destroy the renderer and window.
+
+## 3.4 Determinism and bounded work
+
+Adventure uses the frame delta but clamps large values before physics. It also establishes a safe moment for spatial indexing: entities move first, the quadtree is rebuilt, combat queries run, and removals occur later. Survival3D goes further by accumulating real frame time and advancing gameplay in 1/60-second ticks, with at most six catch-up ticks. Excess accumulated time is discarded rather than allowing an unbounded spiral of death.
+
+Bounded work appears in other components as well. Render submission uses preallocated per-layer buffers and tracks dropped submissions. Leaderboard results have limits. Server input is validated. Animation transition requests use explicit priorities and stale-request rejection. These are examples of designing for worst-case behavior rather than only the expected path.
+
