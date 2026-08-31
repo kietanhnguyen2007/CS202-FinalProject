@@ -791,3 +791,83 @@ Reusing `GameState`, `GameView`, factories, runtime entities, and `LevelFactory`
 
 # 8. Rendering, Animation, and UI Architecture
 
+## 8.1 Rendering class diagram
+
+```mermaid
+%% id: rendering_pipeline
+classDiagram
+direction LR
+
+class GameView {
+  <<Partial Facade>>
+  -TileVector* layers
+  -EntityVector* entities
+  +Update(dt)
+  +Render(camera, particles, dt)
+}
+class CharacterRenderer
+class EntityRenderer
+class ParticleRenderer
+class TutorialRenderer
+class Renderer {
+  <<Buffered Layered Renderer>>
+  +BeginFrame()
+  +SubmitSprite(...)
+  +EndFrameAndFlush()
+}
+class AssetManager {
+  <<Shared resource cache>>
+  -workerThread
+  -uploadQueue
+  +StartLoading(paths)
+  +UpdateMainThread()
+  +GetAtlas(path)
+}
+class TextureAtlas {
+  +GetTexture()
+  +GetClip(name)
+}
+class Animator {
+  -shared_ptr~AnimationClip~ current
+  +Play(name)
+  +Update(dt)
+}
+class UIStateManager {
+  -vector~UILayer~ stack
+  +Push(layer)
+  +Pop()
+  +RenderAll()
+}
+
+GameView ..> CharacterRenderer
+GameView ..> EntityRenderer
+GameView ..> ParticleRenderer
+GameView ..> TutorialRenderer
+CharacterRenderer ..> Renderer : submit
+EntityRenderer ..> Renderer : submit
+ParticleRenderer ..> Renderer : submit
+GameView ..> Renderer : layers
+CharacterRenderer ..> AssetManager : atlas lookup
+EntityRenderer ..> AssetManager : atlas lookup
+AssetManager o-- TextureAtlas : shared cache
+CharacterRenderer *-- Animator : per entity
+EntityRenderer *-- Animator : per animated entity
+Animator o-- TextureAtlas : shared clips
+GameView ..> UIStateManager : overlays
+UIStateManager ..> Renderer
+```
+
+Figure 8 shows the 2D presentation pipeline. `GameView` coordinates world rendering, but specialized renderers own registration and animation state. All sprite producers converge on `Renderer` for layered ordering and flushing.
+
+## 8.2 Buffered layered renderer
+
+`Renderer` exposes `BeginFrame`, `SubmitSprite`, `SubmitNPatch`, primitive rectangle/text helpers, and `EndFrameAndFlush`. A `RenderCommand` identifies texture, source rectangle, position, scale, rotation, tint, layer, depth, flip state, and entity ID. The layer enum separates background, world, foreground, and UI.
+
+Submission decouples “what should be drawn” from final draw order. At flush time, each layer is stable-sorted by depth and commands are issued in the correct order. Capacity, submitted count, draw-call count, and dropped-submission metrics make the rendering budget observable. A bounded multi-producer/single-consumer ring accepts non-main-thread submissions before the main layer buffers consume them.
+
+The current flush path calls `DrawTexturePro` per sprite; it should therefore be described as a **buffered layered command renderer**, not as GPU draw-call batching. Its concrete benefits are one submission API, preallocated command storage, deterministic layer/depth order, and measured overflow behavior.
+
+`GameView::Render` is a hybrid deferred and immediate pipeline. It submits and flushes parallax background commands in screen space, enters camera space for tiles and world sprites, flushes the world, leaves camera space, then draws floating text and UI. Tile grids and several text-heavy paths use raylib immediate drawing, with explicit flushes preserving order.
+
+`GameView` coordinates `CharacterRenderer`, `EntityRenderer`, `ParticleRenderer`, enemy-status, tutorial, and UI work. The controller still calls some helpers and overlays directly, so `GameView` is a **partial Facade**: it simplifies the normal world-render path without hiding the entire subsystem.
+
