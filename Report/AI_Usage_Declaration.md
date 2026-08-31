@@ -353,3 +353,20 @@ explaining it is still in `RestorePlayerState`.
 
 ---
 
+## T-04 · FakeWall secret passages
+**Date:** 2026-08-09
+**Related commits:** `feat: implement full FakeWall logic with damage, collision, and hints`
+
+**Prompt**
+> I want breakable fake walls that look like ordinary terrain. Constraint: a wall is
+> an LDtk entity placed on top of a normal tile, it must block the player exactly
+> like a solid tile does, and it must disappear after taking enough damage. Walk me
+> through what has to change in collision, damage, and rendering.
+
+**AI response (summary)**
+Proposed a `FakeWall` entity with its own small health pool, resolved in a second
+collision pass alongside the tile pass so it blocks movement identically; damage
+routed through the existing melee hit-box lambda; and on destruction, deactivating
+the entity *and* removing the underlying tile from the Main layer so the passage
+actually opens.
+
