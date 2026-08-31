@@ -871,3 +871,18 @@ The current flush path calls `DrawTexturePro` per sprite; it should therefore be
 
 `GameView` coordinates `CharacterRenderer`, `EntityRenderer`, `ParticleRenderer`, enemy-status, tutorial, and UI work. The controller still calls some helpers and overlays directly, so `GameView` is a **partial Facade**: it simplifies the normal world-render path without hiding the entire subsystem.
 
+## 8.3 AssetManager and texture atlases
+
+`AssetManager` is both a process-level service and a resource cache. It maps atlas JSON paths to shared `TextureAtlas` instances. Callers request an atlas by stable path and share the same loaded resource rather than loading duplicate textures and clips.
+
+The loading design has two queues:
+
+1. the worker takes pending paths and prepares atlas/image data;
+2. completed CPU-side atlas objects enter an upload queue;
+3. the main thread drains at most four queued atlas uploads per frame and performs GPU work;
+4. the cache publishes shared atlas references to renderers.
+
+Mutexes protect the cache, pending queue, upload queue, and current-file display name. Atomics track running state, completion, count, and smooth progress. `Shutdown` joins the worker and releases cached atlases before the graphics context disappears.
+
+This reuse is flyweight-like, but the implementation is more precisely a path-keyed resource cache. It does not define explicit Flyweight Factory, intrinsic-state, and extrinsic-state interfaces.
+
