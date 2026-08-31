@@ -120,3 +120,15 @@ rewrite kept the diff small and reviewable.
 
 ---
 
+## K-04 · Boss phase state machine
+**Date:** 2026-08-04 → 2026-08-05
+**Related commits:** `Refactor boss implementation and add new boss types`, `Enhance boss mechanics with combo steps, super armor, and damage tracking`, `Enhance boss mechanics and projectile behavior: add 2D scaling, refine phase transitions, and implement new projectile subtypes`
+
+**Prompt**
+> I have one `Boss` base class and three subclasses. Each boss has 3–4 phases that
+> change at health thresholds; a phase change plays a transition animation during
+> which the boss must be invulnerable and must not act; and inside a phase the boss
+> runs multi-step melee combos where each step has its own hit window. Design the
+> state machine. I want phase data to be declarative per subclass, not a `switch`
+> repeated in three files.
+
