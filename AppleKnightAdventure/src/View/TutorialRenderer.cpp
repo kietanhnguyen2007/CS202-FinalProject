@@ -140,19 +140,35 @@ void TutorialRenderer::RenderAll(const std::vector<std::unique_ptr<Entity>>& ent
                                   static_cast<uint32_t>(entity->GetId()));
         } else if (entity->GetType() == EntityType::LevelCompleteCup && m_cupTexture.id != 0) {
             const auto* cup = static_cast<const LevelCompleteCup*>(entity.get());
-            const float bob = cup->IsActivated()
+            const bool activated = cup->IsActivated();
+            const float bob = activated
                 ? -12.0f + std::sin(m_time * 7.0f) * 2.0f
                 : std::sin(m_time * 2.5f) * 3.0f;
-            const float buttonY = pos.y + 92.0f;
-            renderer.DrawRectangle({pos.x + 17.0f, buttonY}, {62.0f, 10.0f},
+
+            // Anchor the prop to the bottom edge of the gameplay box, which is
+            // the floor line the cup was placed on. Drawing from the top-left
+            // corner instead left the pedestal hanging most of a tile in the
+            // air, and the trophy artwork is smaller than the box it lives in.
+            constexpr float cupScale = 0.55f;
+            constexpr float plateHeight = 10.0f;
+            const Vector2 boxSize = cup->GetSize();
+            const float artWidth  = (float)m_cupTexture.width  * cupScale;
+            const float artHeight = (float)m_cupTexture.height * cupScale;
+            const float artX   = pos.x + (boxSize.x - artWidth) * 0.5f;
+            const float plateY = pos.y + boxSize.y - plateHeight;
+
+            renderer.DrawRectangle({artX + (artWidth - 62.0f) * 0.5f, plateY},
+                                   {62.0f, plateHeight},
                                    Color{68, 54, 48, 255}, Layer::World, 0.10f);
-            renderer.DrawRectangle({pos.x + 25.0f, buttonY - (cup->IsActivated() ? 1.0f : 6.0f)},
-                                   {46.0f, cup->IsActivated() ? 4.0f : 9.0f},
-                                   cup->IsActivated() ? Color{80, 200, 90, 255} : Color{225, 55, 48, 255},
+            renderer.DrawRectangle({artX + (artWidth - 46.0f) * 0.5f,
+                                    plateY - (activated ? 1.0f : 6.0f)},
+                                   {46.0f, activated ? 4.0f : 9.0f},
+                                   activated ? Color{80, 200, 90, 255} : Color{225, 55, 48, 255},
                                    Layer::World, 0.11f);
             renderer.SubmitSprite(&m_cupTexture,
                                   {0.0f, 0.0f, (float)m_cupTexture.width, (float)m_cupTexture.height},
-                                  {pos.x, pos.y + bob}, {0.55f, 0.55f}, 0.0f, {}, WHITE,
+                                  {artX, plateY - artHeight + bob}, {cupScale, cupScale},
+                                  0.0f, {}, WHITE,
                                   Layer::World, 0.16f, false,
                                   static_cast<uint32_t>(entity->GetId()));
         } else if (entity->GetType() == EntityType::InMapGuide) {

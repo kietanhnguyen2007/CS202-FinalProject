@@ -4099,7 +4099,7 @@
                                                                               "__identifier":  "Checkpoint_Statue",
                                                                               "__grid":  [
                                                                                              103,
-                                                                                             16
+                                                                                             17
                                                                                          ],
                                                                               "__pivot":  [
                                                                                               0,
@@ -4116,13 +4116,13 @@
                                                                               "defUid":  119,
                                                                               "px":  [
                                                                                          1648,
-                                                                                         264
+                                                                                         272
                                                                                      ],
                                                                               "fieldInstances":  [
 
                                                                                                  ],
                                                                               "__worldX":  1648,
-                                                                              "__worldY":  264
+                                                                              "__worldY":  272
                                                                           },
                                                                           {
                                                                               "__identifier":  "InMapGuide",

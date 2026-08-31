@@ -45,6 +45,21 @@ std::string GetEntityFieldString(const nlohmann::json& ei,
     }
     return defaultVal;
 }
+
+// Every map finishes on the same golden trophy the tutorial uses, so a level
+// file's end-of-level marker is authored as a one-tile prop standing on the
+// ground.  The cup box is taller and wider than that tile, so centre it on the
+// authored column and drop it until its base lands on the same floor line; a
+// cup built straight from the marker position would hang in the air.
+std::unique_ptr<LevelCompleteCup> MakeGroundedCup(Vector2 markerPos) {
+    auto cup = std::make_unique<LevelCompleteCup>(markerPos);
+    const Vector2 size = cup->GetSize();
+    cup->SetPosition({
+        markerPos.x + ((float)TILE_SIZE - size.x) * 0.5f,
+        markerPos.y + (float)TILE_SIZE - size.y
+    });
+    return cup;
+}
 } // namespace
 
 CharacterClass LevelFactory::ParsePlayerClass(const std::string& name) {
@@ -195,11 +210,12 @@ std::unique_ptr<GameState> LevelFactory::LoadLevel(const std::string& filepath,
             float tx = 0.0f;
             float ty = 0.0f;
             file >> cpType >> tx >> ty;
-            auto cp = std::make_unique<Checkpoint>(Vector2{tx * TILE_SIZE, ty * TILE_SIZE});
+            const Vector2 cpPos{tx * TILE_SIZE, ty * TILE_SIZE};
             if (cpType == "end") {
-                cp->SetEndGame(true);
+                state->AddEntity(MakeGroundedCup(cpPos));
+            } else {
+                state->AddEntity(std::make_unique<Checkpoint>(cpPos));
             }
-            state->AddEntity(std::move(cp));
         } else if (token == "item") {
             std::string type;
             float tx = 0.0f, ty = 0.0f;
@@ -333,6 +349,16 @@ bool LevelFactory::SaveLevel(const std::string& filepath, GameState* state) {
                 Checkpoint* cp = static_cast<Checkpoint*>(entity.get());
                 std::string cpType = cp->IsEndGame() ? "end" : "mid";
                 file << "checkpoint " << cpType << " " << tx << " " << ty << "\n";
+                break;
+            }
+            case EntityType::LevelCompleteCup: {
+                // Undo MakeGroundedCup so a saved map reloads onto the same
+                // floor tile instead of drifting up on every save/load cycle.
+                const Vector2 size = entity->GetSize();
+                const float markerX = pos.x - ((float)TILE_SIZE - size.x) * 0.5f;
+                const float markerY = pos.y - (float)TILE_SIZE + size.y;
+                file << "checkpoint end " << (markerX / TILE_SIZE) << " "
+                     << (markerY / TILE_SIZE) << "\n";
                 break;
             }
             case EntityType::Item: {
@@ -644,9 +670,10 @@ std::unique_ptr<GameState> LevelFactory::LoadLDtkLevel(const std::string& filepa
                 cp->SetEndGame(false);
                 state->AddEntity(std::move(cp));
             } else if (eid == "CheckpointEnd") {
-                auto cp = std::make_unique<Checkpoint>(pos);
-                cp->SetEndGame(true);
-                state->AddEntity(std::move(cp));
+                // The finish marker is a golden trophy in every map, matching
+                // the tutorial. Keeping the LDtk identifier means existing maps
+                // need no re-authoring.
+                state->AddEntity(MakeGroundedCup(pos));
             } else if (eid == "FakeWall") {
                 state->AddEntity(std::make_unique<FakeWall>(
                     pos, Vector2{(float)TILE_SIZE, (float)TILE_SIZE}));
