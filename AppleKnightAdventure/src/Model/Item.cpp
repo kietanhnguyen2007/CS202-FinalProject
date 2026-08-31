@@ -16,9 +16,7 @@ Item::Item(Vector2 position, ItemType type, int amount)
     switch (type) {
         case ItemType::Coin: m_name = "Coin"; break;
         case ItemType::Apple: m_name = "Apple"; break;
-        case ItemType::Key: m_name = "Key"; break;
         case ItemType::Potion: m_name = "Potion"; break;
-        case ItemType::Equipment: m_name = "Equipment"; break;
     }
 }
 

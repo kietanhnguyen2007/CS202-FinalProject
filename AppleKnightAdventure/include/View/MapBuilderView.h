@@ -69,7 +69,6 @@ private:
     Texture2D m_texBoss2{};
     Texture2D m_texBoss3{};
     Texture2D m_texCoin{};
-    Texture2D m_texKey{};
     Texture2D m_texPotion{};
     Texture2D m_texChest{};
     Texture2D m_texCheckpoint{};

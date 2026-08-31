@@ -316,17 +316,6 @@ void MenuView::ShowErrorDialog(const std::string& message) {
     m_errorMsg = message;
     m_selected = 0;
 }
-void MenuView::ShowConnectionStatus(const std::string& ip, bool connected) {
-    m_mode          = MenuMode::Connection;
-    m_connectionIp  = ip;
-    m_connected     = connected;
-    m_selected      = 0;
-}
-void MenuView::ShowRoleSelect(const std::vector<std::string>& roles) {
-    m_mode      = MenuMode::RoleSelect;
-    m_roleItems = roles;
-    m_selected  = 0;
-}
 void MenuView::ShowShop() {
     m_mode          = MenuMode::Shop;
     m_selected      = 0;
@@ -396,8 +385,6 @@ void MenuView::Render() {
         case MenuMode::Main:        RenderMain();        break;
         case MenuMode::Pause:       RenderPause();       break;
         case MenuMode::Error:       RenderError();       break;
-        case MenuMode::Connection:  RenderConnection();  break;
-        case MenuMode::RoleSelect:  RenderRoleSelect();  break;
         case MenuMode::Shop:        RenderShop();        break;
         case MenuMode::LevelSelect: RenderLevelSelect(); break;
         case MenuMode::CustomMaps:  RenderCustomMaps();  break;
@@ -769,7 +756,7 @@ void MenuView::DrawAnimatedButton(const char* label, AnimatedButton& btn, bool s
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// DrawButton (legacy — used by Pause / Error / Connection / RoleSelect)
+// DrawButton (legacy - used by Pause and Error)
 // ─────────────────────────────────────────────────────────────────────────────
 void MenuView::DrawButton(const char* label, float x, float y, float w, float h, bool selected) {
     Renderer& r = Renderer::GetInstance();
@@ -1222,76 +1209,6 @@ void MenuView::RenderError() {
     DrawButton(m_errorItems[0].c_str(),
                panelX + (panelW - panelW*0.35f)*0.5f, panelY + panelH*0.70f,
                panelW*0.35f, panelH*0.16f, true);
-}
-
-// =============================================================================
-// ── RENDER ROLE SELECT ───────────────────────────────────────────────────────
-// =============================================================================
-void MenuView::RenderRoleSelect() {
-    Renderer& r = Renderer::GetInstance();
-    int w = r.GetWindowWidth();
-    int h = r.GetWindowHeight();
-
-    r.DrawRectangle({0, 0}, {(float)w, (float)h}, {10, 5, 20, 200}, Layer::UI, 0.0f);
-
-    float panelW = w * 0.40f;
-    float panelH = h * 0.50f;
-    float panelX = ((float)w - panelW) * 0.5f;
-    float panelY = ((float)h - panelH) * 0.5f;
-    DrawPanel(panelX, panelY, panelW, panelH);
-
-    {
-        const char* title = "Select Role";
-        int fs = (int)(h * 0.045f); if (fs < 14) fs = 14;
-        int tw = ::MeasureText(title, fs);
-        r.DrawText(title, {panelX+(panelW-(float)tw)*0.5f, panelY+panelH*0.08f}, fs, WHITE);
-    }
-
-    float btnW    = panelW * 0.55f;
-    float btnH    = panelH * 0.14f;
-    float btnX    = panelX + (panelW - btnW) * 0.5f;
-    float startY  = panelY + panelH * 0.30f;
-    float spacing = panelH * 0.20f;
-
-    for (int i = 0; i < (int)m_roleItems.size(); ++i) {
-        float by = startY + (float)i * spacing;
-        DrawButton(m_roleItems[i].c_str(), btnX, by, btnW, btnH, (i == m_selected));
-    }
-}
-
-// =============================================================================
-// ── RENDER CONNECTION ────────────────────────────────────────────────────────
-// =============================================================================
-void MenuView::RenderConnection() {
-    Renderer& r = Renderer::GetInstance();
-    int w = r.GetWindowWidth();
-    int h = r.GetWindowHeight();
-
-    r.DrawRectangle({0,0}, {(float)w,(float)h}, {0,0,0,140}, Layer::UI, 0.0f);
-
-    float panelW = w * 0.35f;
-    float panelH = h * 0.35f;
-    float panelX = ((float)w - panelW) * 0.5f;
-    float panelY = ((float)h - panelH) * 0.5f;
-    DrawPanel(panelX, panelY, panelW, panelH);
-
-    {
-        const char* status = m_connected ? "Connected" : "Connecting...";
-        Color statusCol = m_connected ? GREEN : GRAY;
-        int fs = (int)(h * 0.035f); if (fs < 12) fs = 12;
-        int tw = ::MeasureText(status, fs);
-        r.DrawText(status, {panelX+(panelW-(float)tw)*0.5f, panelY+panelH*0.15f}, fs, statusCol);
-    }
-    {
-        int fs = (int)(h * 0.025f); if (fs < 10) fs = 10;
-        int iw = ::MeasureText(m_connectionIp.c_str(), fs);
-        r.DrawText(m_connectionIp.c_str(),
-                   {panelX+(panelW-(float)iw)*0.5f, panelY+panelH*0.35f}, fs, WHITE);
-    }
-
-    DrawButton(m_connectionItems[0].c_str(),
-               panelX + (panelW - panelW*0.35f)*0.5f, panelY + panelH*0.70f,
-               panelW*0.35f, panelH*0.14f, (m_selected == 0));
 }
 
 // =============================================================================

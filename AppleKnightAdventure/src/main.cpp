@@ -15,7 +15,6 @@
 #include "View/OptionsView.h"
 #include "View/PrepareView.h"
 #include "View/MapBuilderView.h"
-#include "View/InventoryView.h"
 #include "View/InteractPrompt.h"
 #include "View/MinimapView.h"
 #include "View/UIStateManager.h"
@@ -460,7 +459,6 @@ int main() {
     View::PrepareView::GetInstance().Shutdown();
     shop.Shutdown();
     opts.Shutdown();
-    View::InventoryView::GetInstance().Shutdown();
     View::InteractPrompt::GetInstance().Shutdown();
     View::SkillBarView::GetInstance().Shutdown();
     View::HUDView::GetInstance().Shutdown();

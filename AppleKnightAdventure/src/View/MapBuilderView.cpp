@@ -139,7 +139,6 @@ void MapBuilderView::Init() {
             {&m_texBoss2, "assets/textures/boss/boss2/phase1/idle.json", "assets/textures/boss/boss2/phase1/idle.png"},
             {&m_texBoss3, "assets/textures/boss/boss3/phase1/idle.json", "assets/textures/boss/boss3/phase1/idle.png"},
             {&m_texCoin, "assets/textures/items/coin.json", "assets/textures/items/coin.png"},
-            {&m_texKey, "assets/textures/items/key.json", "assets/textures/items/key.png"},
             {&m_texPotion, "assets/textures/items/potion_red.json", "assets/textures/items/potion_red.png"},
             {&m_texChest, "assets/textures/objects/chest_closed.json", "assets/textures/objects/chest_closed.png"},
             {&m_texCheckpoint, "assets/textures/objects/checkpoint_uncaptured.json", "assets/textures/objects/checkpoint_uncaptured.png"},
@@ -149,7 +148,7 @@ void MapBuilderView::Init() {
             {&m_texPortalPurple, "assets/textures/objects/portal_purple_anim.json", "assets/textures/objects/portal_purple_spritesheet.png"},
             {&m_texPortalRed, "assets/textures/objects/portal_red_anim.json", "assets/textures/objects/portal_red_spritesheet.png"}
         };
-        static_assert(std::size(icons) == 15);
+        static_assert(std::size(icons) == 14);
 
         for (std::size_t i = 0; i < std::size(icons); ++i) {
             auto atlas = AssetManager::GetInstance().GetAtlas(icons[i].atlasPath);
@@ -177,7 +176,7 @@ void MapBuilderView::Shutdown() {
 
     Texture2D* textures[] = {
         &m_texPlayer, &m_texEnemy, &m_texBoss1, &m_texBoss2, &m_texBoss3,
-        &m_texCoin, &m_texKey, &m_texPotion, &m_texChest, &m_texCheckpoint,
+        &m_texCoin, &m_texPotion, &m_texChest, &m_texCheckpoint,
         &m_texPortalBlue, &m_texPortalBrown, &m_texPortalGreen,
         &m_texPortalPurple, &m_texPortalRed
     };
@@ -350,9 +349,9 @@ void MapBuilderView::Update(float dt) {
                 if (m_currentTab == PaletteTab::Entities) {
                     const EntityType types[] = {EntityType::Player, EntityType::Enemy, EntityType::Enemy,
                         EntityType::Boss, EntityType::Boss, EntityType::Boss, EntityType::Item,
-                        EntityType::Item, EntityType::Item};
-                    const int subs[] = {0,0,1,1,2,3,0,2,3};
-                    if (idx >= 0 && idx < 9) { m_selectedEntityType = types[idx]; m_selectedEntitySubType = subs[idx]; }
+                        EntityType::Item};
+                    const int subs[] = {0,0,1,1,2,3,0,3};
+                    if (idx >= 0 && idx < 8) { m_selectedEntityType = types[idx]; m_selectedEntitySubType = subs[idx]; }
                 } else if (m_currentTab == PaletteTab::Triggers) {
                     const EntityType types[] = {EntityType::Chest, EntityType::Checkpoint,
                         EntityType::TeleportPortal, EntityType::TeleportPortal, EntityType::TeleportPortal,
@@ -585,20 +584,19 @@ void MapBuilderView::DrawPalette(int sw, int sh) {
             }
         }
     } else if (m_currentTab == PaletteTab::Entities) {
-        const char* names[] = {"Player", "Melee", "Ranged", "Boss 1", "Boss 2", "Boss 3", "Coin", "Key", "Potion"};
-        EntityType types[] = {EntityType::Player, EntityType::Enemy, EntityType::Enemy, EntityType::Boss, EntityType::Boss, EntityType::Boss, EntityType::Item, EntityType::Item, EntityType::Item};
-        int subTypes[] = {0, 0, 1, 1, 2, 3, 0, 2, 3}; // Removed apple (1)
-        Texture2D texs[] = {m_texPlayer, m_texEnemy, m_texEnemy, m_texBoss1, m_texBoss2, m_texBoss3, m_texCoin, m_texKey, m_texPotion};
+        const char* names[] = {"Player", "Melee", "Ranged", "Boss 1", "Boss 2", "Boss 3", "Coin", "Potion"};
+        EntityType types[] = {EntityType::Player, EntityType::Enemy, EntityType::Enemy, EntityType::Boss, EntityType::Boss, EntityType::Boss, EntityType::Item, EntityType::Item};
+        int subTypes[] = {0, 0, 1, 1, 2, 3, 0, 3}; // Apple is not exposed in the editor palette.
+        Texture2D texs[] = {m_texPlayer, m_texEnemy, m_texEnemy, m_texBoss1, m_texBoss2, m_texBoss3, m_texCoin, m_texPotion};
         Rectangle sources[] = {
             m_srcPlayer, m_srcEnemy, m_srcEnemy,
             m_srcBoss1, m_srcBoss2, m_srcBoss3,
             {0, 0, static_cast<float>(m_texCoin.width), static_cast<float>(m_texCoin.height)},
-            {0, 0, static_cast<float>(m_texKey.width), static_cast<float>(m_texKey.height)},
             {0, 0, static_cast<float>(m_texPotion.width), static_cast<float>(m_texPotion.height)}
         };
         
         const int cols = PaletteColumns(l, 55.0f);
-        for (int i = 0; i < 9; ++i) {
+        for (int i = 0; i < 8; ++i) {
             int col = i % cols;
             int row = i / cols;
             float px = l.palette.x + 8 + col * 55;

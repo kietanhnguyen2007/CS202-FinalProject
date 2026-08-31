@@ -3,7 +3,6 @@
 #include "View/SkillBarView.h"
 #include "View/InteractPrompt.h"
 #include "View/MenuView.h"
-#include "View/InventoryView.h"
 #include "View/ResultView.h"
 #include "View/Renderer.h"
 
@@ -29,13 +28,11 @@ static const UILayer kRenderOrder[] = {
     UILayer::SkillBar,
     UILayer::InteractPrompt,
     UILayer::Menu,
-    UILayer::Inventory,
     UILayer::Result,
 };
 
 bool UIStateManager::IsModal(UILayer layer) {
     return layer == UILayer::Menu
-        || layer == UILayer::Inventory
         || layer == UILayer::Result;
 }
 
@@ -45,7 +42,6 @@ bool UIStateManager::IsLayerVisible(UILayer layer) const {
         case UILayer::SkillBar:      return SkillBarView::GetInstance().IsOpen();
         case UILayer::InteractPrompt: return InteractPrompt::GetInstance().IsVisible();
         case UILayer::Menu:          return true; // MenuView tự quản lý visibility qua m_visible + m_mode
-        case UILayer::Inventory:     return InventoryView::GetInstance().IsOpen();
         case UILayer::Result:        return ResultView::GetInstance().IsVisible();
     }
     return false;
@@ -57,7 +53,6 @@ void UIStateManager::RenderLayer(UILayer layer) const {
         case UILayer::SkillBar:      SkillBarView::GetInstance().Render();      break;
         case UILayer::InteractPrompt: InteractPrompt::GetInstance().Render();   break;
         case UILayer::Menu:          MenuView::GetInstance().Render();          break;
-        case UILayer::Inventory:     InventoryView::GetInstance().Render();     break;
         case UILayer::Result:        ResultView::GetInstance().Render();        break;
     }
 }

@@ -18,7 +18,6 @@ InputCommand InputController::Poll() {
     cmd.ultimate  = IsKeyPressed(KEY_H);
     cmd.parryBlock = IsKeyDown(KEY_P);  // Hold P to keep parrying
     cmd.interact  = IsKeyPressed(KEY_F) || IsKeyPressed(KEY_O);
-    cmd.openInventory = IsKeyPressed(KEY_I);
     cmd.pause     = IsKeyPressed(KEY_ESCAPE);
     cmd.sprint    = IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT);
     cmd.dash      = IsKeyPressed(KEY_L);
@@ -45,7 +44,6 @@ InputCommand InputController::PollPlayerOne() {
     cmd.ultimate   = IsKeyPressed(KEY_H);
     cmd.parryBlock = IsKeyDown(KEY_P);
     cmd.interact   = IsKeyPressed(KEY_F);
-    cmd.openInventory = IsKeyPressed(KEY_I);
     cmd.pause      = IsKeyPressed(KEY_ESCAPE);
     cmd.sprint     = IsKeyDown(KEY_LEFT_SHIFT);
     cmd.dash       = IsKeyPressed(KEY_L);

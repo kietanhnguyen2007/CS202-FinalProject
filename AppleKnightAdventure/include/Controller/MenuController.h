@@ -31,7 +31,7 @@ public:
     // Which level was selected on the Level-Select screen
     int  GetSelectedLevel()      const { return m_selectedLevel; }
 
-    // Which character was selected on the Shop/Role screen
+    // Which character was selected on the Shop screen
     int  GetSelectedCharIndex()  const { return m_selectedCharIndex; }
 
     // Reset transition flags (call after consuming them)

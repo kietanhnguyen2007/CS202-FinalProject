@@ -168,24 +168,6 @@ std::unique_ptr<GameState> LegacyLevelAdapter::Load(
                 state->SetLocalPlayer(std::move(player));
                 hasLocalSpawn = true;
             }
-        } else if (token == "spawn_guide") {
-            float tx = 0.0f;
-            float ty = 0.0f;
-            file >> tx >> ty;
-            if (mode == GameMode::MultiplayerHost) {
-                auto player = std::make_unique<Player>(Vector2{tx * TILE_SIZE, ty * TILE_SIZE});
-                state->SetLocalPlayer(std::move(player));
-                hasLocalSpawn = true;
-            }
-        } else if (token == "spawn_warrior") {
-            float tx = 0.0f;
-            float ty = 0.0f;
-            file >> tx >> ty;
-            if (mode == GameMode::MultiplayerClient) {
-                auto player = std::make_unique<Player>(Vector2{tx * TILE_SIZE, ty * TILE_SIZE});
-                state->SetLocalPlayer(std::move(player));
-                hasLocalSpawn = true;
-            }
         } else if (token == "enemy") {
             std::string type;
             float tx = 0.0f;
@@ -237,9 +219,7 @@ std::unique_ptr<GameState> LegacyLevelAdapter::Load(
             Vector2 pos = {tx * TILE_SIZE, ty * TILE_SIZE};
             if (type == "coin") state->AddEntity(ItemFactory::CreateCoin(pos, amount));
             else if (type == "apple") state->AddEntity(ItemFactory::CreateApple(pos));
-            else if (type == "key") state->AddEntity(ItemFactory::CreateKey(pos));
             else if (type == "potion") state->AddEntity(ItemFactory::CreatePotion(pos));
-            else if (type == "equipment") state->AddEntity(ItemFactory::CreateEquipment(pos));
         } else if (token == "trigger") {
             float tx = 0.0f, ty = 0.0f;
             std::string target;
@@ -379,9 +359,7 @@ bool LevelFactory::SaveLevel(const std::string& filepath, GameState* state) {
                 std::string typeStr = "coin";
                 switch(item->GetItemType()) {
                     case ItemType::Apple: typeStr = "apple"; break;
-                    case ItemType::Key: typeStr = "key"; break;
                     case ItemType::Potion: typeStr = "potion"; break;
-                    case ItemType::Equipment: typeStr = "equipment"; break;
                     default: break;
                 }
                 file << "item " << typeStr << " " << tx << " " << ty << " " << item->GetAmount() << "\n";
@@ -631,12 +609,6 @@ std::unique_ptr<GameState> LDtkLevelAdapter::Load(
             if (eid == "SpawnSolo" && mode == GameMode::SinglePlayer) {
                 state->SetLocalPlayer(std::make_unique<Player>(pos, cls));
                 hasLocalSpawn = true;
-            } else if (eid == "SpawnGuide" && mode == GameMode::MultiplayerHost) {
-                state->SetLocalPlayer(std::make_unique<Player>(pos, cls));
-                hasLocalSpawn = true;
-            } else if (eid == "SpawnWarrior" && mode == GameMode::MultiplayerClient) {
-                state->SetLocalPlayer(std::make_unique<Player>(pos, cls));
-                hasLocalSpawn = true;
             } else if (eid == "SpawnDualLight" && mode == GameMode::SinglePlayer) {
                 auto p = std::make_unique<DualWorldPlayer>(pos, WorldLayer::Light);
                 state->SetLocalPlayer(std::move(p));
@@ -723,14 +695,8 @@ std::unique_ptr<GameState> LDtkLevelAdapter::Load(
             } else if (eid == "ItemApple") {
                 state->AddEntity(ItemFactory::CreateApple(pos));
                 ++autoItems;
-            } else if (eid == "ItemKey") {
-                state->AddEntity(ItemFactory::CreateKey(pos));
-                ++autoItems;
             } else if (eid == "ItemPotion") {
                 state->AddEntity(ItemFactory::CreatePotion(pos));
-                ++autoItems;
-            } else if (eid == "ItemEquipment") {
-                state->AddEntity(ItemFactory::CreateEquipment(pos));
                 ++autoItems;
             } else if (eid == "Portal") {
                 std::string pTypeStr = "Local";
@@ -872,8 +838,8 @@ std::unique_ptr<GameState> LDtkLevelAdapter::Load(
     // LDtk must be fixed (place a SpawnSolo entity on the Entities layer).
     if (!hasLocalSpawn) {
         TraceLog(LOG_WARNING,
-            "LDtk: Level %d has no SpawnSolo/SpawnGuide/SpawnWarrior entity. "
-            "Falling back to default level. Add a spawn entity in the LDtk editor.",
+            "LDtk: Level %d has no SpawnSolo entity. Falling back to default "
+            "level. Add a SpawnSolo entity in the LDtk editor.",
             levelIndex);
         return LevelFactory::CreateDefaultLevel(1);
     }

@@ -49,9 +49,7 @@ enum class BuffType {
 enum class ItemType {
     Coin,
     Apple,
-    Key,
-    Potion,
-    Equipment
+    Potion
 };
 
 enum class ProjectileType {
@@ -107,9 +105,7 @@ enum class StatusEffect {
 };
 
 enum class GameMode {
-    SinglePlayer,
-    MultiplayerHost,
-    MultiplayerClient
+    SinglePlayer
 };
 
 enum class CharacterClass {

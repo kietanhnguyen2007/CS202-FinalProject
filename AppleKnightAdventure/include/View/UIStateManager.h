@@ -6,20 +6,19 @@
 namespace View {
 
 // Render order (bottom → top):
-//   HUD → SkillBar → InteractPrompt → Menu → Inventory → Result
+//   HUD -> SkillBar -> InteractPrompt -> Menu -> Result
 enum class UILayer {
     HUD,
     SkillBar,
     InteractPrompt,
     Menu,
-    Inventory,
     Result
 };
 
 // Stack-based UI coordinator.
 // Controller pushes modal layers on top; UIStateManager auto-dims lower layers.
 // HUD / SkillBar / InteractPrompt are non-modal — they render when visible.
-// Inventory / Menu / Result are modal — they only render when manually opened.
+// Menu / Result are modal - they only render when manually opened.
 class UIStateManager {
 public:
     static UIStateManager& GetInstance();
@@ -27,7 +26,7 @@ public:
     void Init();
     void Shutdown();
 
-    // Stack operations for modal layers (Inventory, Menu, Result)
+    // Stack operations for modal layers (Menu, Result)
     void Push(UILayer layer);
     void Pop();
     void Clear();

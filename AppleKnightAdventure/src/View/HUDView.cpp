@@ -2,6 +2,7 @@
 #include "View/AssetManager.h"
 #include "View/Renderer.h"
 #include "Model/Boss.h"
+#include "Model/SaveManager.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -264,7 +265,6 @@ void HUDView::Render() {
                      std::max(9, static_cast<int>(11 * scale)), WHITE);
 
     // Potions heal immediately on pickup, so only persistent coins need a counter.
-    const Inventory& inv = m_player->GetInventory();
     const float resourceY = (m_secondPlayer ? 218.0f : 20.0f) * scale;
     const float resourceW = 84 * scale;
     const float resourceH = 48 * scale;
@@ -283,7 +283,8 @@ void HUDView::Render() {
     };
     float right = w - 18 * scale;
     Texture2D* coinTexture = m_coinAnim.GetCurrentTexture();
-    drawResource(right - resourceW, coinTexture, m_coinAnim.GetCurrentSrcRect(), inv.GetCoins(), WHITE);
+    drawResource(right - resourceW, coinTexture, m_coinAnim.GetCurrentSrcRect(),
+                 SaveManager::GetInstance().GetCoins(), WHITE);
 
     if (m_secondPlayer) {
         const Rectangle secondPanel{w - 18.0f * scale - panel.width, panel.y,

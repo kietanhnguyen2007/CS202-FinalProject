@@ -11,8 +11,6 @@ enum class MenuMode {
     Main,
     Pause,
     Error,
-    Connection,
-    RoleSelect,
     Shop,
     LevelSelect,
     CustomMaps,
@@ -63,8 +61,6 @@ public:
     void ShowMainMenu();
     void ShowPauseOverlay();
     void ShowErrorDialog(const std::string& message);
-    void ShowConnectionStatus(const std::string& ip, bool connected);
-    void ShowRoleSelect(const std::vector<std::string>& roles);
     void ShowShop();
     void ShowLevelSelect(int totalLevels, int currentUnlocked);
     void ShowCustomMaps(const std::vector<std::string>& mapNames,
@@ -89,8 +85,6 @@ private:
     void RenderMain();
     void RenderPause();
     void RenderError();
-    void RenderConnection();
-    void RenderRoleSelect();
     void RenderShop();
     void RenderLevelSelect();
     void RenderCustomMaps();
@@ -153,11 +147,6 @@ private:
     std::vector<std::string> m_pauseItems   = { "Resume", "Options", "Quit to Menu" };
     std::string              m_errorMsg;
     std::vector<std::string> m_errorItems   = { "OK" };
-    std::string              m_connectionIp;
-    bool                     m_connected    = false;
-    std::vector<std::string> m_connectionItems = { "Back" };
-    std::vector<std::string> m_roleItems;
-    int                      m_selectedRole  = 0;
 
     // Level select state
     int m_totalLevels      = 3;

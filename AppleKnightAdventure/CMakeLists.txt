@@ -72,7 +72,7 @@ add_custom_command(
 add_custom_target(SyncAssets ALL DEPENDS "${ASSET_SYNC_STAMP}")
 add_dependencies(AppleKnightAdventure SyncAssets)
 
-# 10. Optional local service used by the game's online mode.
+# 10. Optional local service for Survival3D run validation and leaderboard sync.
 if(WIN32)
     add_executable(AegisRiftServer
         backend/survival3d/main.cpp

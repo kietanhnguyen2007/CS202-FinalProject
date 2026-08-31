@@ -8,7 +8,6 @@
 #include "Model/FighterSkillSet.h"
 #include "Model/MagicCasterSkillSet.h"
 #include "Model/NinjaSkillSet.h"
-#include "Model/Inventory.h"
 #include "Model/BuffPickup.h"
 #include "Systems/CollisionSystem.h"
 #include "Systems/ParticleSystem.h"
@@ -31,15 +30,12 @@ class Item;
 class Entity;
 struct InputCommand;
 
-// Snapshot of player state saved when entering a Boss Arena,
-// restored on return so HP / score / inventory persist across the transition.
+// Snapshot of player state saved when entering a Boss Arena and restored on
+// return so combat progression survives the transition.
 struct PlayerSaveState {
     int   health      = 0;
     int   score       = 0;
     int   skillPoints = 0;
-    int   coins       = 0;
-    int   apples      = 0;
-    int   keys        = 0;
     bool  tookDamage  = false;
     // Cores are earned for the whole run, so they have to survive the round
     // trip into a boss arena and back -- StartLevel builds a brand new Player.
@@ -280,7 +276,7 @@ private:
     // Boss Arena transition state
     int              m_previousLevelId = -1;          // level to return to after boss arena
     Vector2          m_exitSpawnPos    = {0.0f, 0.0f};// position near entry portal
-    PlayerSaveState  m_savedPlayerState;              // HP/score/inventory snapshot
+    PlayerSaveState  m_savedPlayerState;              // HP/score/combat snapshot
     bool             m_hasSavedState   = false;       // true when snapshot is valid
     uint32_t         m_activeCheckpointUid = 0;       // most recently activated respawn checkpoint
     std::set<int>    m_checkpointRespawnEnemyIds;     // enemies after the active checkpoint

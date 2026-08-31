@@ -304,9 +304,7 @@ void GameController::RegisterItemVisuals(Item* item) {
     std::string atlasPath = "assets/textures/items/coin.json";
     switch (item->GetItemType()) {
         case ItemType::Apple: atlasPath = "assets/textures/items/apple.json"; break;
-        case ItemType::Key: atlasPath = "assets/textures/items/key.json"; break;
         case ItemType::Potion: atlasPath = "assets/textures/items/potion_red.json"; break;
-        case ItemType::Equipment: atlasPath = "assets/textures/items/equipment.json"; break;
         default: break;
     }
     View::EntityRenderer::GetInstance().RegisterAnimated(item, atlasPath, "default");
@@ -1564,11 +1562,6 @@ void GameController::UpdateItems(Player* player, float dt) {
         switch (item->GetItemType()) {
             case ItemType::Coin:
                 pickupSound = "coin_pickup";
-                player->GetInventory().AddCoins(item->GetAmount());
-                if (m_localCoop && m_gameState->GetLocalPlayer() != player &&
-                    m_gameState->GetLocalPlayer()) {
-                    m_gameState->GetLocalPlayer()->GetInventory().AddCoins(item->GetAmount());
-                }
                 SaveManager::GetInstance().AddCoins(item->GetAmount());
                 AchievementManager::GetInstance().OnCoinCollected(item->GetAmount());
                 persistentCoinsChanged = true;
@@ -1579,18 +1572,10 @@ void GameController::UpdateItems(Player* player, float dt) {
                 pickupSound = "apple_pickup";
                 player->Heal(25);
                 break;
-            case ItemType::Key:
-                pickupSound = "key_pickup";
-                player->GetInventory().AddKeys(1);
-                break;
             case ItemType::Potion:
                 pickupSound = "potion_pickup";
                 player->Heal(50);
                 AchievementManager::GetInstance().OnPotionUsed();
-                break;
-            default:
-                player->GetInventory().AddItem(
-                    std::make_unique<Item>(item->GetPosition(), item->GetItemType(), item->GetAmount()));
                 break;
         }
 
@@ -1991,9 +1976,6 @@ void GameController::SavePlayerState(Player* player) {
     m_savedPlayerState.health      = player->GetHealth();
     m_savedPlayerState.score       = player->GetScore();
     m_savedPlayerState.skillPoints = player->GetSkillPoints();
-    m_savedPlayerState.coins       = player->GetInventory().GetCoins();
-    m_savedPlayerState.apples      = player->GetInventory().GetApples();
-    m_savedPlayerState.keys        = player->GetInventory().GetKeys();
     m_savedPlayerState.tookDamage  = m_runTookDamage;
     m_savedPlayerState.maxHealth   = player->GetMaxHealth();
     m_savedPlayerState.cores       = player->GetCores();
@@ -2008,9 +1990,6 @@ void GameController::RestorePlayerState(Player* player) {
     player->SetHealth(m_savedPlayerState.health);
     player->SetScore(m_savedPlayerState.score);
     player->SetSkillPoints(m_savedPlayerState.skillPoints);
-    player->GetInventory().AddCoins(m_savedPlayerState.coins);
-    player->GetInventory().AddApples(m_savedPlayerState.apples);
-    player->GetInventory().AddKeys(m_savedPlayerState.keys);
     player->GetCores() = m_savedPlayerState.cores;
     m_runTookDamage = m_savedPlayerState.tookDamage;
 }
@@ -2712,7 +2691,6 @@ void GameController::UpdatePets(float dt, const InputCommand& cmd) {
                 switch (item->GetItemType()) {
                     case ItemType::Coin:
                         pickupSound = "coin_pickup";
-                        player->GetInventory().AddCoins(item->GetAmount());
                         SaveManager::GetInstance().AddCoins(item->GetAmount());
                         AchievementManager::GetInstance().OnCoinCollected(item->GetAmount());
                         persistentCoinsChanged = true;
@@ -2723,18 +2701,10 @@ void GameController::UpdatePets(float dt, const InputCommand& cmd) {
                         pickupSound = "apple_pickup";
                         player->Heal(25);
                         break;
-                    case ItemType::Key:
-                        pickupSound = "key_pickup";
-                        player->GetInventory().AddKeys(1);
-                        break;
                     case ItemType::Potion:
                         pickupSound = "potion_pickup";
                         player->Heal(50);
                         AchievementManager::GetInstance().OnPotionUsed();
-                        break;
-                    default:
-                        player->GetInventory().AddItem(
-                            std::make_unique<Item>(item->GetPosition(), item->GetItemType(), item->GetAmount()));
                         break;
                 }
 

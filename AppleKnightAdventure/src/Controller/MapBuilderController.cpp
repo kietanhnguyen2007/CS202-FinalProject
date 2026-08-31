@@ -499,7 +499,6 @@ void MapBuilderController::HandleTool(Vector2 mouseWorldPos) {
                     case EntityType::Item: 
                         pos.y += TILE_SIZE - 16.0f; // Items are 16 high
                         if (sub == 0) newEntity = ItemFactory::CreateCoin(pos, 10);
-                        else if (sub == 2) newEntity = ItemFactory::CreateKey(pos);
                         else if (sub == 3) newEntity = ItemFactory::CreatePotion(pos, 1);
                         break;
                     default: break;

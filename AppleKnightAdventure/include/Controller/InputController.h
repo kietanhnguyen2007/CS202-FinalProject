@@ -12,7 +12,6 @@ struct InputCommand {
     bool ultimate      = false;  // H — Ultimate skill
     bool parryBlock    = false;  // P — Parry / Block
     bool interact      = false;  // F or O
-    bool openInventory = false;  // I
     bool pause         = false;  // ESC
     int  menuDelta     = 0;      // Up/Down
     int  menuDeltaX    = 0;      // Left/Right

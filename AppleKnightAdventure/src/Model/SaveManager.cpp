@@ -165,6 +165,8 @@ bool SaveManager::Load(const std::string& path) {
 
     selectedChar = NormalizeUnlockId(root.value("selectedChar", "knight"));
     selectedPet = root.value("selectedPet", "");
+    if (!IsCharUnlocked(selectedChar)) selectedChar = "knight";
+    if (!selectedPet.empty() && !IsCharUnlocked("pet_" + selectedPet)) selectedPet.clear();
 
     if (root.contains("leaderboards") && root["leaderboards"].is_object()) {
         for (auto it = root["leaderboards"].begin(); it != root["leaderboards"].end(); ++it) {
@@ -373,10 +375,6 @@ void SaveManager::SpendCoins(int amount) {
 }
 
 bool SaveManager::IsCharUnlocked(const std::string& charName) const {
-    // TEST: temporarily unlock every character and pet. Remove this line to
-    // restore normal shop/unlock gating.
-    return true;
-
     const std::string normalized = NormalizeUnlockId(charName);
     return std::find(unlockedCharacters.begin(), unlockedCharacters.end(), normalized) != unlockedCharacters.end();
 }
@@ -513,10 +511,15 @@ const std::set<int>& SaveManager::GetExploredMinimapCells(int level) const {
 }
 
 std::string SaveManager::GetSelectedChar() const { return selectedChar; }
-void SaveManager::SetSelectedChar(const std::string& charId) { selectedChar = charId; }
+void SaveManager::SetSelectedChar(const std::string& charId) {
+    const std::string normalized = NormalizeUnlockId(charId);
+    if (IsCharUnlocked(normalized)) selectedChar = normalized;
+}
 
 std::string SaveManager::GetSelectedPet() const { return selectedPet; }
-void SaveManager::SetSelectedPet(const std::string& petId) { selectedPet = petId; }
+void SaveManager::SetSelectedPet(const std::string& petId) {
+    if (petId.empty() || IsCharUnlocked("pet_" + petId)) selectedPet = petId;
+}
 
 int SaveManager::GetMusicVolume() const { return musicVolume; }
 void SaveManager::SetMusicVolume(int percent) {

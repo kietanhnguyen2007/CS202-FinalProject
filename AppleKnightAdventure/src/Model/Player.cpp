@@ -416,9 +416,7 @@ NinjaSkillSet* Player::GetNinjaSkills() const {
     return dynamic_cast<NinjaSkillSet*>(m_skills.get());
 }
 
-// ---------- Inventory & Score ----------
-Inventory& Player::GetInventory() { return m_inventory; }
-const Inventory& Player::GetInventory() const { return m_inventory; }
+// ---------- Score ----------
 
 int Player::GetScore() const { return m_score; }
 void Player::AddScore(int amount) { m_score += amount; }

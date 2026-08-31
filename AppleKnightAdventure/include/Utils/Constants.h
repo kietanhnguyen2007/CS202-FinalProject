@@ -52,9 +52,6 @@ constexpr float BOSS_NAV_RECHECK_INTERVAL = 0.35f;
 // How long the boss keeps backing away once it decides the player is holed up
 // somewhere it can neither reach nor shoot into.
 constexpr float BOSS_RETREAT_TIME   = 2.0f;
-constexpr int INVENTORY_MAX_SLOTS = 24;
-constexpr int NETWORK_PORT = 54000;
-constexpr size_t NETWORK_BUFFER_SIZE = 4096;
 constexpr float PROJECTILE_SPEED = 400.0f;
 constexpr float PARTICLE_LIFETIME = 1.0f;
 constexpr float GRAVITY_PROJECTILE = 200.0f;

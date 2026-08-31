@@ -9,7 +9,6 @@
 #include "View/EnemyStatusRenderer.h"
 #include "View/ResultView.h"
 #include "View/MenuView.h"
-#include "View/InventoryView.h"
 #include "View/UIStateManager.h"
 #include "View/TutorialRenderer.h"
 #include "Model/GameState.h"
@@ -182,12 +181,10 @@ bool GameView::Init() {
     // Load enemy status atlas
     View::EnemyStatusRenderer::GetInstance().LoadResources("assets/textures/enemies/status_atlas.json");
 
-    // Preload item atlases (for InventoryView / HUDView)
+    // Preload item atlases used by world pickups and the HUD.
     cr.PreloadAtlas("assets/textures/items/apple.json");
     cr.PreloadAtlas("assets/textures/items/coin.json");
-    cr.PreloadAtlas("assets/textures/items/key.json");
     cr.PreloadAtlas("assets/textures/items/bag_coins.json");
-    cr.PreloadAtlas("assets/textures/items/equipment.json");
     cr.PreloadAtlas("assets/textures/items/potion_red.json");
 
     // Preload projectile atlases (for CharacterRenderer projectile rendering)

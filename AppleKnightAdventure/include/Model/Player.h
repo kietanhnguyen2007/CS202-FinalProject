@@ -2,7 +2,6 @@
 #define PLAYER_H
 
 #include "Character.h"
-#include "Inventory.h"
 #include "CharacterSkillSet.h"
 #include "KnightSkillSet.h"
 #include "FighterSkillSet.h"
@@ -28,7 +27,6 @@ public:
     static constexpr float HURT_FLASH_DURATION = 0.67f;
 
 protected:
-    Inventory    m_inventory;
     int          m_score;
     int          m_skillPoints;
     std::string  m_name;
@@ -58,9 +56,7 @@ public:
 
     void Update(float deltaTime) override;
 
-    // Inventory & Score
-    Inventory& GetInventory();
-    const Inventory& GetInventory() const;
+    // Score and progression earned during the current run.
     int GetScore() const;
     void AddScore(int amount);
     void SetScore(int score);
