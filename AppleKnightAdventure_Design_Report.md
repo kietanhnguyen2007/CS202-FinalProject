@@ -710,3 +710,74 @@ Figure 6 separates the narrow factories from the level creation boundary. `Enemy
 
 `LevelFactory` selects a level-source adapter and retains the save/default-level boundary. The selected `LegacyLevelAdapter` or `LDtkLevelAdapter` parses its source and constructs `GameState`; those adapters delegate repeated enemy/item defaults to the narrow factories and directly create bosses and special world entities whose serialized fields require type-specific configuration. `LevelFactory::CreateDefaultLevel` also uses `EnemyFactory` for its fallback enemies. Local portals are paired after loading. If loading fails, either adapter can request a default level, keeping the caller's lifecycle simple.
 
+## 7.5 Adapter pattern class diagram
+
+```mermaid
+%% id: level_source_adapter
+classDiagram
+direction LR
+
+class GameController {
+  +StartLevel(levelNumber)
+}
+class MapBuilderController {
+  +StartEditor(filepath)
+  +SaveMap(filename)
+  +Playtest()
+}
+class LevelFactory {
+  <<Context / selector>>
+  +LoadLevel(path, mode, index, class)
+  +LoadLDtkLevel(path, index, mode, class)
+  +SaveLevel(path, state)
+}
+class LevelLoadRequest {
+  +filepath
+  +mode
+  +levelIndex
+  +playerClass
+}
+class ILevelSourceAdapter {
+  <<Target>>
+  +CanLoad(filepath)*
+  +Load(request)*
+  +GetFormatName()*
+}
+class LegacyLevelAdapter {
+  <<Adapter>>
+  +CanLoad(filepath)
+  +Load(request)
+}
+class LDtkLevelAdapter {
+  <<Adapter>>
+  +CanLoad(filepath)
+  +Load(request)
+}
+class LegacyLvlSource {
+  <<external text schema>>
+}
+class LDtkProjectSource {
+  <<external JSON schema>>
+}
+class GameState
+
+GameController ..> LevelFactory : load campaign
+MapBuilderController ..> LevelFactory : load or import
+LevelFactory ..> LevelLoadRequest : creates
+LevelFactory ..> ILevelSourceAdapter : selects
+ILevelSourceAdapter <|.. LegacyLevelAdapter
+ILevelSourceAdapter <|.. LDtkLevelAdapter
+LegacyLevelAdapter ..> LegacyLvlSource : adapts
+LDtkLevelAdapter ..> LDtkProjectSource : adapts
+LegacyLevelAdapter --> GameState : produces
+LDtkLevelAdapter --> GameState : produces
+```
+
+Figure 7 isolates the Adapter collaboration. `ILevelSourceAdapter` is the Target expected by `LevelFactory`. `LegacyLevelAdapter` and `LDtkLevelAdapter` are concrete Adapters. The legacy token stream and LDtk JSON project are the incompatible source schemas being adapted; they are conceptual external-format nodes in the diagram, not C++ classes. Both adapters return the same `unique_ptr<GameState>`, so neither `GameController` nor `MapBuilderController` needs format-specific parsing logic.
+
+`LevelLoadRequest` carries the data needed by either source: path, game mode, LDtk level index, and selected character class. `LevelFactory::LoadLevel` chooses the LDtk adapter for a case-insensitive `.ldtk` extension and preserves the legacy adapter as the fallback for other paths. Each concrete adapter owns its parser path rather than routing back through `LoadLevel`, which prevents recursive dispatch and makes the participant boundary executable.
+
+The feature is active in the editor: its Windows file dialog accepts `.lvl` and `.ldtk`. An imported LDtk level is immediately editable and playtestable as a normal `GameState`. A named editor save writes a new legacy `.lvl` representation and updates the stable custom-map alias; it never overwrites the LDtk project, whose editor metadata cannot be represented by the legacy format. Playtest uses its separate temporary `.lvl` snapshot. `LoadLDtkLevel` remains as a compatibility entry point and delegates to the LDtk adapter. Dual-world loading is outside this Adapter collaboration.
+
+The design reason is schema isolation. Legacy files are token-oriented and use tile coordinates, whereas LDtk provides nested JSON layers, grid sizes, entity identifiers, fields, flip flags, and project-level definitions. The common Target keeps those differences behind one runtime contract. Supporting another input format now requires another adapter plus one selection rule instead of another parser branch in both gameplay and editor controllers.
+
