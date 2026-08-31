@@ -370,3 +370,22 @@ routed through the existing melee hit-box lambda; and on destruction, deactivati
 the entity *and* removing the underlying tile from the Main layer so the passage
 actually opens.
 
+**Outcome**
+Adopted and shipped. Note for the record: the assistant only wired damage into the
+melee path, and neither of us noticed at the time that ranged-only characters could
+therefore never open these walls. That gap was found and fixed much later — see
+T-09.
+
+---
+
+## T-05 · Elemental reaction system
+**Date:** 2026-08-29 → 2026-08-30
+**Related commits:** `Modify Magae Character and Boss Logic`, `Apply element system for other character`
+
+**Prompt**
+> I want an elemental system. Four elements (Fire, Water, Thunder, Void) each apply
+> a status (Burn, Wet, Shocked, Corroded) on hit. Hitting a target that already
+> carries a status with a *different* element triggers a reaction with a damage
+> multiplier and possibly a new status. Design the data layout so designers can tune
+> it without touching combat code, and so adding a fifth element later is cheap.
+
