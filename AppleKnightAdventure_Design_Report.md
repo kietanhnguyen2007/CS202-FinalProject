@@ -1341,3 +1341,15 @@ The main thread and service worker form a Producer-Consumer pair. The main threa
 
 These patterns explain why the service can update in the global application loop even while Survival3D is not the active screen and why a network outage does not block or erase completion.
 
+## 11.12 Data-driven configuration and VFX Registry
+
+Adventure level data, atlas clips, Survival balance, wave composition, animation event tracks, and VFX layer definitions are kept outside stable orchestration code. Survival builds a complete fallback wave table before overlaying validated JSON, so missing designer configuration still produces a playable mode.
+
+`Vfx::Runtime` is a supporting Registry. Authored packages are registered under hashed IDs and resolved when a semantic combat cue spawns an effect. Capability fallback lets the same package select a supported component without changing gameplay.
+
+## 11.13 MVC-inspired architecture and partial Facades
+
+The Model family owns state, the Controller family sequences use cases, and the View family renders. `GameState` does not draw, and `GameView` does not own the world. This is enough to make MVC a useful architectural description.
+
+`GameView` is a partial Facade over world render helpers. `SaveManager` is a persistence Facade over a wide JSON schema. “Partial” is important for accuracy: callers still reach specialized views and renderers, and they call individual save operations directly.
+
