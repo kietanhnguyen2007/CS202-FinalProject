@@ -3466,8 +3466,41 @@ void GameController::UpdatePlayerProjectiles(float dt) {
 
         // Resolve tile collision (stop on wall)
         Rectangle box = proj->GetBoundingBox();
+
+        // A fake wall is a solid tile with an entity sitting on it, so it has to
+        // be resolved before the tile sweep below -- otherwise the shot dies on
+        // the very tile it is meant to clear. Fire burns through: the Magic
+        // Caster's K is the only skill that always carries it, and melee classes
+        // already break these walls by hitting them, so this is what opens the
+        // secrets up to a ranged-only build.
+        if (proj->GetElement() == DamageType::Fire) {
+            for (auto& e : m_gameState->GetAllEntities()) {
+                if (!e || !e->IsActive() || e->GetType() != EntityType::FakeWall) continue;
+                auto* wall = static_cast<FakeWall*>(e.get());
+                if (wall->IsDestroyed()) continue;
+                if (!RectOverlap(box, wall->GetBoundingBox())) continue;
+
+                // One tick per wall, so a shot crossing the box cannot burn it
+                // down several times over on consecutive frames.
+                if (proj->HasHitEntity(wall->GetId())) continue;
+                proj->MarkHitEntity(wall->GetId());
+
+                wall->TakeDamage(proj->GetDamage());
+                SoundManager::GetInstance().PlaySound("stone_hit");
+                View::ParticleRenderer::GetInstance().EmitBurst(
+                    wall->GetPosition(), 10, ORANGE);
+                View::GameView::GetInstance().Shake(2.0f, 0.1f);
+
+                if (wall->IsDestroyed()) {
+                    SoundManager::GetInstance().PlaySound("fake_wall_break");
+                    m_gameState->RemoveTileAt(MapLayer::Main, wall->GetTileX(), wall->GetTileY());
+                    OnEntityRemoved(wall);
+                }
+            }
+        }
+
         bool hitTile = false;
-        
+
         if (!isStationary) {
             for (const auto& tile : m_gameState->GetTiles(MapLayer::Main)) {
                 if (!tile.solid) continue;
