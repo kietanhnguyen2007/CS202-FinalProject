@@ -235,3 +235,27 @@ The important thread boundary is explicit. `AssetManager` has a worker queue of 
 
 After loading, the shell initializes menu, achievements, Adventure, shop, options, Survival3D, and `SurvivalRunService`. The service can continue processing retryable network work while any screen is active because its `Update` method runs once per application frame.
 
+## 4.3 Mode dispatch
+
+The shell maintains mutually exclusive booleans for Adventure, Map Builder, shop, options, preparation, and Survival3D. When none is active, the menu is active. Controllers expose intent flags such as `ShouldStartGame`, `ShouldOpenShop`, and `ShouldReturnToMenu`. The shell converts those intents into a lifecycle transition:
+
+1. close or reset the source surface;
+2. initialize or open the target controller;
+3. run exactly one target update/render branch each frame;
+4. return to the menu or editor when the target reports completion.
+
+This is an application finite state machine implemented by booleans and conditional branches, not the GoF State pattern. Playtest is a deliberate cross-surface transition: the Map Builder saves a temporary level, Adventure runs it, and the shell resumes the existing editor when playtest exits.
+
+## 4.4 Controller/view pairs
+
+| Use case | Controller responsibility | View responsibility |
+|---|---|---|
+| Menu | Read save/profile state, scan custom maps, interpret navigation, emit surface intents | Render main, pause, level-select, custom-map, leaderboard, achievement, and related menu modes |
+| Prepare | Validate selected character/pet/co-op combination and persist current loadout | Render character/pet grids, previews, and start/back actions |
+| Shop | Build item DTOs, enforce coins/unlock/equip rules, update saved selection | Render tabs, grid, detail, currency, and purchase/select controls |
+| Adventure | Own session state and gameplay systems; order simulation and completion | Render background, tiles, entities, effects, HUD layers, minimap, and results |
+| Map Builder | Own editor state/history; interpret tools; save and request playtest | Render editor world overlays, selection, palettes, tabs, and file actions |
+| Survival3D | Own deterministic combat simulation, waves, upgrades, animation graph, and result | Render arena/models/VFX plus selection, HUD, upgrade, result, and records |
+
+This mapping is why “MVC-inspired” is more accurate than “strict MVC.” The responsibilities are recognizable and useful, but some views access resource managers directly and some controllers perform presentation registration in addition to application logic.
+
