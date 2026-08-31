@@ -1418,3 +1418,41 @@ Coins, unlocked characters, settings, Adventure results, and Survival rewards mu
 
 Idempotency connects the two authorities safely. The local run ID is also the server submission identity. A retry can be recognized as the same logical completion, and a claimed-reward set prevents the client from granting the same reward more than once.
 
+## 12.8 Why pattern boundaries are described precisely
+
+Calling every switch a State pattern or every shared texture a Flyweight would make the report less useful. The classification in Section 11 follows participants and collaboration:
+
+- Command, Composite, and Adapter are strong because their interfaces, ownership or translation roles, invocation, and runtime call sites exist.
+- Strategy is partial because the abstraction is used but is not the only access path.
+- FSM is the precise name for enum and transition code.
+- MVC and Facade are architectural descriptions with direct access paths acknowledged.
+
+This precision ties design reasoning to executable structure and prevents pattern terminology from replacing source analysis.
+
+# 13. End-to-End Runtime Flows
+
+## 13.1 Application startup
+
+1. Configure vsync and window flags and initialize raylib.
+2. Initialize `WindowManager` and `Renderer`.
+3. Enumerate 2D atlas files and start `AssetManager` worker loading.
+4. Begin incremental Survival3D model loading.
+5. During the loading loop, process resize events, main-thread GPU uploads, progress smoothing, and loading presentation.
+6. Initialize shared views, controllers, and services.
+7. Enter the application dispatch loop.
+
+This flow demonstrates the CPU and GPU thread boundary and ensures the user sees meaningful progress instead of blocking on all asset uploads before the first responsive frame.
+
+## 13.2 Adventure level start
+
+1. Detach HUD, skill bar, `GameView`, and render registrations from any previous world.
+2. Clear session-owned pet and projectile state.
+3. Build a `LevelLoadRequest`, select the matching level-source adapter through `LevelFactory`, and load a `GameState` for the requested level, class, and mode.
+4. Create and configure one or two players and restore any boss-arena snapshot.
+5. Bind tile layers and entity collection to `GameView`.
+6. Register visual assets and animators for players and world entities.
+7. Reset scoring, checkpoint, camera, draft, elemental, and timer state.
+8. Begin the update and render session.
+
+The old world is not destroyed while presentation pointers still reference it. This order is the concrete implementation of the ownership contract described in Section 3.
+
