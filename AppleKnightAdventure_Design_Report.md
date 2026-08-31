@@ -419,3 +419,63 @@ These classes establish a source-level extension point for a two-layer map mecha
 
 # 6. Gameplay Systems and Collaboration
 
+## 6.1 System collaboration diagram
+
+```mermaid
+%% id: gameplay_systems
+classDiagram
+direction LR
+
+class GameController {
+  +Update(dt)
+  +ApplyElementalHit()
+  +QueryEntitiesInRect()
+}
+class GameState {
+  +Update(dt)
+  +MergeNewEntities()
+  +IsSolidAt(x,y)
+}
+class CollisionSystem {
+  -Quadtree m_quadtree
+  +Build(entities)
+  +QueryRange(rect)
+}
+class Quadtree {
+  -unique_ptr~QuadtreeNode~ root
+  +InsertBulk(entities)
+  +Query(rect)
+}
+class ElementalSystem {
+  -effectMap
+  +ApplyHit(entityId, packet)
+  +Update(dt)
+  +DrainTickDamage()
+}
+class ParticleSystem {
+  -ObjectPool~Particle~ m_pool
+  +Emit(...)
+  +Update(dt)
+}
+class ObjectPool~Particle~ {
+  -vector~unique_ptr~ pool
+  +Acquire()
+  +Release()
+}
+class CoreLoadout
+class SoundManager
+class AchievementManager
+
+GameController *-- GameState : session ownership
+GameController *-- CollisionSystem
+CollisionSystem *-- Quadtree
+GameController *-- ElementalSystem
+GameController *-- ParticleSystem
+ParticleSystem *-- ObjectPool~Particle~
+GameController ..> CoreLoadout : modifiers
+GameController ..> SoundManager : sound events
+GameController ..> AchievementManager : progress
+```
+
+Figure 3 presents systems as controller-owned or process-level collaborators rather than autonomous engines. The controller supplies ordering and the entity collection; the systems supply focused algorithms or state.
+
