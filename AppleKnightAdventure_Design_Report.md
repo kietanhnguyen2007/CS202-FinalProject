@@ -1513,3 +1513,24 @@ This flow is the strongest evidence that editor and gameplay share a real domain
 
 The editor imports LDtk level index zero. The index remains part of `LevelLoadRequest` so campaign/world callers can select a different level without changing the Target interface.
 
+## 13.8 Survival fixed-step frame
+
+1. Handle phase-specific UI input using render-frame time.
+2. Accumulate elapsed time.
+3. Execute up to six 1/60-second simulation ticks.
+4. In each tick, update player action and combo state, waves, enemies, projectiles, collisions, damage, drops and upgrades, animation transitions, and authored events.
+5. Update frame-time camera and presentation state.
+6. `SurvivalView` renders a const projection of current controller state.
+
+The transition into a terminal result phase calls `FinalizeRun` once before result presentation.
+
+## 13.9 Survival result synchronization
+
+1. `SurvivalController` constructs `RunResultInput` with run identity, metrics, character, configuration version, and victory state.
+2. `SurvivalRunService` converts it into a `SurvivalRunRecord`.
+3. `SaveManager` records the run and reward locally.
+4. The service creates and persists a pending payload with the run ID as idempotency key.
+5. When due, the worker ensures guest identity and sends the completion request.
+6. Success removes or updates pending state and records ranked validation; rejection records a final status; retryable failure schedules exponential backoff.
+7. Leaderboard refresh updates cached presentation data without blocking simulation.
+
