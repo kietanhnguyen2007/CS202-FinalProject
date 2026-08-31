@@ -151,3 +151,79 @@ Adventure uses the frame delta but clamps large values before physics. It also e
 
 Bounded work appears in other components as well. Render submission uses preallocated per-layer buffers and tracks dropped submissions. Leaderboard results have limits. Server input is validated. Animation transition requests use explicit priorities and stale-request rejection. These are examples of designing for worst-case behavior rather than only the expected path.
 
+## 3.5 Pattern selection principle
+
+Patterns are used where they encode a concrete invariant:
+
+- Command encodes “an editor action can be replayed and reversed.”
+- Composite encodes “many commands can behave as one command.”
+- Adapter encodes “incompatible level sources produce one internal `GameState` contract.”
+- Factory encodes “construction defaults belong in one creation boundary.”
+- Object Pool encodes “high-frequency transient objects reuse storage.”
+- Template Method encodes “all bosses share an update skeleton but specialize phase logic.”
+- Strategy encodes “a player owns one interchangeable class-specific skill behavior.”
+- Singleton encodes “one process-level service instance coordinates a global device or repository.”
+
+The remainder of the report first explains the architecture and class diagrams, then returns to these patterns with participant-level reasoning.
+
+# 4. System Architecture and Runtime Composition
+
+## 4.1 MVC-inspired ownership diagram
+
+```mermaid
+%% id: runtime_mvc
+classDiagram
+direction LR
+
+class MainLoop {
+  +initialize()
+  +dispatchActiveSurface()
+  +shutdown()
+}
+class MenuController
+class PrepareController
+class ShopController
+class MapBuilderController
+class SurvivalController
+class GameController {
+  -unique_ptr~GameState~ m_gameState
+  -CollisionSystem m_collision
+  -ParticleSystem m_particles
+  -ElementalSystem m_elemental
+  +StartLevel(level)
+  +Update(dt)
+  +Render()
+}
+class GameState {
+  -unique_ptr~Player~ m_localPlayer
+  -vector~EntityPtr~ m_entities
+  -vector~Tile~ m_tiles
+  +Update(dt)
+}
+class GameView {
+  -TileVector* m_tiles
+  -EntityVector* m_entities
+  +Render(camera, particles, dt)
+}
+class SaveManager
+class Renderer
+class AssetManager
+
+MainLoop ..> MenuController : dispatch
+MainLoop ..> PrepareController : dispatch
+MainLoop ..> ShopController : dispatch
+MainLoop ..> MapBuilderController : dispatch
+MainLoop ..> SurvivalController : dispatch
+MainLoop ..> GameController : dispatch
+GameController *-- GameState : owns
+GameController ..> GameView : binds and renders
+GameController ..> SaveManager : progression
+GameView --> GameState : non-owning projection
+GameView ..> Renderer : submits
+MainLoop ..> AssetManager : preload and shutdown
+```
+
+Figure 1 emphasizes the central ownership relationship. `main.cpp` retrieves process-wide controller instances and dispatches one based on application-mode flags. Only `GameController` owns the Adventure `GameState`; `GameView` observes it. `MapBuilderController` separately owns an editor `GameState` and hands a temporary saved map to `GameController` during playtest.
+
+**Primary evidence:** `src/main.cpp:268-444`; `include/Controller/GameController.h:50-69,236-240`; `include/Model/GameState.h:35-42`; `include/View/GameView.h:42-51,97-101`.
+
