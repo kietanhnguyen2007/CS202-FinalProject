@@ -1225,3 +1225,22 @@ Enemy health, movement speed, damage, detection, range, and cooldown defaults sh
 
 The design is intentionally direct. It uses static functions and switches, so “Simple Factory” is the correct classification. The level-source adapters compose these factories with format translation; they are not GoF Builders even though they create a complete level.
 
+## 11.4 Adapter
+
+### Participants
+
+- **Target:** `ILevelSourceAdapter::Load(const LevelLoadRequest&)`.
+- **Concrete Adapters:** `LegacyLevelAdapter` and `LDtkLevelAdapter`.
+- **Context and selector:** `LevelFactory::LoadLevel`.
+- **Clients:** `GameController` and `MapBuilderController`.
+- **Adaptee representations:** the token-oriented legacy `.lvl` schema and the nested LDtk JSON schema.
+- **Common result:** `unique_ptr<GameState>`.
+
+### Reasoning
+
+Gameplay and editor code require a fully initialized `GameState`, but the two source formats expose incompatible structures. The legacy parser consumes line tokens and tile-space coordinates. The LDtk parser must interpret project definitions, level indices, JSON layers, pixel/grid conversion, entity field instances, flip flags, and post-load linking. Putting those distinctions in controllers would duplicate selection and translation decisions.
+
+`LevelFactory` creates one `LevelLoadRequest`, selects the adapter from the source extension, and invokes only the Target operation. The concrete adapter then owns the corresponding parser path. This is distinct from Simple Factory: the narrow enemy/item factories centralize object construction defaults, whereas Adapter reconciles two external representations with one internal interface.
+
+The pattern has active runtime evidence. Adventure campaign loading and Map Builder loading both call `LevelFactory::LoadLevel`; the editor file dialog exposes both supported extensions. LDtk import produces an editable/playtestable `GameState`, while save intentionally emits `.lvl` instead of overwriting an information-richer LDtk project. Case-insensitive extension matching improves Windows file handling, and unrecognized paths retain the existing legacy fallback behavior.
+
