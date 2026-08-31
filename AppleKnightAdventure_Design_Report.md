@@ -227,3 +227,11 @@ Figure 1 emphasizes the central ownership relationship. `main.cpp` retrieves pro
 
 **Primary evidence:** `src/main.cpp:268-444`; `include/Controller/GameController.h:50-69,236-240`; `include/Model/GameState.h:35-42`; `include/View/GameView.h:42-51,97-101`.
 
+## 4.2 Startup composition
+
+Startup begins by configuring vsync, creating a resizable raylib window, initializing `WindowManager`, and creating the layered `Renderer`. The shell recursively collects 2D atlas JSON files and gives them to `AssetManager::StartLoading`. In parallel from the user's perspective, `SurvivalView` exposes incremental startup loading for 3D assets. The loading loop continuously pumps resize events, drains main-thread atlas uploads, loads one Survival3D GPU item at a time after 2D atlases finish, and draws real progress.
+
+The important thread boundary is explicit. `AssetManager` has a worker queue of file paths and an upload queue of decoded atlas objects. The worker prepares CPU-side data; `UpdateMainThread` creates or finalizes GPU resources. `main.cpp:102-107` applies the same rule to Survival3D models and textures.
+
+After loading, the shell initializes menu, achievements, Adventure, shop, options, Survival3D, and `SurvivalRunService`. The service can continue processing retryable network work while any screen is active because its `Update` method runs once per application frame.
+
