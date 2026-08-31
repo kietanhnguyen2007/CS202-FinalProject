@@ -781,3 +781,11 @@ The feature is active in the editor: its Windows file dialog accepts `.lvl` and 
 
 The design reason is schema isolation. Legacy files are token-oriented and use tile coordinates, whereas LDtk provides nested JSON layers, grid sizes, entity identifiers, fields, flip flags, and project-level definitions. The common Target keeps those differences behind one runtime contract. Supporting another input format now requires another adapter plus one selection rule instead of another parser branch in both gameplay and editor controllers.
 
+## 7.6 Format translation and playtest reuse
+
+Legacy `.lvl` loading reads the editor-friendly project format. LDtk loading interprets layers, coordinates, entity identifiers, fields, flip flags, map dimensions, and background theme. A legacy `checkpoint end` token and an LDtk `CheckpointEnd` entity are normalized into a grounded `LevelCompleteCup`; an LDtk entity already authored as `LevelCompleteCup` is constructed directly. Both adapters produce the same runtime `GameState`. Legacy saving applies the inverse cup coordinate transform so repeated save/load cycles do not move the finish object; it does not attempt an LDtk round trip.
+
+Campaign routing keeps runtime level numbers aligned with filenames: Levels 2 through 6 resolve to `lvl2.ldtk` through `lvl6.ldtk`. The tutorial uses its dedicated LDtk source, while fallback rules retain support for `world.ldtk` and legacy maps. Map Builder imports LDtk level index zero, then works entirely with the adapted `GameState`.
+
+Reusing `GameState`, `GameView`, factories, runtime entities, and `LevelFactory` for both editor and Adventure is an important design decision. It prevents a separate editor-only object model from drifting away from gameplay semantics. Playtest validates the same representation that the game consumes.
+
