@@ -12,9 +12,10 @@ constexpr int BASE_SCREEN_HEIGHT = SCREEN_HEIGHT;
 
 constexpr float TILE_SIZE = 64.0f * (2.0f / 3.0f);
 constexpr float GRAVITY = 980.0f;
-constexpr float PLAYER_SPEED = 200.0f;
+// Light baseline buff: a little more mobility without changing jump physics.
+constexpr float PLAYER_SPEED = 210.0f;
 constexpr float PLAYER_JUMP_FORCE = -600.0f;
-constexpr int PLAYER_MAX_HEALTH = 100;
+constexpr int PLAYER_MAX_HEALTH = 110;
 constexpr int ENEMY_MELEE_RANGE = 100;
 constexpr int ENEMY_RANGED_RANGE = 300;
 constexpr float ENEMY_MELEE_SPEED = 120.0f;
