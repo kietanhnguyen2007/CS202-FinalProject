@@ -523,3 +523,15 @@ This is a domain-design distinction rather than a GoF pattern. The controller ow
 
 The pool owns allocation; active code borrows raw pointers. This keeps high-frequency effect creation predictable while preserving a simple update list. It is a direct application of Object Pool rather than merely an unused generic helper.
 
+## 6.7 Shared process services
+
+`SoundManager` owns audio resources, music streams, event throttling, and volume state. `AchievementManager` evaluates saved lifetime progress and renders unlock popups. `TweenSystem` centralizes time-based interpolation. `WindowManager` tracks resize state and UI scale. These services are process-wide Singletons because the game has one audio device, one active display, one achievement feed, and one tween timeline.
+
+# 7. Map Builder and Object Creation Design
+
+## 7.1 Editor lifecycle
+
+`MapBuilderController` exclusively owns an editor `GameState` and a `CommandManager` bound to that state. It also owns camera/tool state, selection bounds, copied tiles, the current file, and a set of entity IDs already registered for presentation.
+
+`StartEditor` loads an existing legacy map or imports an LDtk level through `LevelFactory`, constructs history for that receiver, configures view state, and begins editor updates. `SaveMap` writes the named map as `.lvl` and, when necessary, a playable copy. `Playtest` saves a temporary `.lvl` map and transitions control to the Adventure controller. `ResumeEditor` restores the editor loop and forces visual re-registration after Adventure has cleared renderer state.
+
