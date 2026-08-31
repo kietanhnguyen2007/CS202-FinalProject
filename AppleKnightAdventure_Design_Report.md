@@ -1112,3 +1112,34 @@ AegisRiftServer *-- SurvivalServerCore
 
 Figure 10 shows that `SaveManager` is the local authority for immediate gameplay, while the HTTP service is an optional validation and ranking path.
 
+## 10.2 Save schema
+
+`SaveManager` stores several coherent groups in one versioned JSON document:
+
+| Group | Representative data |
+|---|---|
+| Profile and economy | player name, coins, unlocked characters, selected character and pet |
+| Adventure progression | per-level high scores, stars, best times, local leaderboard entries, completed levels |
+| Achievements and lifetime stats | progress, unlock timestamps, enemies/bosses defeated, coins collected, purchases |
+| Exploration | encoded minimap cells per level |
+| Settings | music/SFX volume and fullscreen |
+| Survival records | run ID, character, configuration version, wave, score, time, kills, bosses, damage, reward, victory/ranked/validation state |
+| Synchronization | claimed reward IDs, pending submissions, service player ID, and retry metadata |
+| Accessibility | Survival high contrast, reduced motion, and UI scale |
+
+The class acts as a persistence Facade: controllers use domain-oriented methods rather than manipulating JSON directly.
+
+## 10.3 Durable load and save protocol
+
+`Load` resets defaults, then attempts the primary path followed by `.bak`. It parses known keys, normalizes values, clamps settings, and tolerates missing fields so older saves can use defaults. `Save` writes `saveVersion = 2` and serializes the current state.
+
+The replacement protocol is:
+
+1. serialize the complete document in memory;
+2. write `path.tmp`;
+3. copy the previous primary to `path.bak` when present;
+4. replace the primary with the temporary file;
+5. keep the backup available if replacement fails.
+
+This protocol ensures the application does not intentionally truncate the only valid save before a complete new document exists. The version field gives readers a schema decision point.
+
