@@ -108,3 +108,19 @@ The root CMake file selects C++17, adds the bundled raylib library, fetches `nlo
 
 The application assumes relative asset paths such as `assets/textures/...`. Running from the build directory matches the layout created by `SyncAssets`. Save files also use a relative default path; persistence is therefore designed independently from any fixed repository location.
 
+# 3. Architectural Drivers and Design Principles
+
+## 3.1 Quality drivers
+
+| Driver | Concrete project need | Design response |
+|---|---|---|
+| Stable real-time timing | Input, physics, combat, animation, and rendering must remain ordered under frame hitches | Explicit controller pipelines; frame-delta clamp in the shell; fixed-step loop in Survival3D |
+| Clear ownership | Levels are replaced, entities spawn/despawn, and editor commands temporarily transfer entities | `unique_ptr` aggregate ownership, move semantics, non-owning presentation references, explicit detach-before-destroy |
+| Data-driven content | Levels, atlases, balance, VFX, and UI content change more often than engine structure | A common level-source adapter target over LDtk/legacy readers, JSON atlas/config loaders, factory translation |
+| Reversible authoring | Map edits need reliable undo and redo | Command history plus Composite transactions for grouped paste operations |
+| Frame-time predictability | Dense combat and particle effects should not repeatedly scan or allocate | Quadtree broad phase, solid-tile grid, object pool, preallocated layered render buffers |
+| Render-thread safety | Image decoding can run in parallel, but GPU resources belong to the graphics context | Worker decode queue and main-thread upload queue |
+| Failure-tolerant persistence | A crash or unavailable service must not erase local progress or rewards | Temporary/backup save protocol and local-first Survival submission |
+| Mode autonomy | Adventure, editor, and Survival3D have different simulation and presentation requirements | Separate controllers and views behind one application shell |
+| Extensible gameplay | New characters, bosses, enemies, items, and map content should reuse common lifecycles | Entity inheritance, skill strategies, boss template method, centralized factories |
+
