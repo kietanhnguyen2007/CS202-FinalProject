@@ -641,3 +641,72 @@ Execution traverses children from first to last. Undo traverses from last to fir
 
 Command supplies reversibility; Composite supplies hierarchical grouping. The latter could not be replaced by merely pushing every child independently because the user would then need many undo operations for one paste gesture.
 
+## 7.4 Factory and loading class diagram
+
+```mermaid
+%% id: factory_creation
+classDiagram
+direction LR
+
+class LevelFactory {
+  <<Static loader service>>
+  +LoadLevel(path, mode, index, class)
+  +SaveLevel(path, state)
+  +CreateDefaultLevel(level)
+}
+class LegacyLevelAdapter {
+  <<Format Adapter>>
+  +Load(request)
+}
+class LDtkLevelAdapter {
+  <<Format Adapter>>
+  +Load(request)
+}
+class EnemyFactory {
+  <<Simple Factory>>
+  +CreateEnemy(position, type)
+  +CreateMelee(position)
+  +CreateRanged(position)
+  +CreateFlying(position)
+}
+class ItemFactory {
+  <<Simple Factory>>
+  +CreateItem(position, type, amount)
+  +CreateCoin(...)
+  +CreateApple(...)
+  +CreateKey(...)
+}
+class GameState
+class Enemy
+class Item
+class Boss
+class WorldEntity {
+  <<Checkpoint, Chest, Portal, Guide...>>
+}
+
+LevelFactory ..> LegacyLevelAdapter : selects
+LevelFactory ..> LDtkLevelAdapter : selects
+LevelFactory ..> EnemyFactory : default level
+LevelFactory --> GameState : creates default / saves
+LegacyLevelAdapter ..> EnemyFactory : creates through
+LegacyLevelAdapter ..> ItemFactory : creates through
+LegacyLevelAdapter --> GameState : constructs
+LegacyLevelAdapter --> Boss : constructs
+LegacyLevelAdapter --> WorldEntity : constructs
+LDtkLevelAdapter ..> EnemyFactory : creates through
+LDtkLevelAdapter ..> ItemFactory : creates through
+LDtkLevelAdapter --> GameState : constructs
+LDtkLevelAdapter --> Boss : constructs
+LDtkLevelAdapter --> WorldEntity : constructs
+EnemyFactory --> Enemy : returns unique_ptr
+ItemFactory --> Item : returns unique_ptr
+GameState *-- Enemy
+GameState *-- Item
+GameState *-- Boss
+GameState *-- WorldEntity
+```
+
+Figure 6 separates the narrow factories from the level creation boundary. `EnemyFactory` and `ItemFactory` are **Simple Factories**: static operations switch on a discriminator, create a concrete product, apply standard defaults, and return `unique_ptr`. They are not GoF Factory Method because creation is not delegated through a virtual creator hierarchy.
+
+`LevelFactory` selects a level-source adapter and retains the save/default-level boundary. The selected `LegacyLevelAdapter` or `LDtkLevelAdapter` parses its source and constructs `GameState`; those adapters delegate repeated enemy/item defaults to the narrow factories and directly create bosses and special world entities whose serialized fields require type-specific configuration. `LevelFactory::CreateDefaultLevel` also uses `EnemyFactory` for its fallback enemies. Local portals are paired after loading. If loading fails, either adapter can request a default level, keeping the caller's lifecycle simple.
+
