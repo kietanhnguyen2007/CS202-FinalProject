@@ -66,3 +66,16 @@ The design is best understood as a set of explicit lifecycles rather than a coll
 
 # 2. Project Scope and Source Coverage
 
+## 2.1 Product surfaces
+
+| Surface | User-visible responsibility | Primary coordinator | Principal state/view collaborators |
+|---|---|---|---|
+| Application shell | Startup loading, mode dispatch, window resize, audio/achievement ticks, and ordered shutdown | `src/main.cpp` | `WindowManager`, `AssetManager`, `Renderer`, controllers and views |
+| Adventure campaign | Six levels, single-player/local co-op, enemies, bosses, checkpoints, items, pets, skills, elemental reactions, cores, scoring, achievements, and results | `GameController` | `GameState`, `Player`, entity hierarchy, gameplay systems, `GameView` |
+| Preparation and progression | Character/pet selection, local co-op configuration, shop purchases, options, leaderboards, achievements, and saved profile | `MenuController`, `PrepareController`, `ShopController` | `MenuView`, `PrepareView`, `ShopView`, `SaveManager` |
+| Map Builder | Open/create maps, import `.lvl` or `.ldtk`, paint or erase tiles, place/remove entities, copy/paste, bucket fill, undo/redo for command-backed edits, save as `.lvl`, and playtest | `MapBuilderController` | `GameState`, `CommandManager`, `MapBuilderView`, `LevelFactory`, level-source adapters |
+| Rift Survival | Character selection, wave combat, bosses, upgrades, results, records, accessibility options, animation/VFX/IK, and optional ranking | `SurvivalController` | `SurvivalTypes`, animation graph/events, `SurvivalView`, `SurvivalRunService` |
+| Survival backend | Guest identity, profile lookup, idempotent run completion, score leaderboard, and durable server data | `AegisRiftServer` entry | `SurvivalServerCore` and JSON data file |
+
+The client entry point is `src/main.cpp:44`. The server has its own entry point at `backend/survival3d/main.cpp:254`. CMake builds them as separate executables, so the server is an optional integration boundary rather than a process embedded inside the game.
+
