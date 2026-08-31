@@ -259,3 +259,11 @@ This is an application finite state machine implemented by booleans and conditio
 
 This mapping is why “MVC-inspired” is more accurate than “strict MVC.” The responsibilities are recognizable and useful, but some views access resource managers directly and some controllers perform presentation registration in addition to application logic.
 
+## 4.5 Shutdown composition
+
+Shutdown reverses resource dependencies. `GameController::Shutdown` saves progress, stops gameplay audio, clears HUD/skill references, clears entity render registrations, clears tile/entity pointers in `GameView`, then destroys model-owned objects. `main.cpp` subsequently releases UI and world view resources while the graphics context still exists. `AssetManager` joins its worker and drops cached atlases. Audio closes before the renderer and raylib window.
+
+The order is a design invariant, not cosmetic cleanup. Destroying the OpenGL context before unloading textures would make GPU cleanup invalid. Destroying `GameState` before detaching renderer pointers would create use-after-free risk on a later render pass.
+
+# 5. Adventure Domain Design
+
