@@ -67,3 +67,18 @@ hand-timed boss frames, so we changed `durations` to a per-frame vector.
 **Date:** 2026-06-11 → 2026-06-12
 **Related commits:** `feat: implement Renderer class with initialization, shutdown, and sprite submission functionality`, `feat: add RenderTypes header with Layer enum and RenderCommand struct`, `Systems: renderer core fixes + lock-free MPSC queue + ResizeWindow + dropped counter race fix`
 
+**Prompt**
+> Our entities currently call `DrawTexture` directly from `Render()` inside the
+> Model classes, so draw order depends on entity iteration order and the Model
+> depends on raylib. I want a `Renderer` singleton that entities submit draw
+> commands to (`SubmitSprite(texture, src, pos, scale, rotation, origin, tint,
+> layer, z, flipX, entityId)`), which then sorts by layer then z and flushes once
+> per frame. Explain the trade-offs of sorting per frame vs keeping buckets.
+
+**AI response (summary)**
+Recommended fixed per-layer buckets (`Background`, `World`, `UI`) with a
+preallocated command array per bucket and an index array sorted with
+`std::sort` on flush, so the command structs themselves are never moved. Warned
+that submitting from a non-main thread needs a queue and gave an MPSC ring buffer
+sketch.
+
