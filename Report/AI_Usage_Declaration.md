@@ -186,3 +186,26 @@ Recorded here because the first answer was accepted, tested, and then reverted.
 > layer where each entity identifier maps to one of our game classes. Use
 > nlohmann/json. Assume the game renders at 64px tiles while LDtk authors at 16px.
 
+**AI response (summary)**
+Produced the pass structure still in `LevelFactory::LoadLDtkLevel`: parse tileset
+defs into a UID→tileType map, pass 1 builds the solid set from `intGridCsv`, pass 2
+walks the layers and dispatches entities by `__identifier`.
+
+**Outcome**
+Accepted, but it took three rounds to actually work:
+
+1. `layer["__tilesetDefUid"]` is JSON `null` on Entities and IntGrid layers, and
+   `nlohmann::json::value()` throws `type_error.302` when a key exists but is null —
+   it only falls back for *absent* keys. The assistant's code used `value()` and
+   threw on every map. Fixed with an explicit null check.
+2. `intGridCsv` can contain `null` for empty cells; `get<int>()` threw. Fixed with a
+   null guard.
+3. Entity positions were written straight from `px`, so every entity landed at ¼ of
+   its correct position. The assistant had applied the 64/16 scale to tiles but not
+   to entities. This is the `fix: adjust LDtk entity position scaling` commit.
+
+The MinGW `stat64i32` link error was unrelated to the AI — it came from an older
+raylib binary against MinGW 14 and we solved it ourselves in `CMakeLists.txt`.
+
+---
+
