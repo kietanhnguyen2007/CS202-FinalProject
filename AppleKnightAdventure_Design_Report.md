@@ -1175,3 +1175,22 @@ The service is optional by design. Adventure and Survival gameplay do not depend
 
 # 11. Applied Design Patterns
 
+## 11.1 Pattern catalog
+
+| Pattern | Classification | Main participants | Applied purpose | Design consequence |
+|---|---|---|---|---|
+| Singleton | Strong | `SaveManager`, `SoundManager`, controllers, renderer/resource/UI managers | One process-wide service or surface coordinator | Convenient shared identity; dependencies are reached globally |
+| Simple Factory | Strong | `EnemyFactory`, `ItemFactory` | Centralize construction defaults and return clear ownership | Adding a discriminator edits the central switch |
+| Adapter | Strong | `ILevelSourceAdapter`, `LegacyLevelAdapter`, `LDtkLevelAdapter`, `LevelFactory`, `LevelLoadRequest` | Import incompatible `.lvl` and `.ldtk` schemas through one `GameState` contract | Each format owns translation rules; selection and fallback remain centralized |
+| Command | Strong | `ICommand`, tile/entity commands, `CommandManager`, `GameState` | Execute, undo, and redo editor mutations | Each command must capture a valid inverse and ownership state |
+| Composite | Strong and separate | `ICommand` Component, concrete command Leaves, `CompositeCommand` Composite | Treat a pasted region as one command | Child order and reverse undo order become part of correctness |
+| Object Pool | Strong | 2D `ObjectPool<Particle>`; Survival enemy, projectile, VFX, and view-particle pools | Reuse or preallocate transient combat objects | Capacity and borrowed-handle rules become explicit |
+| Template Method | Strong | `Boss::UpdateAI` with `Boss1/2/3::UpdateState` | Keep common boss update order while specializing phases | Subclasses depend on the base algorithm contract |
+| Strategy | Partial but meaningful | `CharacterSkillSet` and four concrete skill sets owned by `Player` | Select class-specific cooldown and update behavior | Some attack code still inspects concrete strategy types |
+| Finite State Machine | Strong implementation, not GoF State | Survival animation graph, Survival phases, enemy/boss/player enum states | Explicit and deterministic transition rules | Behavior remains centralized around enums and switch logic |
+| MVC-inspired architecture | Architectural style | Model, Controller, and View families | Separate ownership/rules, orchestration, and presentation | Boundaries are pragmatic rather than fully isolated |
+| Partial Facade | Limited structural role | `GameView` over render helpers; `SaveManager` over JSON persistence | Give callers a simpler common entry point | Some subsystem operations remain directly accessible |
+| Persistent Outbox | Strong integration pattern | `PendingSurvivalSubmission`, `SaveManager`, `SurvivalRunService` | Make a completed run durable before asynchronous transport | Retry and terminal-status state must be persisted |
+| Producer-Consumer | Strong concurrency pattern | Main thread, transport job/result queues, service worker | Isolate blocking HTTP without cross-thread save mutation | Queue synchronization and orderly worker shutdown are required |
+| Registry | Supporting pattern | `Vfx::Runtime` package IDs and immutable packages | Resolve authored VFX definitions at spawn time | Stable IDs and fallback capability rules form a data contract |
+
