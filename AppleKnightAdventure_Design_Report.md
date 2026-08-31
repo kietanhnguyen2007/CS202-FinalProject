@@ -1536,3 +1536,13 @@ The transition into a terminal result phase calls `FinalizeRun` once before resu
 
 # 14. Build and Reproduction
 
+## 14.1 Build graph
+
+The CMake project defines:
+
+- `AppleKnightAdventure`, built from client sources under `src` and linked with raylib, JSON, WinHTTP, and platform dependencies;
+- `SyncAssets`, which copies the complete asset tree to the build directory;
+- `AegisRiftServer`, built from the backend entry and `SurvivalServerCore` and linked with JSON and Winsock.
+
+C++17 is required. The configured Windows build uses MinGW Makefiles in Debug mode.
+
