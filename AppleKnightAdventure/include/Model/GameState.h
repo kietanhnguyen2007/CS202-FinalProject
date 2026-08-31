@@ -59,6 +59,7 @@ protected:
     bool m_timerRunning = false;
     CharacterClass m_playerClass = CharacterClass::Knight;
     BackgroundTheme m_backgroundTheme = BackgroundTheme::Forest;
+    bool m_levelCompleteByPlayer = false;  // set true when player presses F at endgame checkpoint
 
 public:
     GameState();
@@ -123,6 +124,7 @@ public:
 
     void PlayerInteract();
     bool IsLevelComplete() const;
+    void SetLevelCompleteByPlayer(bool val);
 
     void Update(float deltaTime);
     void Clear();

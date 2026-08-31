@@ -62,6 +62,7 @@ bool MinimapView::MarkCellExplored(int cellX, int cellY) {
 void MinimapView::BeginLevel(const GameState* state) {
     if (!state) return;
     m_level = state->GetCurrentLevel();
+    m_visible = true;  // always show minimap when entering a new level
     m_mapWidthTiles = std::max(1, state->GetMapWidth());
     m_mapHeightTiles = std::max(1, state->GetMapHeight());
 

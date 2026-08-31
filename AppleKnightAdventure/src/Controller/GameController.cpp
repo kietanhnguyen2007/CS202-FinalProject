@@ -1688,9 +1688,11 @@ void GameController::UpdateInteractions(Player* player, const InputCommand& cmd)
             SoundManager::GetInstance().PlaySound("checkpoint_activate");
 
             if (checkpoint->IsEndGame()) {
-                // IsLevelComplete observes this activated state later in the
-                // same update.  No enemy-count or passive collision gate is
-                // involved: reaching the finish and pressing F is sufficient.
+                // Reaching the finish and pressing F is sufficient: no
+                // enemy-count or passive collision gate is involved.  The
+                // activated state drives UpdateEndgameCheckpoints() while this
+                // flag is observed by IsLevelComplete() in the same update.
+                m_gameState->SetLevelCompleteByPlayer(true);
                 View::ParticleRenderer::GetInstance().EmitBurst(
                     checkpoint->GetPosition(), 36, GOLD);
                 View::GameView::GetInstance().Shake(7.0f, 0.45f);

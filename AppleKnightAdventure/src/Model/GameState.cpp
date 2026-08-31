@@ -302,6 +302,9 @@ void GameState::PlayerInteract() {
 bool GameState::IsLevelComplete() const {
     if (!m_localPlayer) return false;
 
+    // Player explicitly pressed F at the endgame checkpoint.
+    if (m_levelCompleteByPlayer) return true;
+
     for (const auto& entity : m_entities) {
         if (!entity || !entity->IsActive()) continue;
         if (entity->GetType() == EntityType::LevelCompleteCup) {
@@ -360,4 +363,9 @@ void GameState::Clear() {
     m_nextEntityId = 1;
     m_clearTime = 0.0f;
     m_timerRunning = false;
+    m_levelCompleteByPlayer = false;
+}
+
+void GameState::SetLevelCompleteByPlayer(bool val) {
+    m_levelCompleteByPlayer = val;
 }
