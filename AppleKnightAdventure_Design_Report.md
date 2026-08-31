@@ -1244,3 +1244,36 @@ Gameplay and editor code require a fully initialized `GameState`, but the two so
 
 The pattern has active runtime evidence. Adventure campaign loading and Map Builder loading both call `LevelFactory::LoadLevel`; the editor file dialog exposes both supported extensions. LDtk import produces an editable/playtestable `GameState`, while save intentionally emits `.lvl` instead of overwriting an information-richer LDtk project. Case-insensitive extension matching improves Windows file handling, and unrecognized paths retain the existing legacy fallback behavior.
 
+## 11.5 Command
+
+### Participants
+
+- **Command interface:** `ICommand::Execute` and `Undo`.
+- **Concrete commands:** `PlaceTileCommand`, `EraseTileCommand`, `PlaceEntityCommand`, `RemoveEntityCommand`.
+- **Invoker and history:** `CommandManager`.
+- **Receiver:** `GameState`.
+- **Client:** `MapBuilderController`.
+
+### Reasoning
+
+The editor needs reversible operations whose details differ: a tile command restores a previous cell, while an entity command transfers polymorphic ownership. Encoding the inverse inside each command prevents `MapBuilderController` from maintaining parallel ad hoc undo branches.
+
+`CommandManager` owns history with `unique_ptr`. Executing a new command clears redo history, matching standard editor semantics. Undo and redo move the same command instance, so captured prior state remains attached to the operation that knows how to use it.
+
+Command coverage is described exactly: direct bucket fill currently clears history after mutating the state, whereas paint, erase, entity placement/removal, and composite paste participate in command history.
+
+## 11.6 Composite
+
+### Participants
+
+- **Component:** `ICommand`.
+- **Leaf:** each concrete tile or entity command.
+- **Composite:** `CompositeCommand`.
+- **Client:** `CommandManager` through the Component interface.
+
+### Reasoning
+
+A pasted region changes many cells but represents one user intent. Composite preserves that semantic unit without teaching history about a particular multi-edit tool. The group owns its children, executes them forward, and undoes them backward.
+
+Composite is structurally separate from Command. Command makes an operation an object with execute and undo behavior. Composite makes individual command objects and groups substitutable through the same interface. The two patterns cooperate but solve different problems.
+
