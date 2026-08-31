@@ -789,3 +789,5 @@ Campaign routing keeps runtime level numbers aligned with filenames: Levels 2 th
 
 Reusing `GameState`, `GameView`, factories, runtime entities, and `LevelFactory` for both editor and Adventure is an important design decision. It prevents a separate editor-only object model from drifting away from gameplay semantics. Playtest validates the same representation that the game consumes.
 
+# 8. Rendering, Animation, and UI Architecture
+
