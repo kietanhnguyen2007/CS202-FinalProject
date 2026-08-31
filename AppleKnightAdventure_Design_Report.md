@@ -94,3 +94,17 @@ The client entry point is `src/main.cpp:44`. The server has its own entry point 
 
 The source review covers 185 project `.h` and `.cpp` files under those areas, approximately 37,700 physical source lines. Vendored raylib headers and generated build output are not counted as project design sources.
 
+## 2.3 Active runtime and supporting model code
+
+The report distinguishes an **active runtime path** from a **compiled extension point**. `main.cpp` actively dispatches menu, preparation, shop, options, Adventure, Map Builder, and Survival3D. `GameController` and `MapBuilderController` both operate on `GameState`. The `DualWorld`, `DualWorldPlayer`, and `CrossWorldManager` classes define a light/shadow-world model and `LevelFactory` exposes dual-world serialization methods, but the top-level loop does not dispatch a dual-world game mode.
+
+The same distinction applies to smaller source components. `TriggerZone` can be loaded, saved, and placed in the editor, but `GameController` does not currently consume it as a gameplay interaction. `InventoryView` is compiled and listed by `UIStateManager`, but the active shell has no initialization/open/snapshot call for it. These classes are documented as supporting extensions, not shown as live frame-flow participants.
+
+This distinction is also used for pattern identification. A class name or an unused interface is not enough to claim a design pattern. A pattern is listed as applied only when its participants collaborate in the current source flow.
+
+## 2.4 Technology and platform boundary
+
+The root CMake file selects C++17, adds the bundled raylib library, fetches `nlohmann_json` 3.11.3, synchronizes `assets` into the build directory, and builds the Windows client. A second target builds the Survival backend with Winsock and JSON support. Runtime code relies on raylib for window/input/audio/2D/3D APIs, the C++ standard library for ownership, containers, filesystem, and threads, and WinHTTP for the Survival client transport.
+
+The application assumes relative asset paths such as `assets/textures/...`. Running from the build directory matches the layout created by `SyncAssets`. Save files also use a relative default path; persistence is therefore designed independently from any fixed repository location.
+
