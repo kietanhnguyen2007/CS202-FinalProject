@@ -64,3 +64,5 @@ Several design decisions are especially important to runtime correctness:
 
 The design is best understood as a set of explicit lifecycles rather than a collection of pattern names. Ownership, update ordering, render-thread constraints, persistence durability, and reversible editor transactions are the reasons the patterns exist. The following sections explain those lifecycles and show how the classes collaborate across the whole project.
 
+# 2. Project Scope and Source Coverage
+
