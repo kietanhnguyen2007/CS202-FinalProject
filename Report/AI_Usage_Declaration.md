@@ -310,3 +310,24 @@ Adopted. This is the `EntityType` / `GetType()` pattern used throughout the code
 **Date:** 2026-06-12
 **Related commits:** `add Character::State enum with auto-inference for Player/Enemy`
 
+**Prompt**
+> The View needs to know which animation clip to play, but the Model should not know
+> about clips. I want `Character` to expose a `State` (Idle, Run, Jump, Fall,
+> Attack, Hurt, Die) that is derived from physics and timers rather than set by hand
+> at every call site, so nobody can forget to update it.
+
+**AI response (summary)**
+Suggested computing the state on read from velocity, ground flag, and the attack /
+hurt / death timers, with a documented precedence order (death > hurt > attack >
+airborne > moving > idle) so two conditions can never disagree.
+
+**Outcome**
+Adopted. The precedence order is what stopped the "attacking while falling" flicker
+we had before.
+
+---
+
+## T-03 · Teleport portals and boss-arena transitions
+**Date:** 2026-08-03 → 2026-08-05
+**Related commits:** `Create Map 1 and Portal to transition to Boss Area`, `Create world2.ldtk`, `Implement entity merging and enhance teleport portal alignment in GameState and LevelFactory`
+
