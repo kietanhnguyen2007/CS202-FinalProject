@@ -82,3 +82,25 @@ preallocated command array per bucket and an index array sorted with
 that submitting from a non-main thread needs a queue and gave an MPSC ring buffer
 sketch.
 
+**Outcome**
+Accepted. This became `View/Renderer.cpp` and let us delete every `Render()` method
+from the Model layer (commit `cleanup(model): remove all Render() traces from Model
+layer`). The threading part we kept but simplified — we only submit from the main
+thread in practice, and the queue is a guard rail. The assistant's first version of
+the dropped-command counter used a plain `int` incremented from both paths; we
+changed it to `std::atomic` after a data race showed up under `-fsanitize=thread`.
+
+---
+
+## K-03 · View bug sweep after the render refactor
+**Date:** 2026-06-13
+**Related commits:** `fix: various View bugs — UIStateManager menu layer, missing includes, EnemyStatusRenderer layer/world->screen, SkillSlotData operator==, GameView missing Update call, audio init guards, entity ID assertion, stale comments`
+
+**Prompt**
+> After moving all rendering into the View layer, several things broke at once:
+> the menu draws underneath the HUD, enemy status icons are drawn at world
+> coordinates so they slide off-screen when the camera moves, and `GameView` never
+> animates because nothing ticks the animators. Here are the relevant files.
+> Go through them and list what is actually wrong, most severe first, instead of
+> rewriting everything.
+
