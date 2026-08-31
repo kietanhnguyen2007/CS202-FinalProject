@@ -445,3 +445,27 @@ per-key guard is the `readIntMap` lambda in `SaveManager::Load`.
 > has `IsLevelComplete()` read the checkpoint's activated state. Do not just pick
 > one; work out which is actually correct and resolve it.
 
+**AI response (summary)**
+Compared both against the rest of the code and found that the flag-based side never
+calls `Activate()` on the endgame checkpoint, while `UpdateEndgameCheckpoints()`
+drives the finish-flag animation entirely from `IsActivated()` — so that side would
+have shipped a finish flag that never animates. Recommended taking the
+activation-based logic as the base, keeping the flag (its declaration had already
+merged cleanly into the header) wired in as a second trigger, and dropping four
+variables on the flag side that the merged loop no longer read.
+
+**Outcome**
+Resolved as recommended. Verified by rebuilding and checking the finish animation
+still plays.
+
+---
+
+## T-08 · Checkpoint placement audit and the level-complete trophy
+**Date:** 2026-08-31
+**Related commits:** `Update render and hitbox`, `Edit map`, `Update lvl2.ldtk`
+
+**Prompt**
+> Check every map for checkpoints that are placed wrong or render wrong, and fix the
+> positions. Then make the end-of-level checkpoint in every map a golden trophy like
+> the one in the tutorial. Read the asset and `.ldtk` files to do it.
+
