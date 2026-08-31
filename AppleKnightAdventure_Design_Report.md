@@ -1194,3 +1194,34 @@ The service is optional by design. Adventure and Survival gameplay do not depend
 | Producer-Consumer | Strong concurrency pattern | Main thread, transport job/result queues, service worker | Isolate blocking HTTP without cross-thread save mutation | Queue synchronization and orderly worker shutdown are required |
 | Registry | Supporting pattern | `Vfx::Runtime` package IDs and immutable packages | Resolve authored VFX definitions at spawn time | Stable IDs and fallback capability rules form a data contract |
 
+## 11.2 Singleton
+
+### Participants
+
+- **Unique instance:** for example `SaveManager`.
+- **Access operation:** `GetInstance()`.
+- **Clients:** controllers, views, shell, and services.
+
+`SaveManager::GetInstance` returns a function-local static instance. Its constructor is private and copy construction and assignment are deleted. `SoundManager`, `Renderer`, `AssetManager`, `WindowManager`, `UIStateManager`, and the screen controllers follow the same process-wide access style.
+
+### Reasoning
+
+The game has one save repository, one audio device, one render command stream, one active display description, and one instance of each top-level surface. A single identity avoids accidentally maintaining divergent save caches or rendering through unrelated queues. C++11 function-local static initialization supplies safe one-time construction.
+
+The pattern also makes lifecycle order important because access is global while GPU and audio resources must be released before raylib shutdown. The project addresses this by invoking explicit `Shutdown` methods instead of relying on static destruction order.
+
+## 11.3 Simple Factory
+
+### Participants
+
+- **Factory:** `EnemyFactory` or `ItemFactory`.
+- **Product:** `Enemy` or `Item`.
+- **Discriminator:** `EnemyType` or `ItemType`.
+- **Clients:** `LegacyLevelAdapter`, `LDtkLevelAdapter`, `MapBuilderController`, and `GameController`; `LevelFactory::CreateDefaultLevel` also uses `EnemyFactory` for fallback enemies.
+
+### Reasoning
+
+Enemy health, movement speed, damage, detection, range, and cooldown defaults should not be duplicated in every parser and editor tool. The factories map a semantic type to one fully initialized object and return `unique_ptr`. Item construction similarly maps type and amount to one configured item.
+
+The design is intentionally direct. It uses static functions and switches, so “Simple Factory” is the correct classification. The level-source adapters compose these factories with format translation; they are not GoF Builders even though they create a complete level.
+
