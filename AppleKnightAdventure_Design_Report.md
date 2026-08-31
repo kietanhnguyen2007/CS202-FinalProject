@@ -267,3 +267,100 @@ The order is a design invariant, not cosmetic cleanup. Destroying the OpenGL con
 
 # 5. Adventure Domain Design
 
+## 5.1 Domain class diagram
+
+```mermaid
+%% id: domain_strategy
+classDiagram
+direction TB
+
+class Entity {
+  <<abstract>>
+  -id
+  -position
+  -size
+  -active
+  +Update(dt)*
+}
+class Character {
+  -health
+  -velocity
+  -state
+}
+class Player {
+  -Inventory m_inventory
+  -CoreLoadout m_cores
+  -unique_ptr~CharacterSkillSet~ m_skills
+}
+class Enemy
+class Pet
+class Boss {
+  <<abstract>>
+  +UpdateAI(player, dt, state)
+  +UpdateState(dt, player)*
+  +TransitionToNextPhase()*
+}
+class Boss1
+class Boss2
+class Boss3
+class Projectile
+class Item
+class Checkpoint
+class Chest
+class TeleportPortal
+class GameState {
+  -unique_ptr~Player~ players
+  -vector~EntityPtr~ entities
+  -vector~Tile~ layers
+}
+class CharacterSkillSet {
+  <<abstract strategy>>
+  +Update(dt)*
+  +TickCooldowns(dt)*
+  +ClearCooldowns()*
+}
+class KnightSkillSet
+class FighterSkillSet
+class MagicCasterSkillSet
+class NinjaSkillSet
+
+Entity <|-- Character
+Character <|-- Player
+Character <|-- Enemy
+Character <|-- Pet
+Character <|-- Boss
+Entity <|-- Projectile
+Entity <|-- Item
+Entity <|-- Checkpoint
+Entity <|-- Chest
+Entity <|-- TeleportPortal
+Boss <|-- Boss1
+Boss <|-- Boss2
+Boss <|-- Boss3
+Player *-- CharacterSkillSet : skill behavior
+CharacterSkillSet <|-- KnightSkillSet
+CharacterSkillSet <|-- FighterSkillSet
+CharacterSkillSet <|-- MagicCasterSkillSet
+CharacterSkillSet <|-- NinjaSkillSet
+GameState *-- Player
+GameState *-- Entity
+```
+
+Figure 2 shows two complementary mechanisms. Inheritance establishes substitutable world entities, while composition gives `Player` one class-specific skill strategy without placing every skill field in the common player class.
+
+## 5.2 GameState as the Adventure aggregate
+
+`GameState` is the aggregate root for one 2D level. It owns:
+
+- a primary player and optional second local player;
+- active entities and a separate buffer for newly created entities;
+- background, main, and foreground tile layers;
+- a lazily rebuilt solid-tile grid;
+- map dimensions, level identity, entity-ID generation, item/enemy totals, timer state, character class, background theme, and completion state.
+
+All entity ownership changes pass through `AddEntity`, `MergeNewEntities`, `RemoveEntity`, or `ExtractEntity`. `ExtractEntity` is especially important to the editor: it transfers a `unique_ptr<Entity>` out of the world and into a command object without copying the entity. Undo transfers it back.
+
+The new-entity buffer is a real-time safety device. Entities can spawn projectiles or items during an update, but inserting directly into the active vector could reallocate it while it is being iterated. `GameState::Update` advances the world and merges buffered additions at a controlled point rather than permitting re-entrant vector mutation.
+
+Tiles are separated by render and semantic layer. The main layer feeds collision. `IsSolidAt` uses a cached boolean grid rebuilt only after tile mutations, providing constant-time queries for physics, raycasts, and fill-like operations rather than repeatedly scanning the tile vector.
+
