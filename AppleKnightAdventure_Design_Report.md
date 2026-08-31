@@ -1456,3 +1456,27 @@ This flow demonstrates the CPU and GPU thread boundary and ensures the user sees
 
 The old world is not destroyed while presentation pointers still reference it. This order is the concrete implementation of the ownership contract described in Section 3.
 
+## 13.3 Adventure frame and render
+
+1. Poll input and process modal gates.
+2. Apply player intent and interactions.
+3. Advance `GameState` and merge safe spawns.
+4. Update AI and resolve tile movement.
+5. Rebuild the quadtree.
+6. Resolve combat and elemental reactions using spatial candidates.
+7. Update items, pets, projectiles, checkpoints, portals, buffs, particles, timer, and camera.
+8. Update `GameView`, `HUDView`, `SkillBarView`, and completion state.
+9. Begin a renderer frame.
+10. Render background, tile layers, characters, entities, effects, and UI or dialog overlays in ordered stages.
+
+## 13.4 Adventure completion and persistence
+
+1. An explicit finish interaction activates the cup or compatible end checkpoint, making `GameState::IsLevelComplete` true; passive collision and enemy count do not finish the level.
+2. `GameController::CheckLevelComplete` stops the timer and constructs a `LevelResultSnapshot`.
+3. Scoring calculates score, stars, time, collected items, defeated enemies, and character or co-op information.
+4. `SaveManager` records high score, time, stars, leaderboard data, coins, progression, and achievements.
+5. `ResultView` displays the frozen snapshot and returns retry, next, or menu intent.
+6. The controller starts another level or shuts down the session safely.
+
+The snapshot is a presentation DTO; `ResultView` does not retain the full `GameState`.
+
