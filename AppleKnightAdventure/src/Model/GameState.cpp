@@ -302,7 +302,10 @@ void GameState::PlayerInteract() {
 
 bool GameState::IsLevelComplete() const {
     if (!m_localPlayer) return false;
-    
+
+    // Player explicitly pressed F at endgame checkpoint — complete immediately
+    if (m_levelCompleteByPlayer) return true;
+
     bool enemiesAlive = false;
     bool touchingEndCheckpoint = false;
     bool hasCompletionCup = false;
@@ -379,4 +382,9 @@ void GameState::Clear() {
     m_nextEntityId = 1;
     m_clearTime = 0.0f;
     m_timerRunning = false;
+    m_levelCompleteByPlayer = false;
+}
+
+void GameState::SetLevelCompleteByPlayer(bool val) {
+    m_levelCompleteByPlayer = val;
 }

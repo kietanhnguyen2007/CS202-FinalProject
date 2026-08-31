@@ -1657,10 +1657,19 @@ void GameController::UpdateInteractions(Player* player, const InputCommand& cmd)
 
         if (entity->GetType() == EntityType::Checkpoint) {
             auto* checkpoint = static_cast<Checkpoint*>(entity.get());
-            if (checkpoint->IsEndGame() || checkpoint->IsActivated()) continue;
 
-            uint32_t newUid = static_cast<uint32_t>(checkpoint->GetId());
+            // Endgame checkpoint: pressing F completes the level (no need to kill all enemies)
+            if (checkpoint->IsEndGame()) {
+                m_gameState->SetLevelCompleteByPlayer(true);
+                return;
+            }
+
+            // Regular checkpoint: skip if already activated
+            if (checkpoint->IsActivated()) continue;
+
+            // Only activate checkpoints that are ahead of or at the current respawn point
             if (checkpoint->GetPosition().x >= m_respawnPoint.x) {
+                uint32_t newUid = static_cast<uint32_t>(checkpoint->GetId());
                 m_activeCheckpointUid = newUid;
                 checkpoint->Activate();
                 SoundManager::GetInstance().PlaySound("checkpoint_activate");
@@ -1671,8 +1680,9 @@ void GameController::UpdateInteractions(Player* player, const InputCommand& cmd)
                 View::EntityRenderer::GetInstance().Unregister(newUid);
                 View::EntityRenderer::GetInstance().RegisterAnimated(
                     checkpoint, "assets/textures/objects/checkpoint_flag_out.json", "flag_out");
+                return;
             }
-            return;
+            continue; // checkpoint is behind current respawn point, skip
         }
 
         if (entity->GetType() == EntityType::TeleportPortal) {
