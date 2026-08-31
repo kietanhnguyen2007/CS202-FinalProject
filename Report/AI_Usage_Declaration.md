@@ -268,3 +268,30 @@ Accepted essentially as given. The cooldown field is what fixed the footstep and
 > fallback for extensionless paths and extension matching must become
 > case-insensitive.
 
+**AI response (summary)**
+Proposed an `ILevelSourceAdapter` with `CanLoad(path)` / `Load(request)` and a
+`LevelLoadRequest` struct bundling the four parameters, with `LegacyLevelAdapter`
+and `LDtkLevelAdapter` as the two implementations and the legacy one as the default.
+
+**Outcome**
+Accepted and applied — this is the current shape of `Factories/LevelSourceAdapter.h`
+and the top of `LevelFactory.cpp`. We deliberately kept it as a pure move with no
+behaviour change so the refactor could be verified by playing every level.
+
+---
+
+# Part 2 — Nguyễn Trọng Tiến
+
+## T-01 · Entity and Character hierarchy
+**Date:** 2026-06-10
+**Related commits:** `Foundation and Model hierarchy`, `Build system + include paths`
+
+**Prompt**
+> I am designing the Model layer for a 2D platformer. I need a base `Entity` (id,
+> position, size, velocity, rotation, scale, active flag, type tag, virtual
+> `Update`) and a `Character : Entity` adding health, damage, direction, and an
+> attack timer. Entity types include Player, Enemy, Boss, Item, Chest, Checkpoint,
+> Projectile, TeleportPortal, FakeWall. Advise on whether to use an enum tag plus
+> `static_cast` or `dynamic_cast` for type dispatch, given this is a course project
+> graded on OOP.
+
