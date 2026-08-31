@@ -886,3 +886,17 @@ Mutexes protect the cache, pending queue, upload queue, and current-file display
 
 This reuse is flyweight-like, but the implementation is more precisely a path-keyed resource cache. It does not define explicit Flyweight Factory, intrinsic-state, and extrinsic-state interfaces.
 
+## 8.4 Atlas animation
+
+`TextureAtlas` loads texture metadata and named `AnimationClip` instances. A clip owns frames, timing, loop state, total duration, and optional scale. `Animator` owns playback state while sharing clips: current clip, frame index, playhead, speed, direction, flip state, and normal, reverse, or ping-pong mode.
+
+Character and entity renderers create per-entity animators, bind shared clips, update them, and submit the current source rectangle. Optional `OnFrameChanged` and `OnClipFinished` function callbacks support local animation events. These callbacks are not a project-wide Observer implementation; they are direct hooks owned by an animator.
+
+## 8.5 Render registration and non-owning state
+
+`CharacterRenderer` and `EntityRenderer` maintain maps keyed by stable entity ID. Registration associates a non-owning `Entity*` with atlas, clip, action configuration, and animation playback. The model remains authoritative for position, facing, state, and liveness; the renderer remains authoritative for current visual clip/frame and texture resources.
+
+That ownership boundary also governs alignment fixes. Registering a checkpoint visual does not move the checkpoint model. Instead, interaction code derives a target box from the visible pole footprint, and `TutorialRenderer` centers and bottom-anchors the trophy art and plate inside the `LevelCompleteCup` gameplay box. Physics, interaction, serialization, and rendering therefore agree on one model transform while presentation applies only a draw-space offset and scale.
+
+`GameController` registers visuals after level loading and after dynamically spawned entities become active. It unregisters removed entities. `StartLevel` and `Shutdown` clear every registration before releasing owners. This explicit bridge is the reason Adventure can keep a polymorphic model without placing raylib texture objects in domain classes.
+
