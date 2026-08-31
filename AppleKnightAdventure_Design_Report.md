@@ -377,3 +377,22 @@ Tiles are separated by render and semantic layer. The main layer feeds collision
 
 The hierarchy lets `GameState` own a heterogeneous `vector<unique_ptr<Entity>>` and lets render/collision registration dispatch on `EntityType`. This is a practical form of runtime polymorphism for a small game engine.
 
+## 5.4 Player composition and skill behavior
+
+At construction, `Player` selects one of `KnightSkillSet`, `FighterSkillSet`, `MagicCasterSkillSet`, or `NinjaSkillSet` and stores it as `unique_ptr<CharacterSkillSet>`. Common per-frame skill maintenance is invoked through the abstract base. Each concrete class owns cooldowns and state for its character-specific abilities.
+
+The composition keeps class-specific timing out of `Player`'s common movement and inventory data and guarantees exactly one active skill implementation. Part of attack execution still uses `dynamic_cast` and class branches to inspect a concrete skill set, so this is documented as a **partial Strategy** rather than a fully closed Strategy boundary.
+
+`Inventory` and `CoreLoadout` are value-owned collaborators. Inventory represents collected and equipped items. `CoreLoadout` stores drafted core stacks and derives damage, defense, speed, cooldown, health, piercing, elemental, class-locked, revive, and chain-hit modifiers. Because the loadout belongs to `Player`, it naturally travels with player snapshots during boss-arena transitions.
+
+## 5.5 Boss design
+
+`Boss::UpdateAI` is the stable algorithm skeleton:
+
+1. reject work when the boss or target is not alive;
+2. bind the current `GameState` for world queries;
+3. update common navigation;
+4. invoke the virtual `UpdateState` hook.
+
+`Boss1`, `Boss2`, and `Boss3` implement their own state updates and phase transitions. Shared health, navigation, and world setup remain in the base. `Boss::TakeDamage` also owns the shared death-versus-phase-transition rule. This is an applied Template Method: the base controls sequence while subclasses supply selected steps.
+
