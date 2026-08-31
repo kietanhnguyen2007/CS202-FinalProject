@@ -1567,3 +1567,58 @@ Most importantly, Command, Composite, and Adapter solve three different Map Buil
 
 Across the full source tree, the design reasoning is consistent: use exclusive ownership for mutable game state, shared ownership for reusable resources, explicit order for real-time work, fixed steps for deterministic 3D combat, data translation for editable content, and local-first durability for player progress. These choices explain both the architecture and the pattern selection of the current project.
 
+# 16. Source Evidence Index
+
+| Topic | Primary source anchors |
+|---|---|
+| CMake, client and server targets, assets | `AppleKnightAdventure/CMakeLists.txt:2-88` |
+| Startup and asset loading | `AppleKnightAdventure/src/main.cpp:44-125` |
+| Controller initialization and mode dispatch | `AppleKnightAdventure/src/main.cpp:268-444` |
+| Ordered shutdown | `AppleKnightAdventure/src/main.cpp:447-479` |
+| Adventure controller ownership | `AppleKnightAdventure/include/Controller/GameController.h:50-69,230-240` |
+| Adventure update pipeline | `AppleKnightAdventure/src/Controller/GameController.cpp:2012-2332` |
+| View detachment before world replacement | `AppleKnightAdventure/src/Controller/GameController.cpp:448-463,2383-2402` |
+| GameState ownership and solid grid | `AppleKnightAdventure/include/Model/GameState.h:35-50,64-130` |
+| Buffered entities and state update | `AppleKnightAdventure/src/Model/GameState.cpp:41-51,89-155,324-361` |
+| Entity and character hierarchy | `AppleKnightAdventure/include/Model/Entity.h:28`; `Character.h:8`; `Player.h:18`; `Enemy.h:8`; `Pet.h:21`; `Boss.h:12` |
+| Skill Strategy | `AppleKnightAdventure/include/Model/CharacterSkillSet.h:6-15`; `src/Model/Player.cpp:47-68,94-101,403-416` |
+| Boss Template Method | `AppleKnightAdventure/src/Model/Boss.cpp:111-152`; `include/Model/Boss.h:143-147` |
+| Level routing and active-map selection | `AppleKnightAdventure/src/Controller/GameController.cpp:184-203,479-491` |
+| Interaction and explicit completion | `AppleKnightAdventure/src/Controller/GameController.cpp:72-87,1606-1715,1883-1951,2514-2549`; `src/Model/GameState.cpp:302-320` |
+| Dual-world extension | `AppleKnightAdventure/include/Model/DualWorld.h:8-30`; `DualWorldPlayer.h:7-20`; `CrossWorldManager.h:8-27` |
+| Collision and depth-bounded quadtree | `AppleKnightAdventure/include/Systems/CollisionSystem.h:9-29`; `include/Systems/Quadtree.h:10-26`; `src/Systems/CollisionSystem.cpp:18-48`; `src/Systems/Quadtree.cpp:12-111` |
+| Spatial-index ordering | `AppleKnightAdventure/src/Controller/GameController.cpp:2238-2249,3061-3074` |
+| Elemental system and reaction table | `AppleKnightAdventure/include/Systems/ElementalSystem.h:25-129`; `src/Systems/ElementalSystem.cpp:42-103,245-299` |
+| Elemental controller flow | `AppleKnightAdventure/src/Controller/GameController.cpp:3192-3449` |
+| Cores and buffs | `AppleKnightAdventure/include/Systems/CoreSystem.h:11-156`; `include/Systems/BuffSystem.h:9-32` |
+| Object Pool | `AppleKnightAdventure/include/Systems/ObjectPool.h:9-76`; `src/Systems/ParticleSystem.cpp:46-121` |
+| Map Builder lifecycle and import UI | `AppleKnightAdventure/include/Controller/MapBuilderController.h:12-68`; `src/Controller/MapBuilderController.cpp:95-236` |
+| Command pattern | `AppleKnightAdventure/include/Model/Command.h:8-53,63-73`; `src/Model/Command.cpp:3-66,84-116` |
+| Composite pattern | `AppleKnightAdventure/include/Model/Command.h:55-61`; `src/Model/Command.cpp:68-82`; `src/Controller/MapBuilderController.cpp:63-92` |
+| Simple Factories | `AppleKnightAdventure/include/Factories/EnemyFactory.h:8-13`; `src/Factories/EnemyFactory.cpp:4-47`; `include/Factories/ItemFactory.h:8-16`; `src/Factories/ItemFactory.cpp:3-31`; `src/Factories/LevelFactory.cpp:200-242,651-733,823-829`; `src/Controller/MapBuilderController.cpp:464,501-503`; `src/Controller/GameController.cpp:3606` |
+| Level-source Adapter | `AppleKnightAdventure/include/Factories/LevelSourceAdapter.h:10-40`; `src/Factories/LevelSourceAdapter.cpp:7-22`; `src/Factories/LevelFactory.cpp:102-128,484-505`; `src/Controller/MapBuilderController.cpp:211-233` |
+| Level translation and grounded finish markers | `AppleKnightAdventure/include/Factories/LevelFactory.h:14-43`; `src/Factories/LevelFactory.cpp:55-62,118-299,301-382,493-871` |
+| Trophy/checkpoint presentation alignment | `AppleKnightAdventure/src/Controller/GameController.cpp:289-300`; `src/View/TutorialRenderer.cpp:141-171` |
+| GameView non-owning projection | `AppleKnightAdventure/include/View/GameView.h:18-53,77-101` |
+| Layered renderer | `AppleKnightAdventure/include/View/Renderer.h:9-77`; `src/View/Renderer.cpp:36-53,155-271,347-370` |
+| Asset threading and cache | `AppleKnightAdventure/include/View/AssetManager.h:14-68`; `src/View/AssetManager.cpp:33-68,70-167,183-205` |
+| Atlas animation | `AppleKnightAdventure/include/View/Animator.h:14-129`; `include/View/TextureAtlas.h:13-52` |
+| UI layer stack | `AppleKnightAdventure/include/View/UIStateManager.h:8-53`; `src/View/UIStateManager.cpp:27-117` |
+| Compiled but inactive Inventory and prompt paths | `AppleKnightAdventure/include/View/InventoryView.h:22-54`; `include/View/InteractPrompt.h:8-29`; `src/View/UIStateManager.cpp:42-61` |
+| Screen controller and view pairs | `AppleKnightAdventure/src/Controller/MenuController.cpp:31-255`; `PrepareController.cpp:31-247`; `ShopController.cpp:115-250` |
+| Survival model and phase types | `AppleKnightAdventure/include/Survival3D/Model/SurvivalTypes.h:10-287` |
+| Survival fixed-step controller | `AppleKnightAdventure/include/Survival3D/Controller/SurvivalController.h:14-224`; `src/Survival3D/Controller/SurvivalController.cpp:591-777` |
+| Survival wave phases and completion | `AppleKnightAdventure/src/Survival3D/Controller/SurvivalController.cpp:1008-1068,3047-3078` |
+| Survival fixed-capacity pools | `AppleKnightAdventure/include/Survival3D/Controller/SurvivalController.h:186-205,250-264`; `src/Survival3D/Controller/SurvivalController.cpp:445-460,1175-1212` |
+| Survival animation FSM | `AppleKnightAdventure/include/Survival3D/Animation/AnimationGraph.h:12-108`; `src/Survival3D/Animation/AnimationGraph.cpp:18-345` |
+| Animation events and combos | `AppleKnightAdventure/include/Survival3D/Animation/AnimationEvents.h:10-223`; `src/Survival3D/Animation/AnimationEvents.cpp:296-452` |
+| Runtime IK and VFX | `AppleKnightAdventure/include/Survival3D/Systems/RuntimeIK.h:8-177`; `include/Survival3D/Vfx/VfxRuntime.h:16-135` |
+| Semantic combat-feedback handoff | `AppleKnightAdventure/include/Survival3D/Model/SurvivalTypes.h:111-135`; `src/Survival3D/View/SurvivalView.cpp:2095-2246` |
+| SurvivalView ownership and lifecycle | `AppleKnightAdventure/include/Survival3D/View/SurvivalView.h:39-179`; `src/Survival3D/View/SurvivalView.cpp:1479-1625,1750-1772` |
+| Save schema and Singleton | `AppleKnightAdventure/include/Model/SaveManager.h:10-170`; `src/Model/SaveManager.cpp:81-95` |
+| Durable save protocol | `AppleKnightAdventure/src/Model/SaveManager.cpp:97-164,258-364` |
+| Local-first run service | `AppleKnightAdventure/include/Survival3D/Systems/SurvivalRunService.h:41-109`; `src/Survival3D/Systems/SurvivalRunService.cpp:153-249,274-460` |
+| Default service configuration | `assets/survival3d/config/services.json:1-7` |
+| Backend HTTP routes | `AppleKnightAdventure/backend/survival3d/main.cpp:177-239,254-305` |
+| Backend idempotency and persistence | `AppleKnightAdventure/backend/survival3d/SurvivalServerCore.cpp:104-149,231-321` |
+| Backend ranked score and leaderboard ordering | `AppleKnightAdventure/backend/survival3d/SurvivalServerCore.cpp:178-216,254-270,313-355` |
