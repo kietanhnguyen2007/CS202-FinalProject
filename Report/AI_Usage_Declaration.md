@@ -499,3 +499,28 @@ assistant also flagged that this makes the endgame-checkpoint code path unreacha
 > still see the projectiles, but the character does not move and is not drawn
 > anywhere. Why?
 
+**AI response (summary)**
+Traced it to the Second Wind core rather than to the checkpoint. `Character::TakeDamage`
+clears the entity's `m_active` flag when health reaches zero. The normal death path
+`RespawnPlayer` calls `SetActive(true)`; `TryRevive` — the Second Wind path —
+restored health but never restored the flag. The three symptoms then follow from
+three systems checking different flags: `CharacterRenderer` skips `!IsActive()` so
+the player is invisible, `Character::Update` returns early on `!m_active` so the
+position never integrates, but `HandlePlayerInput` guards on `IsAlive()` (health > 0,
+now true) so input still fires skills. The "core appearing" was the floating text
+that `TryRevive` itself emits with the core's name.
+
+**Outcome**
+Fixed with one line — `player->SetActive(true)` in `TryRevive` — and the assistant
+checked the other health-restoring paths (potions, the Ghost pet, `RestorePlayerState`)
+for the same missing invariant; none had it.
+
+---
+
+## T-10 · Magic Caster fireball breaking fake walls
+**Date:** 2026-08-31
+**Related commits:** change applied to `GameController::UpdatePlayerProjectiles`
+
+**Prompt**
+> Make the Magic Caster's fire skill able to break fake walls.
+
