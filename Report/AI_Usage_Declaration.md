@@ -389,3 +389,23 @@ T-09.
 > multiplier and possibly a new status. Design the data layout so designers can tune
 > it without touching combat code, and so adding a fifth element later is cheap.
 
+**AI response (summary)**
+Recommended two flat tables: an element profile table (element → status, aura
+duration, colour) and a reaction table keyed on (existing status, incoming element)
+producing a multiplier, a resulting status and its duration. Combat code then does a
+single lookup and stays element-agnostic.
+
+**Outcome**
+Adopted as `Systems/ElementalSystem.cpp`. We then asked a follow-up:
+
+> The Magic Caster's skills each carry a fixed element, but the other three classes
+> are physical. I do not want to hand-author elements per skill for every class.
+
+The assistant suggested that a projectile with no explicit element inherit whatever
+infusion buff the player is currently running, so a Ninja shuriken under Infuse Fire
+sets up the same reactions a Fireball does. That is the behaviour in
+`SpawnPlayerProjectile` today and it is why the element system reaches all four
+classes with almost no per-class code.
+
+---
+
