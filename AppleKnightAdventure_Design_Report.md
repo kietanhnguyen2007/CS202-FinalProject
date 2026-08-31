@@ -1382,3 +1382,9 @@ The Model family owns state, the Controller family sequences use cases, and the 
 | Local-first run submission | Network availability must not gate rewards or gameplay | Offline play and durable retries | Idempotency, queue state, and validation status are persisted |
 | Explicit server process | Ranking and validation have a different trust boundary | Client remains playable without backend | Client and server share a versioned payload contract |
 
+## 12.2 Why the 2D and 3D modes use different models
+
+Adventure benefits from a polymorphic entity hierarchy because many heterogeneous world objects share registration, collision bounds, and lifetime in one 2D map. Survival3D has a narrower, performance-oriented combat arena and uses value-state records for player, enemies, and projectiles. Forcing both modes into one universal entity type would mix unrelated rendering, movement, and progression assumptions.
+
+The shared boundary is higher-level: both modes use the shell, save repository, achievements, audio, display services, and explicit controller-view lifecycles. This is reuse through stable services, not through one oversized gameplay base class.
+
