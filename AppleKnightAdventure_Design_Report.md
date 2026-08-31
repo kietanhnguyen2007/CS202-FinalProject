@@ -1546,3 +1546,14 @@ The CMake project defines:
 
 C++17 is required. The configured Windows build uses MinGW Makefiles in Debug mode.
 
+## 14.2 Reproduction commands
+
+```powershell
+cmake -S AppleKnightAdventure -B build -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Debug
+cmake --build build --parallel 8
+Set-Location build
+./AppleKnightAdventure.exe
+```
+
+The executable should run with `build` as its working directory so relative `assets/...` paths resolve to the synchronized asset copy.
+
