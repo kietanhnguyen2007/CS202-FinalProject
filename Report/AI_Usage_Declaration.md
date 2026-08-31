@@ -33,3 +33,9 @@ save data, elemental combat, buffs), and gameplay bug-fixing.
 
 ---
 
+# Part 1 — Nguyễn Anh Kiệt
+
+## K-01 · Animation system and texture atlas
+**Date:** 2026-06-10
+**Related commits:** `Add AnimationSystem with Animator class and functionality for clip management`, `Add TextureAtlas class for managing textures and animation clips from JSON`, `Refactor AnimationSystem and TextureAtlas for improved memory management and JSON parsing`
+
