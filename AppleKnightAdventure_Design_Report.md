@@ -1047,3 +1047,68 @@ The view renders character selection, arena, player/enemies, skill geometry and 
 
 The controller-view boundary remains clear at the ownership level: simulation data belongs to the controller; GPU/model data belongs to the view.
 
+# 10. Persistence and Online Service Design
+
+## 10.1 Persistence and synchronization class diagram
+
+```mermaid
+%% id: persistence_sync
+classDiagram
+direction LR
+
+class GameController
+class MenuController
+class ShopController
+class SurvivalController
+class SaveManager {
+  <<Singleton Persistence Facade>>
+  -profile/progression/options
+  -leaderboards/achievements
+  -survivalRuns
+  -pendingSubmissions
+  +Load(path)
+  +Save(path)
+  +RecordLevelResult()
+  +RecordSurvivalRun()
+}
+class SurvivalRunService {
+  <<Local-first Service>>
+  -worker
+  -jobQueue
+  -resultQueue
+  +BeginRun()
+  +FinalizeRun()
+  +Update(dt)
+}
+class PendingSurvivalSubmission {
+  +idempotencyKey
+  +payload
+  +retryCount
+  +nextAttempt
+}
+class AegisRiftServer {
+  <<HTTP Process>>
+  +POST guest
+  +GET profile
+  +POST run complete
+  +GET leaderboard
+}
+class SurvivalServerCore {
+  +createGuest()
+  +submitResult()
+  +leaderboard()
+  +persist()
+}
+
+GameController ..> SaveManager : campaign result
+MenuController ..> SaveManager : profile and boards
+ShopController ..> SaveManager : coins and unlocks
+SurvivalController ..> SurvivalRunService : run lifecycle
+SurvivalRunService --> SaveManager : commit locally
+SaveManager *-- PendingSurvivalSubmission
+SurvivalRunService ..> AegisRiftServer : worker HTTP
+AegisRiftServer *-- SurvivalServerCore
+```
+
+Figure 10 shows that `SaveManager` is the local authority for immediate gameplay, while the HTTP service is an optional validation and ranking path.
+
