@@ -226,3 +226,22 @@ already-loaded tile list transformed to panel space. Entities of interest
 (checkpoints, portals, cup, boss) drawn as shape markers, filtered by whether their
 cell is explored.
 
+**Outcome**
+Accepted and implemented as `View/MinimapView.cpp`. The marker shapes are ours —
+diamond for checkpoint, ring for portal, pentagon for the level-complete cup,
+circle for boss.
+
+---
+
+## K-08 · Audio manifest and sound pooling
+**Date:** 2026-08-14 → 2026-08-25
+**Related commits:** `Add new sound assets and update audio manifest`, `feat: rebuild gameplay sound effects`
+
+**Prompt**
+> Sounds are currently loaded ad-hoc with hardcoded paths and the same effect
+> retriggering every frame produces a machine-gun sound. Design a manifest-driven
+> `SoundManager`: a JSON file maps a logical event name to one or more samples with
+> volume, a pitch range, and a minimum cooldown, and `PlaySound("enemy_hurt")`
+> picks a sample, randomizes pitch, and refuses to play if the cooldown has not
+> elapsed.
+
