@@ -209,3 +209,20 @@ raylib binary against MinGW 14 and we solved it ourselves in `CMakeLists.txt`.
 
 ---
 
+## K-07 · Minimap with fog-of-war exploration
+**Date:** 2026-08-21
+**Related commits:** `feat: Implement minimap functionality with exploration tracking and rendering`
+
+**Prompt**
+> Add a minimap that only reveals areas the player has visited. Our maps are up to
+> 258×217 tiles, so I do not want a per-tile visited array drawn every frame.
+> Suggest a representation and a draw strategy, and tell me where in the frame it
+> should be updated.
+
+**AI response (summary)**
+Recommended coarse exploration cells (a block of N×N tiles marked explored when the
+player centre enters it) stored in a hash set, with the map itself drawn from the
+already-loaded tile list transformed to panel space. Entities of interest
+(checkpoints, portals, cup, boss) drawn as shape markers, filtered by whether their
+cell is explored.
+
