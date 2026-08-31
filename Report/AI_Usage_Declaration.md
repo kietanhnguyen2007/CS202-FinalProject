@@ -539,3 +539,22 @@ choice to us; we kept it, as it is consistent with the elemental design.
 
 ---
 
+## Summary of AI usage
+
+| Category | How AI was used |
+|---|---|
+| Architecture / design advice | Animation system, render queue, boss state machine, elemental tables, entity hierarchy, level source adapter |
+| Code generation | Atlas and JSON parsing, LDtk loader skeleton, minimap, sound manifest |
+| Debugging | View bug sweep (K-03), LDtk null handling (K-06), Second Wind revive (T-09), merge conflict analysis (T-07) |
+| Analysis tooling | Throwaway offline map renderers used to audit checkpoint placement (T-08) |
+| Not used for | Level design and map authoring, art and audio asset selection, gameplay balance numbers, the report documents |
+
+**What we did not accept.** Several AI suggestions were tested and rejected:
+width-based frame normalization (K-05), phase transitions driven from inside
+`TakeDamage` (K-04), and `nlohmann::json::value()` used on nullable keys (K-06).
+Every entry above was compiled and play-tested before being committed, and the team
+members named on each part are responsible for the code in them.
+
+---
+
+*Nguyễn Anh Kiệt · Nguyễn Trọng Tiến — 2026-08-31*
