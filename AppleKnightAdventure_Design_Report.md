@@ -590,3 +590,54 @@ Tile commands store the affected layer/cell and any previous tile. Entity comman
 
 The implementation does not pretend that every editor tool is command-backed. Individual paint, erase, placement, removal, and paste operations use commands. The current bucket-fill implementation mutates `GameState` directly and clears history, so the report does not claim that bucket fill itself is undoable.
 
+## 7.3 Composite pattern class diagram
+
+```mermaid
+%% id: composite_pattern
+classDiagram
+direction TB
+
+class ICommand {
+  <<Component>>
+  +Execute(GameState*)*
+  +Undo(GameState*)*
+}
+class PlaceTileCommand {
+  <<Leaf>>
+}
+class EraseTileCommand {
+  <<Leaf>>
+}
+class PlaceEntityCommand {
+  <<Leaf>>
+}
+class RemoveEntityCommand {
+  <<Leaf>>
+}
+class CompositeCommand {
+  <<Composite>>
+  -vector~unique_ptr~ICommand~~ m_commands
+  +AddCommand(command)
+  +Execute(state)
+  +Undo(state)
+}
+class CommandManager {
+  <<Component client>>
+  +ExecuteCommand(ICommand)
+}
+
+ICommand <|-- PlaceTileCommand
+ICommand <|-- EraseTileCommand
+ICommand <|-- PlaceEntityCommand
+ICommand <|-- RemoveEntityCommand
+ICommand <|-- CompositeCommand
+CompositeCommand *-- ICommand : children
+CommandManager --> ICommand : uniform treatment
+```
+
+Figure 5 treats Composite as a distinct pattern. `ICommand` is the Component. Tile/entity commands are Leaves. `CompositeCommand` is the Composite and owns a vector of Components. `CommandManager` uses the common interface and does not need to know whether it received one edit or a group.
+
+Execution traverses children from first to last. Undo traverses from last to first. Reverse traversal is essential: if command B depends on the result of command A, undoing B first restores the pre-B state before A is reversed. Clipboard paste creates one `CompositeCommand` containing many `PlaceTileCommand` leaves, so one pasted region produces one history item.
+
+Command supplies reversibility; Composite supplies hierarchical grouping. The latter could not be replaced by merely pushing every child independently because the user would then need many undo operations for one paste gesture.
+
