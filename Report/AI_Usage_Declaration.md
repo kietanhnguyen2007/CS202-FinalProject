@@ -54,3 +54,16 @@ name→`AnimationClip` map, plus `Animator` holding a pointer to the current cli
 frame index, and an accumulator ticked in `Update(dt)`. Atlas sharing was handled
 with `std::shared_ptr<TextureAtlas>` handed out by a cache keyed on the JSON path.
 
+**Outcome**
+Accepted as the base of `View/Animator.*` and `View/TextureAtlas.*`. We changed two
+things: the assistant unloaded the raylib `Texture2D` in the destructor without
+checking `id != 0`, which crashed when a JSON path was wrong and the texture had
+never loaded; and clip durations were assumed uniform, which did not fit our
+hand-timed boss frames, so we changed `durations` to a per-frame vector.
+
+---
+
+## K-02 · Render command queue and layer sorting
+**Date:** 2026-06-11 → 2026-06-12
+**Related commits:** `feat: implement Renderer class with initialization, shutdown, and sprite submission functionality`, `feat: add RenderTypes header with Layer enum and RenderCommand struct`, `Systems: renderer core fixes + lock-free MPSC queue + ResizeWindow + dropped counter race fix`
+
