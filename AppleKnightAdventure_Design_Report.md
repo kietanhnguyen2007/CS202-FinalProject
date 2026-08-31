@@ -79,3 +79,18 @@ The design is best understood as a set of explicit lifecycles rather than a coll
 
 The client entry point is `src/main.cpp:44`. The server has its own entry point at `backend/survival3d/main.cpp:254`. CMake builds them as separate executables, so the server is an optional integration boundary rather than a process embedded inside the game.
 
+## 2.2 Source organization
+
+| Source area | Contents | Architectural role |
+|---|---|---|
+| `include/Model` and `src/Model` | World aggregate, entities, characters, skills, inventory, commands, level scoring, dual-world data types, and save state | Domain state and rules |
+| `include/Controller` and `src/Controller` | Adventure, input, menu, prepare, shop, and editor coordination | Application/use-case layer |
+| `include/View` and `src/View` | 2D renderers, atlas animation, HUD, menus, overlays, minimap, editor UI, and result presentation | Presentation and GPU-facing layer |
+| `include/Systems` and `src/Systems` | Collision/quadtree, particles/pooling, elements, buffs, cores, sound, achievements, tweens, and display scaling | Reusable runtime services |
+| `include/Factories` and `src/Factories` | Level-source adapters, level translation, and enemy/item construction | Format adaptation and creation boundary |
+| `include/Survival3D` and `src/Survival3D` | 3D controller, data model, animation graph/events, runtime IK, VFX runtime, view, and run service | Self-contained game-mode subsystem |
+| `backend/survival3d` | HTTP routing and server-side validation/storage | Optional process/service boundary |
+| `assets` | LDtk/legacy maps, balance JSON, texture atlases, audio, fonts, models, shaders, and UI art | Data-driven content |
+
+The source review covers 185 project `.h` and `.cpp` files under those areas, approximately 37,700 physical source lines. Vendored raylib headers and generated build output are not counted as project design sources.
+
