@@ -1534,3 +1534,5 @@ The transition into a terminal result phase calls `FinalizeRun` once before resu
 6. Success removes or updates pending state and records ranked validation; rejection records a final status; retryable failure schedules exponential backoff.
 7. Leaderboard refresh updates cached presentation data without blocking simulation.
 
+# 14. Build and Reproduction
+
