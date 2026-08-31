@@ -26,6 +26,7 @@
 #include <queue>
 #include <set>
 #include <cctype>
+#include <filesystem>
 
 MapBuilderController::MapBuilderController() : m_isDragging(false), m_isRunning(false), m_returnToMenu(false), m_playtestMode(false) {}
 
@@ -210,19 +211,25 @@ void MapBuilderController::Update(float deltaTime) {
         return;
     }
     if (view.WantsLoad()) {
-        std::string selectedFile = FileDialog::OpenFile("Level Files (*.lvl)\0*.lvl\0All Files (*.*)\0*.*\0");
+        std::string selectedFile = FileDialog::OpenFile(
+            "Supported Level Files (*.lvl;*.ldtk)\0*.lvl;*.ldtk\0"
+            "Legacy Level Files (*.lvl)\0*.lvl\0"
+            "LDtk Project Files (*.ldtk)\0*.ldtk\0"
+            "All Files (*.*)\0*.*\0");
         if (!selectedFile.empty()) {
             // Re-start editor with the selected absolute path
             StartEditor(selectedFile);
-            
-            // Optionally, update the filename in view so it can be saved back
-            // We can extract just the filename without extension to set it back to view:
-            size_t lastSlash = selectedFile.find_last_of("/\\");
-            size_t lastDot = selectedFile.find_last_of('.');
-            if (lastSlash != std::string::npos && lastDot != std::string::npos && lastDot > lastSlash) {
-                std::string baseName = selectedFile.substr(lastSlash + 1, lastDot - lastSlash - 1);
-                view.SetFileName(baseName); // Wait, SetFileName might not exist
+
+            const std::filesystem::path sourcePath(selectedFile);
+            view.SetFileName(sourcePath.stem().string());
+
+            std::string extension = sourcePath.extension().string();
+            for (char& ch : extension) {
+                ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
             }
+            view.ShowStatus(extension == ".ldtk"
+                ? "LDTK IMPORTED - SAVE CREATES AN EDITABLE .LVL COPY"
+                : "LEVEL LOADED");
         }
     }
     if (view.WantsClearAll()) {

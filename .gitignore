@@ -20,6 +20,10 @@ CMakeUserPresets.json
 .codex-temp/
 skills-lock.json
 
+# Generated reports and local QA artifacts
+/output/
+/tmp/
+
 # OS
 Thumbs.db
 .DS_Store

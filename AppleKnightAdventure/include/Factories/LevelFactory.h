@@ -8,7 +8,8 @@
 #include <memory>
 #include <unordered_map>
 
-
+class LegacyLevelAdapter;
+class LDtkLevelAdapter;
 
 class LevelFactory {
 public:
@@ -33,6 +34,9 @@ public:
                                                         int levelIndex = 0);
 
 private:
+    friend class LegacyLevelAdapter;
+    friend class LDtkLevelAdapter;
+
     static CharacterClass  ParsePlayerClass(const std::string& name);
     static BackgroundTheme ParseBackgroundTheme(const std::string& name);
     static void            BuildTileTypeMap(const std::string& ldtkJson,

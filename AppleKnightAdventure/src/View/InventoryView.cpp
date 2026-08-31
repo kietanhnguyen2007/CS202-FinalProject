@@ -63,7 +63,6 @@ void InventoryView::Shutdown() {
     m_itemIcons.clear();
 
     m_loaded = false;
-    DetachObservable();
 }
 
 void InventoryView::Open() {
@@ -267,31 +266,5 @@ void InventoryView::SetInventorySnapshot(const Inventory& snapshot) {
 }
 
 void InventoryView::SetSelectionIndex(int index) { m_selection = index; }
-
-void InventoryView::RegisterInventoryChangedCallback(std::function<void()> cb) { m_onInventoryChanged = cb; }
-void InventoryView::UnregisterInventoryChangedCallback() { m_onInventoryChanged = nullptr; }
-
-void InventoryView::AttachObservable(ObservableList<const Item*>* observable) {
-    m_attachedObservable = observable;
-    if (!observable) return;
-    observable->OnItemAddedCallback = [this](const Item* const&) {
-        if (m_onInventoryChanged) m_onInventoryChanged();
-    };
-    observable->OnItemRemovedCallback = [this](const Item* const&) {
-        if (m_onInventoryChanged) m_onInventoryChanged();
-    };
-    observable->OnClearedCallback = [this]() {
-        if (m_onInventoryChanged) m_onInventoryChanged();
-    };
-}
-
-void InventoryView::DetachObservable() {
-    if (m_attachedObservable) {
-        m_attachedObservable->OnItemAddedCallback = nullptr;
-        m_attachedObservable->OnItemRemovedCallback = nullptr;
-        m_attachedObservable->OnClearedCallback = nullptr;
-        m_attachedObservable = nullptr;
-    }
-}
 
 void InventoryView::RegisterOnRequestUseItem(std::function<void(int)> cb) { m_onRequestUse = std::move(cb); }

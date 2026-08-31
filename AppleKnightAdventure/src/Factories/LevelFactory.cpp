@@ -1,4 +1,5 @@
 #include "Factories/LevelFactory.h"
+#include "Factories/LevelSourceAdapter.h"
 #include "Factories/EnemyFactory.h"
 #include "Factories/ItemFactory.h"
 #include "Model/Boss1.h"
@@ -102,16 +103,28 @@ std::unique_ptr<GameState> LevelFactory::LoadLevel(const std::string& filepath,
                                                    GameMode mode,
                                                    int ldtkLevelIndex,
                                                    CharacterClass cls) {
-    // Auto-detect LDtk format by extension
-    if (filepath.size() >= 5 &&
-        filepath.substr(filepath.size() - 5) == ".ldtk") {
-        return LoadLDtkLevel(filepath, ldtkLevelIndex, mode, cls);
-    }
+    const LevelLoadRequest request{filepath, mode, ldtkLevelIndex, cls};
+    static const LegacyLevelAdapter legacyAdapter;
+    static const LDtkLevelAdapter ldtkAdapter;
+
+    // Preserve the legacy loader as the fallback for extensionless/unknown
+    // paths while making recognized extension matching case-insensitive.
+    const ILevelSourceAdapter& adapter = ldtkAdapter.CanLoad(filepath)
+        ? static_cast<const ILevelSourceAdapter&>(ldtkAdapter)
+        : static_cast<const ILevelSourceAdapter&>(legacyAdapter);
+    return adapter.Load(request);
+}
+
+std::unique_ptr<GameState> LegacyLevelAdapter::Load(
+    const LevelLoadRequest& request) const {
+    const std::string& filepath = request.filepath;
+    const GameMode mode = request.mode;
+
     // --- Legacy .lvl text format ---
     auto state = std::make_unique<GameState>(mode);
     std::ifstream file(filepath);
     if (!file.is_open()) {
-        return CreateDefaultLevel(1);
+        return LevelFactory::CreateDefaultLevel(1);
     }
 
     bool hasLocalSpawn = false;
@@ -132,7 +145,7 @@ std::unique_ptr<GameState> LevelFactory::LoadLevel(const std::string& filepath,
         } else if (token == "player_class") {
             std::string className;
             file >> className;
-            state->SetPlayerClass(ParsePlayerClass(className));
+            state->SetPlayerClass(LevelFactory::ParsePlayerClass(className));
         } else if (token == "tile") {
             Tile tile{};
             int solid = 1;
@@ -279,7 +292,7 @@ std::unique_ptr<GameState> LevelFactory::LoadLevel(const std::string& filepath,
     }
 
     if (!hasLocalSpawn) {
-        return CreateDefaultLevel(1);
+        return LevelFactory::CreateDefaultLevel(1);
     }
 
     return state;
@@ -472,17 +485,29 @@ std::unique_ptr<GameState> LevelFactory::LoadLDtkLevel(const std::string& filepa
                                                        int levelIndex,
                                                        GameMode mode,
                                                        CharacterClass cls) {
+    const LevelLoadRequest request{filepath, mode, levelIndex, cls};
+    static const LDtkLevelAdapter adapter;
+    return adapter.Load(request);
+}
+
+std::unique_ptr<GameState> LDtkLevelAdapter::Load(
+    const LevelLoadRequest& request) const {
+    const std::string& filepath = request.filepath;
+    const int levelIndex = request.levelIndex;
+    const GameMode mode = request.mode;
+    const CharacterClass cls = request.playerClass;
+
     using json = nlohmann::json;
     auto state = std::make_unique<GameState>(mode);
 
     std::ifstream file(filepath);
-    if (!file.is_open()) return CreateDefaultLevel(1);
+    if (!file.is_open()) return LevelFactory::CreateDefaultLevel(1);
     json root;
-    try { file >> root; } catch (...) { return CreateDefaultLevel(1); }
+    try { file >> root; } catch (...) { return LevelFactory::CreateDefaultLevel(1); }
 
     auto& levels = root["levels"];
     if (levelIndex < 0 || levelIndex >= (int)levels.size())
-        return CreateDefaultLevel(1);
+        return LevelFactory::CreateDefaultLevel(1);
     auto& lvl = levels[levelIndex];
 
     // --- Map size ---
@@ -517,9 +542,9 @@ std::unique_ptr<GameState> LevelFactory::LoadLDtkLevel(const std::string& filepa
         for (auto& fi : lvl["fieldInstances"]) {
             std::string fid = fi["__identifier"];
             if      ((fid == "BackgroundTheme" || fid == "Theme") && !fi["__value"].is_null())
-                state->SetBackgroundTheme(ParseBackgroundTheme(fi["__value"].get<std::string>()));
+                state->SetBackgroundTheme(LevelFactory::ParseBackgroundTheme(fi["__value"].get<std::string>()));
             else if (fid == "PlayerClass" && !fi["__value"].is_null())
-                state->SetPlayerClass(ParsePlayerClass(fi["__value"].get<std::string>()));
+                state->SetPlayerClass(LevelFactory::ParsePlayerClass(fi["__value"].get<std::string>()));
             else if (fid == "TotalItems"   && !fi["__value"].is_null())
                 totalItems   = fi["__value"].get<int>();
             else if (fid == "TotalEnemies" && !fi["__value"].is_null())
@@ -530,7 +555,7 @@ std::unique_ptr<GameState> LevelFactory::LoadLDtkLevel(const std::string& filepa
     if (!lvl.contains("layerInstances")) {
         state->SetTotalItems(totalItems);
         state->SetTotalEnemies(totalEnemies);
-        return CreateDefaultLevel(1);
+        return LevelFactory::CreateDefaultLevel(1);
     }
 
     // --- Pass 1: IntGrid Collision → solidMap ---
@@ -850,7 +875,7 @@ std::unique_ptr<GameState> LevelFactory::LoadLDtkLevel(const std::string& filepa
             "LDtk: Level %d has no SpawnSolo/SpawnGuide/SpawnWarrior entity. "
             "Falling back to default level. Add a spawn entity in the LDtk editor.",
             levelIndex);
-        return CreateDefaultLevel(1);
+        return LevelFactory::CreateDefaultLevel(1);
     }
     return state;
 }

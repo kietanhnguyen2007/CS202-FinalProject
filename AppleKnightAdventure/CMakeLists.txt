@@ -41,7 +41,6 @@ target_link_libraries(AppleKnightAdventure PRIVATE
     opengl32 
     gdi32 
     winmm
-    ws2_32
     comdlg32
     winhttp
 )
