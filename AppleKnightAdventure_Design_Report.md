@@ -535,3 +535,58 @@ The pool owns allocation; active code borrows raw pointers. This keeps high-freq
 
 `StartEditor` loads an existing legacy map or imports an LDtk level through `LevelFactory`, constructs history for that receiver, configures view state, and begins editor updates. `SaveMap` writes the named map as `.lvl` and, when necessary, a playable copy. `Playtest` saves a temporary `.lvl` map and transitions control to the Adventure controller. `ResumeEditor` restores the editor loop and forces visual re-registration after Adventure has cleared renderer state.
 
+## 7.2 Command pattern class diagram
+
+```mermaid
+%% id: command_pattern
+classDiagram
+direction LR
+
+class MapBuilderController {
+  <<Client>>
+  -unique_ptr~GameState~ m_gameState
+  -unique_ptr~CommandManager~ m_history
+  +HandleTool()
+}
+class CommandManager {
+  <<Invoker>>
+  -undoStack
+  -redoStack
+  -GameState* m_state
+  +ExecuteCommand(command)
+  +Undo()
+  +Redo()
+}
+class ICommand {
+  <<Command>>
+  +Execute(GameState*)*
+  +Undo(GameState*)*
+}
+class PlaceTileCommand
+class EraseTileCommand
+class PlaceEntityCommand
+class RemoveEntityCommand
+class GameState {
+  <<Receiver>>
+  +SetTileAt()
+  +RemoveTileAt()
+  +AddEntity()
+  +ExtractEntity()
+}
+
+MapBuilderController *-- CommandManager : owns history
+MapBuilderController *-- GameState : owns receiver
+CommandManager o-- ICommand : undo and redo
+CommandManager --> GameState : invokes against
+ICommand <|-- PlaceTileCommand
+ICommand <|-- EraseTileCommand
+ICommand <|-- PlaceEntityCommand
+ICommand <|-- RemoveEntityCommand
+```
+
+Figure 4 isolates the Command pattern. The client constructs a concrete command containing enough prior state to reverse itself. The invoker executes it against `GameState`, moves ownership into the undo stack, and clears redo history after a new action. Undo and redo move the same command object between stacks.
+
+Tile commands store the affected layer/cell and any previous tile. Entity commands use move ownership: `RemoveEntityCommand::Execute` extracts the entity into the command and `Undo` moves it back; `PlaceEntityCommand` does the inverse. This avoids cloning polymorphic entities and makes ownership part of the reversible operation.
+
+The implementation does not pretend that every editor tool is command-backed. Individual paint, erase, placement, removal, and paste operations use commands. The current bucket-fill implementation mutates `GameState` directly and clears history, so the report does not claim that bucket fill itself is undoable.
+
