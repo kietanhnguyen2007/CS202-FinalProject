@@ -427,3 +427,21 @@ For unlocking, do not trust a set of "unlocked" ids from the file; derive unlock
 state by walking levels in order and stopping at the first one with no recorded
 score and no stars, so a non-sequential save cannot skip ahead.
 
+**Outcome**
+Both adopted. The sequential-walk unlock is the loop in `MenuController` and the
+per-key guard is the `readIntMap` lambda in `SaveManager::Load`.
+
+---
+
+## T-07 · Merge conflict: two designs for finishing a level
+**Date:** 2026-08-31
+**Related commits:** `Fix Crash game error`, `Edit map`, merge commit on branch `Tien`
+
+**Prompt**
+> I have a merge conflict in `GameController.cpp` and `GameState.cpp`. Both sides
+> implement the same feature — pressing F at the end-of-level checkpoint should
+> complete the level without killing every enemy — but differently. One side adds a
+> `m_levelCompleteByPlayer` flag; the other removes the old enemy-count check and
+> has `IsLevelComplete()` read the checkpoint's activated state. Do not just pick
+> one; work out which is actually correct and resolve it.
+
