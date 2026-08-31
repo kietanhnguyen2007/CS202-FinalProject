@@ -1021,3 +1021,13 @@ The Survival animation graph is intentionally independent of raylib model types.
 
 `AnimationEvents` adds authored frame tracks. `EventCursor` emits occurrences while advancing absolute frames, including wrap behavior. Combo definitions and `ComboBuffer` determine chain steps and timing. Gameplay can align damage and cues with animation frames without deriving combat timing from a render-only model.
 
+## 9.5 Enemy and combat data
+
+`SurvivalTypes.h` defines compact enums for character, weapon, phase, enemy archetype/action, upgrade rarity/identity, player/enemy animation, combat action, visual cues, and projectile visuals. `PlayerState`, `EnemyState`, and `ProjectileState` collect authoritative mutable simulation fields.
+
+`SurvivalController` dispatches specialized update functions for Riftling, Hex Archer, Obsidian Brute, Brood Warden, Hexeye Artillerist, Ironroot Colossus, Eclipse Chimera, and Void Sovereign archetypes. This is centralized archetype dispatch rather than a polymorphic enemy hierarchy. It keeps all fixed-step data contiguous and allows the controller to coordinate shared collision and event timing.
+
+Storage is bounded and data-oriented. The controller preallocates slots for up to 144 enemies and 384 projectiles and manages free-index lists and generation-aware identity rather than allocating during every spawn. The same principle appears in the VFX runtime and the view's 512-element skill-particle storage. This extends the project's Object Pool reasoning beyond the 2D `ParticleSystem`.
+
+Upgrades are value descriptors selected at phase boundaries and applied to player/combat state. They are data-driven choices within the Survival run lifecycle, not instances of the Strategy pattern.
+
