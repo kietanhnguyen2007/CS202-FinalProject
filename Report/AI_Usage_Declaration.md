@@ -39,3 +39,18 @@ save data, elemental combat, buffs), and gameplay bug-fixing.
 **Date:** 2026-06-10
 **Related commits:** `Add AnimationSystem with Animator class and functionality for clip management`, `Add TextureAtlas class for managing textures and animation clips from JSON`, `Refactor AnimationSystem and TextureAtlas for improved memory management and JSON parsing`
 
+**Prompt**
+> I am writing a 2D game in C++17 with raylib. I need an animation system with two
+> classes: `TextureAtlas` that loads a spritesheet plus a JSON descriptor
+> (Aseprite-style `frames` map with `x/y/w/h`, and an optional `clips` map with a
+> frame-name list and per-frame durations), and `Animator` that plays a named clip
+> and reports the current source rectangle. Requirements: several animators must be
+> able to share one atlas without reloading the texture, and a clip must be able to
+> loop or play once. Show me the headers and the parsing code.
+
+**AI response (summary)**
+Produced `TextureAtlas` with a `frames` name→`Rectangle` map and a `clips`
+name→`AnimationClip` map, plus `Animator` holding a pointer to the current clip, a
+frame index, and an accumulator ticked in `Update(dt)`. Atlas sharing was handled
+with `std::shared_ptr<TextureAtlas>` handed out by a cache keyed on the JSON path.
+
