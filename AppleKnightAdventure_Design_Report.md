@@ -502,3 +502,24 @@ The order protects invariants. The quadtree is accurate when combat begins. Newl
 
 The controller rebuilds the tree once after all relevant movement and before combat. This is simpler and safer than incrementally updating individual nodes while entities move and disappear. Tile collision is handled separately through `GameState::IsSolidAt` and controller resolution code, matching the different data shapes: a grid for static tile solidity and a quadtree for dynamic entity bounds.
 
+## 6.4 Elemental reactions
+
+`ElementalSystem` owns active status effects per entity and pending damage-over-time. A `DamagePacket` carries base damage, element, optional aura, and duration. A data table of `ReactionEntry` values maps an existing status plus incoming damage type to multiplier, resulting aura, duration, display name, and color.
+
+`GameController::ApplyElementalHit` is the single gameplay funnel. It asks the system to resolve the reaction, applies core scaling and final damage, produces feedback, and can trigger splash behavior. The same reaction table is exposed to the in-game codex, so the presentation quotes the exact values used by simulation rather than duplicating documentation data.
+
+## 6.5 Buffs and cores
+
+The project distinguishes two upgrade lifetimes:
+
+- A **buff or boon** is temporary or instant. `BuffDef` describes duration, magnitude, weight, color, and text; `ActiveBuff` tracks a running timer.
+- A **core** is held for the rest of a run. `CoreDefinition` describes rarity, stack limit, class lock, and magnitude; `CoreLoadout` stores stacks and calculates derived modifiers.
+
+This is a domain-design distinction rather than a GoF pattern. The controller owns draft timing and selection flow, while the player-owned loadout provides stable derived queries. Static assertions keep `CoreClassLock` aligned with `CharacterClass`, making an enum-coupling assumption executable at compile time.
+
+## 6.6 Particles and pooling
+
+`ParticleSystem` does not allocate and free every effect object on each emission. It acquires a particle from `ObjectPool<Particle>`, resets its fields, adds the pointer to the active list, updates it, and releases it when its lifetime ends. The pool preallocates objects and can grow when exhausted.
+
+The pool owns allocation; active code borrows raw pointers. This keeps high-frequency effect creation predictable while preserving a simple update list. It is a direct application of Object Pool rather than merely an unused generic helper.
+
