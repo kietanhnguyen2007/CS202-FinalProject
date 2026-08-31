@@ -1480,3 +1480,36 @@ The old world is not destroyed while presentation pointers still reference it. T
 
 The snapshot is a presentation DTO; `ResultView` does not retain the full `GameState`.
 
+## 13.5 Map edit, undo, and redo
+
+1. `MapBuilderController` converts cursor and tool state into a domain mutation.
+2. It captures the affected current tile or entity ownership.
+3. It constructs a concrete `ICommand`.
+4. `CommandManager::ExecuteCommand` executes against `GameState`, pushes the command to undo, and clears redo.
+5. Undo moves the newest command from undo, calls `Undo`, and moves it to redo.
+6. Redo moves it back, calls `Execute`, and restores it to undo.
+
+For clipboard paste, step 3 creates a `CompositeCommand`, adds one leaf for every changed cell, and submits the group once. The history algorithm remains unchanged. Bucket fill follows a separate direct-mutation path and clears history.
+
+## 13.6 Map Builder playtest
+
+1. Save the editor state to a temporary playable map.
+2. Mark the editor loop inactive and expose a playtest intent.
+3. The shell activates `GameController` using the temporary map.
+4. Adventure loads it through the same `LevelFactory` and uses the same `GameState` schema as campaign play.
+5. When playtest exits, Adventure clears presentation registrations.
+6. The shell resumes the existing editor and forces visual re-registration.
+
+This flow is the strongest evidence that editor and gameplay share a real domain representation rather than parallel preview types.
+
+## 13.7 LDtk import into Map Builder
+
+1. The editor opens a file dialog whose supported filter includes `.lvl` and `.ldtk`.
+2. `MapBuilderController` passes the selected path to `StartEditor` without parsing it.
+3. `LevelFactory` creates `LevelLoadRequest` and selects `LDtkLevelAdapter` for a case-insensitive `.ldtk` suffix; otherwise it uses the legacy adapter.
+4. The adapter translates source-specific data into a normal `GameState`; Map Builder binds command history and presentation to that state.
+5. The view displays the source stem and an LDtk-import status explaining the save behavior.
+6. Editing and playtest proceed through the shared model. A named save writes `.lvl` and never overwrites the LDtk project.
+
+The editor imports LDtk level index zero. The index remains part of `LevelLoadRequest` so campaign/world callers can select a different level without changing the Target interface.
+
