@@ -124,3 +124,11 @@ The application assumes relative asset paths such as `assets/textures/...`. Runn
 | Mode autonomy | Adventure, editor, and Survival3D have different simulation and presentation requirements | Separate controllers and views behind one application shell |
 | Extensible gameplay | New characters, bosses, enemies, items, and map content should reuse common lifecycles | Entity inheritance, skill strategies, boss template method, centralized factories |
 
+## 3.2 Ownership as the primary design rule
+
+The most important rule is that state ownership and state observation are different. `GameController` exclusively owns the active `GameState`. `GameState` exclusively owns players and entities. `Player` exclusively owns its current `CharacterSkillSet`. Editor history exclusively owns command objects. The particle pool owns every allocated particle even when a raw pointer appears in the active list.
+
+Views intentionally do not own gameplay entities. `GameView` stores pointers to tile vectors and the entity vector; character/entity renderers register raw `Entity*` references keyed by entity ID. This avoids copying a complete world every frame, but it creates a lifetime contract: all presentation references must be cleared before the model owner releases its objects. `GameController::StartLevel` and `Shutdown` implement this contract explicitly.
+
+Shared ownership is reserved for reusable presentation resources. `AssetManager` caches `shared_ptr<TextureAtlas>` objects, atlases share animation clips, and animators hold shared clips. This is a good fit because the same immutable atlas/clip can be referenced by many render instances, and destroying one entity must not unload a resource still in use elsewhere.
+
