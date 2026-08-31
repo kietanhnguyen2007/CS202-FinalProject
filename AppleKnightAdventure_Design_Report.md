@@ -396,3 +396,26 @@ The composition keeps class-specific timing out of `Player`'s common movement an
 
 `Boss1`, `Boss2`, and `Boss3` implement their own state updates and phase transitions. Shared health, navigation, and world setup remain in the base. `Boss::TakeDamage` also owns the shared death-versus-phase-transition rule. This is an applied Template Method: the base controls sequence while subclasses supply selected steps.
 
+## 5.6 Interaction entities and level progression
+
+The controller queries nearby entities and interprets interaction by domain role:
+
+- opening a `Chest` transfers generated loot into the world and registers its visuals;
+- activating a regular `Checkpoint` makes the most recently used checkpoint the respawn point, captures the relevant enemy snapshot, and switches the flag animation;
+- interacting with an authored finish marker activates a grounded `LevelCompleteCup`; a compatibility path still accepts an activated end-checkpoint object;
+- using a local `TeleportPortal` moves within the level, while a level portal transitions between campaign or boss-arena maps;
+- signs and in-map guides feed tutorial presentation;
+- items update inventory, scoring, coins, or recovery state.
+
+`GameState::IsLevelComplete` is the model-level query consumed by the controller. Completion is deliberately explicit: the player-completed flag, an activated `LevelCompleteCup`, or an activated end-checkpoint object can finish the level. Merely entering the finish viewport, touching a marker, or defeating every enemy cannot complete a level. The controller interprets the interaction and constructs the final result; the model stores world completion state.
+
+`TriggerZone` belongs to the serializable/editor-visible entity family, but no active Adventure controller path consumes it. It is therefore not used as evidence for the current interaction flow.
+
+## 5.7 Dual-world extension model
+
+`DualWorld` stores light and shadow tile collections and an active `WorldLayer`. `DualWorldPlayer` extends `Player` with a current layer. `CrossWorldManager` holds non-owning references to a world and registered dual-world players, evaluates cross-layer movement, and switches or teleports players. `LevelFactory` can load and save this representation.
+
+These classes establish a source-level extension point for a two-layer map mechanic. Since no active controller constructs `CrossWorldManager` or invokes dual-world loading from the application shell, the classes are not included in the active Adventure runtime diagram. This preserves the distinction between implemented model capability and currently dispatched feature.
+
+# 6. Gameplay Systems and Collaboration
+
