@@ -1530,6 +1530,12 @@ bool GameController::TryRevive(Player* player) {
     cores.ConsumeRevive();
     player->SetHealth(std::max(1, static_cast<int>(player->GetMaxHealth()
                                                   * cores.ReviveHealthFraction())));
+    // Character::TakeDamage clears the active flag when health reaches zero, so
+    // restoring health alone is not enough: an inactive player is skipped by
+    // CharacterRenderer and by Character::Update, which left the reviving
+    // player invisible and frozen while input still fired skills.  RespawnPlayer
+    // re-activates for the same reason.
+    player->SetActive(true);
     SoundManager::GetInstance().PlaySound("boss_phase");
     View::FloatingTextManager::GetInstance().Emit(
         player->GetPosition(), GetCoreDef(CoreId::SecondWind).name,
