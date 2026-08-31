@@ -913,3 +913,19 @@ The UI stack is split between screen-specific views and `UIStateManager`:
 
 The stack centralizes z-order and the rule that modal overlays block gameplay input. `GameController` checks `IsOverlayActive` before applying player input. Presentation views keep their own animation/resource state, while controllers supply selection and domain state.
 
+## 8.7 Screen-specific presentation
+
+`MenuView` owns mode-specific layout, parallax background state, shaders, fonts, buttons, and hit testing. `PrepareView` owns character/pet preview atlases and preview animation. `ShopView` receives item DTOs and emits buy/back/selection intent while `ShopController` owns transaction rules. `MapBuilderView` owns tool, palette, selected layer, tabs, overlays, and one-shot toolbar intents.
+
+This split keeps purchase, unlock, save, and editor-world mutations out of raw drawing code. It also permits each screen to use a presentation model that matches its use case rather than forcing every view through `GameView`.
+
+Gameplay views deliberately use more than one data-boundary style. `HUDView` and `SkillBarView` receive non-owning live player or boss pointers for inexpensive per-frame display. `ResultView` receives a value-based `LevelResultSnapshot` and returns a small `ResultAction` enum, isolating it from the destroyed or replaced world. `MinimapView` receives current state and players but owns its terrain and exploration projection and synchronizes explored cells through `SaveManager`. `EnemyStatusRenderer` and `ElementalFX` use stable entity IDs to connect presentation state to registered entities.
+
+## 8.8 Responsive UI and shutdown
+
+`WindowManager` tracks window dimensions and UI scale. `UIHelpers` converts design-space positions and font sizes into current screen coordinates. Views query this shared service instead of embedding one fixed resolution.
+
+GPU resource shutdown is intentionally explicit across `GameView`, individual UI views, `SurvivalView`, `AssetManager`, and `Renderer`. This is necessary because C++ static Singleton destruction order would otherwise be too late and too implicit for OpenGL resources.
+
+# 9. Survival3D Architecture
+
