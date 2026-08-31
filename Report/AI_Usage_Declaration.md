@@ -132,3 +132,23 @@ rewrite kept the diff small and reviewable.
 > state machine. I want phase data to be declarative per subclass, not a `switch`
 > repeated in three files.
 
+**AI response (summary)**
+Suggested a `BossState` enum (`Idle`, `Move`, `Attack`, `Hurt`, `Transition`,
+`Die`) held in the base class, with each subclass supplying a table of phase
+descriptors (health threshold, move set, cooldowns). Combos were modelled as a step
+index plus a per-step active window, and "super armor" as a flag that suppresses the
+`Hurt` transition while still applying damage.
+
+**Outcome**
+Adopted as the shape of `Boss.*`, `Boss1/2/3`. We rejected the assistant's proposal
+to drive phase transitions from inside `TakeDamage` — a transition that starts in
+the middle of collision resolution left projectiles referencing a boss that had
+already swapped its hitbox. We moved the check to the boss's own `Update`, which is
+why `BossState::Transition` is tested explicitly in the projectile collision code.
+
+---
+
+## K-05 · Oversized animation frames breaking hitbox alignment
+**Date:** 2026-08-04 → 2026-08-05
+**Related commits:** `Add scale multiplier to AnimationClip and normalize oversized frames in CharacterRenderer`, `Implement hit tracking for projectiles and adjust boss cooldowns and scaling in CharacterRenderer`
+
