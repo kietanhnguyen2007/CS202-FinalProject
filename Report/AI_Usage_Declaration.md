@@ -104,3 +104,19 @@ changed it to `std::atomic` after a data race showed up under `-fsanitize=thread
 > Go through them and list what is actually wrong, most severe first, instead of
 > rewriting everything.
 
+**AI response (summary)**
+Reported seven distinct defects: `UIStateManager` pushed the menu onto the world
+layer instead of the UI layer; `EnemyStatusRenderer` passed world coordinates to a
+screen-space draw and needed `GetWorldToScreen2D` with the active camera;
+`GameView::Render` never called `EntityRenderer::Update(dt)`; `SkillSlotData`
+lacked `operator==` so the "slot changed" check never fired; two missing includes
+that only compiled by luck through transitive headers; `SoundManager` calls before
+`InitAudioDevice`; and an entity-ID assertion that fired on the valid ID `0`.
+
+**Outcome**
+All seven were real and all were fixed in that commit. This was the single most
+useful AI interaction of the project — asking for a ranked diagnosis rather than a
+rewrite kept the diff small and reviewable.
+
+---
+
