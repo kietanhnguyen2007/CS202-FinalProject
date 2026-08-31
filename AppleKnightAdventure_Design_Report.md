@@ -1557,3 +1557,13 @@ Set-Location build
 
 The executable should run with `build` as its working directory so relative `assets/...` paths resolve to the synchronized asset copy.
 
+# 15. Conclusion
+
+Apple Knight Adventure is designed around explicit runtime lifecycles. The application shell selects a surface; each controller owns or coordinates its session; models hold gameplay authority; views own presentation resources; worker threads isolate blocking CPU and network work; persistence makes local progress durable before optional synchronization.
+
+The class diagrams show that the project does not rely on one universal pattern. Inheritance models heterogeneous Adventure entities, composition owns skills and systems, Commands make editor mutations reversible, Composite groups commands into user-level transactions, Adapter converts legacy and LDtk sources into one runtime contract, factories construct initialized products, pooling protects a transient hot path, and Template Method preserves boss invariants while allowing variation.
+
+Most importantly, Command, Composite, and Adapter solve three different Map Builder concerns. Command defines the reversible operation protocol and history behavior. Composite defines how commands form a hierarchy and how a multi-edit becomes indistinguishable from a leaf to the invoker. Adapter isolates incompatible input schemas before editing begins. Their cooperation is grounded in observable editor behavior rather than terminology.
+
+Across the full source tree, the design reasoning is consistent: use exclusive ownership for mutable game state, shared ownership for reusable resources, explicit order for real-time work, fixed steps for deterministic 3D combat, data translation for editable content, and local-first durability for player progress. These choices explain both the architecture and the pattern selection of the current project.
+
