@@ -245,3 +245,26 @@ circle for boss.
 > picks a sample, randomizes pitch, and refuses to play if the cooldown has not
 > elapsed.
 
+**AI response (summary)**
+Gave the manifest schema we now use in `assets/sounds/audio_manifest.json`
+(`samples`, `volume`, `pitch: [min,max]`, `cooldown`) and a `SoundManager` that
+preloads samples once and keeps a last-played timestamp per event.
+
+**Outcome**
+Accepted essentially as given. The cooldown field is what fixed the footstep and
+`enemy_hurt` spam.
+
+---
+
+## K-09 · Level source adapter refactor
+**Date:** 2026-08-31
+**Related commits:** `Add level source adapter and remove unused runtime code`
+
+**Prompt**
+> `LevelFactory::LoadLevel` decides between the legacy `.lvl` text format and the
+> LDtk format with a string suffix comparison in the middle of the function, and the
+> two loaders are now ~700 lines in one file. Refactor to an interface so the format
+> choice is a lookup, without changing behaviour — the legacy loader must stay the
+> fallback for extensionless paths and extension matching must become
+> case-insensitive.
+
