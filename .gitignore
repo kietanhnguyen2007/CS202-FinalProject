@@ -63,6 +63,7 @@ survival3d_data.json.tmp
 CMakeCache.txt
 CMakeFiles/
 cmake-build-*/
+AppleKnightAdventure/_deps/
 
 # Agent update log
 AppleKnightAdventure/UPDATE_VERSION

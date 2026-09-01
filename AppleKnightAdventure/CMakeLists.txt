@@ -10,6 +10,19 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON) # Helpful for VS Code IntelliSense
 # 3. Third-Party Dependencies (Remote)
 include(FetchContent)
 
+# Tắt build shared lib và examples của raylib
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+
+# Fetch raylib 6.0
+FetchContent_Declare(
+    raylib
+    GIT_REPOSITORY https://github.com/raysan5/raylib.git
+    GIT_TAG 6.0
+    GIT_SHALLOW TRUE
+)
+FetchContent_MakeAvailable(raylib)
+
 # Fetch nlohmann_json (Fixed Version)
 FetchContent_Declare(
     json
@@ -25,31 +38,26 @@ file(GLOB_RECURSE SRC_FILES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*
 # 5. Create the main executable
 add_executable(AppleKnightAdventure ${SRC_FILES})
 
-# 6. Add include directories (Project headers + Local Raylib headers)
-target_include_directories(AppleKnightAdventure PRIVATE 
-    include 
-    raylib/include
-)
+# 6. Thêm include directories (Project headers)
+target_include_directories(AppleKnightAdventure PRIVATE include)
 
-# 7. Add library directories (Local Raylib library files)
-target_link_directories(AppleKnightAdventure PRIVATE raylib/lib)
+# 7. Cấu hình compiler options (Cross-platform)
+if(MSVC)
+    target_compile_options(AppleKnightAdventure PRIVATE /W3)
+else()
+    target_compile_options(AppleKnightAdventure PRIVATE -Wall -Wextra)
+endif()
 
-# 8. Link your libraries (JSON, Local Raylib, and required Windows libraries)
+# 8. Link thư viện
 target_link_libraries(AppleKnightAdventure PRIVATE 
     nlohmann_json::nlohmann_json 
-    raylib 
-    opengl32 
-    gdi32 
-    winmm
-    comdlg32
+    raylib
     winhttp
 )
 
-# Fix for MinGW 14.2.0 / UCRT stat64i32 linking error with older raylib binary
+# 9. Tùy chỉnh riêng cho MinGW (nếu dùng MinGW)
 if(MINGW)
-    target_link_options(AppleKnightAdventure PRIVATE "-Wl,--defsym,stat64i32=_stat64i32")
-    # Bundle the GCC/C++ runtime into the executable so it launches without
-    # C:\msys64\...\bin on PATH (double-click, VS Code, PowerShell, other PCs).
+    # Bundle runtime để chạy không cần MSYS2/MinGW trong PATH
     target_link_options(AppleKnightAdventure PRIVATE -static -static-libgcc -static-libstdc++)
 endif()
 
